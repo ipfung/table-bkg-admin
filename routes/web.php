@@ -17,15 +17,8 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('/appointment', 'AppointmentController@index');
 
 Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
-});
-
-Route::group(['prefix' => 'manager', ], function () {
-    $namespacePrefix = '\\'.config('voyager.controllers.namespace').'\\';
-
-    Route::group(['middleware' => 'manager.user'], function () use ($namespacePrefix) {
-        Route::get('/', ['uses' => $namespacePrefix.'VoyagerController@index',   'as' => 'dashboard']);
-    });
 });
