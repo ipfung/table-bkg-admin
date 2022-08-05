@@ -12,6 +12,6 @@ class CustomerBooking extends Model
      */
     public function appointment()
     {
-        return $this->belongsTo(Appointment::class);
+        return $this->hasOne(Appointment::class, 'id', 'appointment_id');
     }
 }

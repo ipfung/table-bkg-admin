@@ -21,6 +21,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/appointment', 'AppointmentController@index');
     Route::post('/appointment', 'AppointmentController@store');
     Route::get('/booking', 'BookingController@index');
+    Route::post('/booking-checkin/{id}', 'BookingController@punchInBooking');
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
