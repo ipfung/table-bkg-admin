@@ -53,11 +53,14 @@ class AppointmentController extends Controller
         $sessionInterval = 30;    // minute, from Location settings.
         $noOfSession = 2;         // minimum session, from Location settings.
         $serviceTime = 60;        // minute, from Service record.
-        $price = 50;              // from Service record, FIXME different user has different price.
+        $price = $user->role->default_price;              // from Service record, FIXME different user has different price.
+        if ($price <= 0) {
+            $price = 999;
+        }
         $sessionPrice = $price / ($serviceTime / $sessionInterval);
         if ($request->has('noOfSession')) {
             if ($request->noOfSession < $noOfSession) {
-                // FIXME prompt error.
+                // FIXME prompt error if selected sessions less than default session.
             }
             $noOfSession = $request->noOfSession;
             $price = $sessionPrice * $noOfSession;
