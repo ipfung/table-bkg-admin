@@ -67,7 +67,8 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => 'Asia/Hong_Kong',
+//    'timezone' => 'Europe/London',
 
     /*
     |--------------------------------------------------------------------------
