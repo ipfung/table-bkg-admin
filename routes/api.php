@@ -19,6 +19,8 @@ Route::post('/logout', 'Api\AuthController@logout');
 
 Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/appointment', 'AppointmentController@index');
+    Route::post('/appointment', 'AppointmentController@store');
+    Route::get('/booking', 'BookingController@index');
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
