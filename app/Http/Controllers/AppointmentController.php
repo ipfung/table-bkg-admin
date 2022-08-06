@@ -29,7 +29,7 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Display a listing of the resource.
+     * Display a listing of the available timeslots, minDate & maxDate of booking based on user role.
      *
      * @return \Illuminate\Http\Response
      */
@@ -222,7 +222,7 @@ class AppointmentController extends Controller
         $appointmentDate = new Carbon($request->date);
         $dateOk = $appointmentDate->between($minDate, $maxDate);
         if (!$dateOk) {
-            // FIXME throw error.
+            // FIXME throw error in case someone hack the appointment date.
 
         }
         $startTime = $appointmentDate->timestamp + $request->time;
@@ -233,6 +233,18 @@ class AppointmentController extends Controller
 //        echo "<br />startTime3=" . $dt2;
 
         $results = [];
+
+        // check if user is new, make appointment status to 'pending' instead.
+        $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
+        $isFirstTimeBookUser = true;
+        foreach ($bookedAppointments as $bookedAppointment) {
+            if ($bookedAppointment->status == 'approved') {
+                $isFirstTimeBookUser = false;
+            }
+            if ($bookedAppointment->start_time) {    // check any future booking, restrict number of booking to be booked.
+
+            }
+        }
 
         // Room availability checking.
         $assignRandomRoom = true;   // can get from Company settings.
@@ -273,7 +285,7 @@ class AppointmentController extends Controller
 //        $appointment->package_id
 //        $appointment->lesson_space
 //        $appointment->internal_remark
-        $appointment->status = 'approved';     // FIXME get defaults from settings.
+        $appointment->status = $isFirstTimeBookUser ? 'pending' : 'approved';     // get defaults from settings.
 //        $appointment->parent_id
         $appointment->save();
 
@@ -281,7 +293,7 @@ class AppointmentController extends Controller
         $customerBooking->appointment_id = $appointment->id;
         $customerBooking->customer_id = $user->id;
         $customerBooking->price = $request->price;
-        $customerBooking->info = json_decode($request->personalInformation);    //
+        $customerBooking->info = json_decode($request->personalInformation);    // if any.
         $customerBooking->revised_appointment_id = $appointment->id;
         $customerBooking->revision_counter = 0;
         $customerBooking->save();
@@ -299,6 +311,7 @@ class AppointmentController extends Controller
         $orderDetail = new OrderDetail();
         $orderDetail->order_id = $order->id;
         $orderDetail->order_type = 'booking';
+        $orderDetail->booking_id = $customerBooking->id;
         $orderDetail->order_description = json_encode($appointment);
         $orderDetail->original_price = $request->price;
         $orderDetail->discounted_price = $request->price;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomerBooking;
+use App\Models\OrderDetail;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,7 +40,10 @@ class BookingController extends Controller
         $bookings = DB::table('customer_bookings')
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
-            ->select('customer_bookings.*', DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'), 'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name')
+            ->select('customer_bookings.*',
+                DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
+                DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
+                'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name')
             ->where('customer_id', $user->id)
             ->where('appointments.start_time', '>=', $fromDate )
             ->where('appointments.end_time', '<=', $toDate )
@@ -72,7 +76,7 @@ class BookingController extends Controller
                 if ($now->between($can_checkin_time, $booking_end_time)) {
                     $booking->checkin = $now->format('Y-m-d H:i:s');
                     $booking->save();
-                    $results = ['success' => true, 'checkin' => $booking->checkin];
+                    $results = ['success' => true];
                 } else if ($now->isBefore($can_checkin_time)) {
                     $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.'];
                 } else if ($now->isAfter($booking_end_time)) {
@@ -86,5 +90,45 @@ class BookingController extends Controller
             return $results;
         }
 
+    }
+
+    /**
+     * @param Request $request
+     * @param $id
+     * @return array|void
+     */
+    public function takeLeave(Request $request, $id) {
+        $user = Auth::user();
+        $booking = CustomerBooking::find($id)->with('appointment');
+        // only allow user itself to take leave.
+        if ($user->id == $booking->customer_id) {
+            if (empty($booking->checkin)) {
+                $start_time = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time);
+                $now = Carbon::today();
+                if ($now->isBefore($start_time)) {
+                    // ok to take leave
+                    if ($booking->revision_counter == 0) {
+                        $booking->take_leave_time = $now->format('Y-m-d H:i:s');
+                        $booking->revision_counter += 1;
+                        $booking->save();
+                        $results = ['success' => true];
+                    }
+                } else {
+                    $results = ['success' => false, 'error' => ''];
+                }
+            }
+        } else {
+            $results = ['success' => false, 'error' => 'You cannot take leave for others.'];
+        }
+        if ($request->expectsJson()) {
+            return $results;
+        }
+
+    }
+
+    public function isBookingPaid($id) {
+        $user = Auth::user();
+        $booking = OrderDetail::where('booking_id', $id);
+        return false;
     }
 }
