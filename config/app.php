@@ -67,8 +67,7 @@ return [
     |
     */
 
-    'timezone' => 'Asia/Hong_Kong',
-//    'timezone' => 'Europe/London',
+    'timezone' => 'UTC',    // jarlau: use UTC is import to make appointment, otherwise epoch will be confused.
 
     /*
     |--------------------------------------------------------------------------

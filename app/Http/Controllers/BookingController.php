@@ -72,7 +72,10 @@ class BookingController extends Controller
             if (empty($booking->checkin)) {
                 $can_checkin_time = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->subHour();   // 1 hour before appointment start time.
                 $booking_end_time = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time);
-                $now = Carbon::now();
+                $now = Carbon::now(env("JWS_TIMEZONE"));
+//echo 'can_checkin_time=' . $can_checkin_time->format('Y-m-d H:i:s');
+//echo ', booking_end_time=' . $booking_end_time->format('Y-m-d H:i:s');
+//echo ', now=' . $now->format('Y-m-d H:i:s');
                 if ($now->between($can_checkin_time, $booking_end_time)) {
                     $booking->checkin = $now->format('Y-m-d H:i:s');
                     $booking->save();
