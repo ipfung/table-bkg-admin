@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\CustomerBooking;
 use App\Models\OrderDetail;
+use DateTime;
+use DateTimeZone;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -70,19 +72,20 @@ class BookingController extends Controller
         // only allow user itself to checkin.
         if ($user->id == $booking->customer_id) {
             if (empty($booking->checkin)) {
-                $can_checkin_time = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->subHour();   // 1 hour before appointment start time.
-                $booking_end_time = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time);
-                $now = Carbon::now(env("JWS_TIMEZONE"));
+                $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-1 hour');   // 1 hour before appointment start time.
+                $booking_end_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time);
+                $now = new DateTime();
+                $now->setTimezone(new DateTimeZone(env("JWS_TIMEZONE")));
 //echo 'can_checkin_time=' . $can_checkin_time->format('Y-m-d H:i:s');
 //echo ', booking_end_time=' . $booking_end_time->format('Y-m-d H:i:s');
 //echo ', now=' . $now->format('Y-m-d H:i:s');
-                if ($now->between($can_checkin_time, $booking_end_time)) {
+                if ($now > $can_checkin_time && $now < $booking_end_time) {
                     $booking->checkin = $now->format('Y-m-d H:i:s');
                     $booking->save();
-                    $results = ['success' => true];
-                } else if ($now->isBefore($can_checkin_time)) {
+                    $results = ['success' => true, 'checkin' => $booking->checkin];
+                } else if ($now < $can_checkin_time) {
                     $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.'];
-                } else if ($now->isAfter($booking_end_time)) {
+                } else if ($now > $booking_end_time) {
                     $results = ['success' => false, 'error' => 'Your appointment is ended already. No checkin can be done.'];
                 }
             }
