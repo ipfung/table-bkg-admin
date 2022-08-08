@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomerBooking;
-use App\Models\OrderDetail;
 use DateTime;
 use DateTimeZone;
 use Illuminate\Support\Carbon;
@@ -72,10 +71,17 @@ class BookingController extends Controller
         // only allow user itself to checkin.
         if ($user->id == $booking->customer_id) {
             if (empty($booking->checkin)) {
+                // check payment status.
+                $osAmount = $this->paidAmount($id) - $booking->price;
+                if ($osAmount <= 0) {
+                    $results = ['success' => false, 'error' => 'Please pay the outstanding amount HK$' . abs($osAmount)];
+                    goto output;    // break
+                }
+
                 $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-1 hour');   // 1 hour before appointment start time.
                 $booking_end_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time);
                 $now = new DateTime();
-                $now->setTimezone(new DateTimeZone(env("JWS_TIMEZONE")));
+                $now->setTimezone(new DateTimeZone(env("JWS_TIMEZONE")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
 //echo 'can_checkin_time=' . $can_checkin_time->format('Y-m-d H:i:s');
 //echo ', booking_end_time=' . $booking_end_time->format('Y-m-d H:i:s');
 //echo ', now=' . $now->format('Y-m-d H:i:s');
@@ -92,6 +98,8 @@ class BookingController extends Controller
         } else {
             $results = ['success' => false, 'error' => 'You cannot checkin for others.'];
         }
+
+        output:
         if ($request->expectsJson()) {
             return $results;
         }
@@ -109,9 +117,10 @@ class BookingController extends Controller
         // only allow user itself to take leave.
         if ($user->id == $booking->customer_id) {
             if (empty($booking->checkin)) {
-                $start_time = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time);
-                $now = Carbon::today();
-                if ($now->isBefore($start_time)) {
+                $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time);
+                $now = new DateTime();
+                $now->setTimezone(new DateTimeZone(env("JWS_TIMEZONE")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
+                if ($now < $can_amend_time) {   // now is just before appointment start time.
                     // ok to take leave
                     if ($booking->revision_counter == 0) {
                         $booking->take_leave_time = $now->format('Y-m-d H:i:s');
@@ -120,7 +129,7 @@ class BookingController extends Controller
                         $results = ['success' => true];
                     }
                 } else {
-                    $results = ['success' => false, 'error' => ''];
+                    $results = ['success' => false, 'error' => 'You cannot take leave after appointment start time %.', 'params' => $booking->appointment->start_time];
                 }
             }
         } else {
@@ -132,9 +141,26 @@ class BookingController extends Controller
 
     }
 
-    public function isBookingPaid($id) {
-        $user = Auth::user();
-        $booking = OrderDetail::where('booking_id', $id);
-        return false;
+    /**
+     * Get paid amount of booking.
+     * @param $bookingId customer booking id.
+     * @return double the total paid amount.
+     */
+    public function paidAmount($bookingId) {
+        $payments = DB::table('payments')
+            ->join('order_details', 'payments.order_id', '=', 'order_details.order_id')
+            ->select('payments.*', 'order_details.original_price')
+            ->where('booking_id', $bookingId)
+            ->get();
+
+        //
+        $totalPaid = 0;
+        foreach ($payments as $paid) {
+            if ($paid->status == 'paid') {
+                $totalPaid += $paid->amount;
+            }
+        }
+
+        return $totalPaid;
     }
 }

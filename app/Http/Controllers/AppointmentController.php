@@ -11,6 +11,7 @@ use App\Models\Room;
 use App\Models\Timeslot;
 use Carbon\CarbonImmutable;
 use DateTime;
+use DateTimeZone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\App;
@@ -58,14 +59,22 @@ class AppointmentController extends Controller
             $price = 999;
         }
         $sessionPrice = $price / ($serviceTime / $sessionInterval);
+        $sessionIntervalEpoch = $sessionInterval * $EPOCH;
         if ($request->has('noOfSession')) {
             if ($request->noOfSession < $noOfSession) {
                 // FIXME prompt error if selected sessions less than default session.
             }
             $noOfSession = $request->noOfSession;
             $price = $sessionPrice * $noOfSession;
+        } else if ($request->has('bookId')) {    // reschedule.
+            $booking = CustomerBooking::find($request->bookId);
+            // find number of session.
+            $appointedTime = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->timestamp;
+            $appointedEndTime = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time)->timestamp;
+            $noOfSession = ($appointedEndTime - $appointedTime) / $sessionIntervalEpoch;
+            $price = $sessionPrice * $noOfSession;
+//        echo 'bookId noOfSession, price=' . $price . ', ' . $noOfSession;
         }
-        $sessionIntervalEpoch = $sessionInterval * $EPOCH;
 //        echo 'dayOfWeek_timeslots=' . $dayOfWeek_timeslots;
         // create a TODAY 0:00 epoch.
         $today = Carbon::today()->timestamp;
@@ -154,7 +163,7 @@ class AppointmentController extends Controller
             $d->addDay();
             $start_date = $d->timestamp;
         }
-        $results = ['minDate' => $minDate, 'maxDate' => $maxDate, 'sessionInterval' => $sessionIntervalEpoch, 'data' => $dateFreeslots];
+        $results = ['minDate' => $minDate, 'maxDate' => $maxDate, 'noOfSession' => $noOfSession, 'sessionInterval' => $sessionIntervalEpoch, 'data' => $dateFreeslots];
 //        $results['role'] = $user;   // debug use only
 //        echo '<br/>result=' . json_encode($results) . '!';
         if ($request->expectsJson()) {
@@ -215,24 +224,17 @@ class AppointmentController extends Controller
             'paymentMethod' => 'required',
 //            'order_status' => 'required',
         ]);
-        // get min & max dates by user
-        $dates = $this->getDates($user);
-        $minDate = $dates[0];
-        $maxDate = $dates[1];
-        $appointmentDate = new Carbon($request->date);
-        $dateOk = $appointmentDate->between($minDate, $maxDate);
-        if (!$dateOk) {
-            // FIXME throw error in case someone hack the appointment date.
+        $assignRandomRoom         = true;   // can get from Company settings.
+        // get appointment dates.
+        $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, $assignRandomRoom);
 
-        }
-        $startTime = $appointmentDate->timestamp + $request->time;
-        $dt = (new DateTime("@$startTime"))->format('Y-m-d H:i:s');
-//        echo "<br />startTime2=" . $dt;
-        $endTime = $appointmentDate->timestamp + $request->time + ($request->noOfSession * $request->sessionInterval);
-        $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
-//        echo "<br />startTime3=" . $dt2;
-
+        $assignedRoom = $appointmentDates['room_id'];
         $results = [];
+        if ($assignedRoom <= 0) {
+            // appointment time not available, throw error.
+            $results = ['success' => false, 'error' => 'Time not available, please choose different time.'];
+            return $results;
+        }
 
         // check if user is new, make appointment status to 'pending' instead.
         $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
@@ -246,40 +248,13 @@ class AppointmentController extends Controller
             }
         }
 
-        // Room availability checking.
-        $assignRandomRoom = true;   // can get from Company settings.
-        $assignedRoom = -1;
-        if ($assignRandomRoom) {
-            // support to assign dynamic room.
-            $rooms = Room::inRandomOrder()->where('status', 1001)->get();   // no need to orderBy, let it return randomly.
-            foreach ($rooms as $room) {
-                $isRoomOccupied = $this->isRoomOccupied($room->id, $dt, $dt2);
-                if (!$isRoomOccupied) {
-                    $assignedRoom = $room->id;
-                    break;   // exit foreach rooms.
-                }
-            }
-        } else {
-            // check duplicate by roomId and appointment time.
-            $assignedRoom = $request->room_id;   // param from client side.
-            $isRoomOccupied = $this->isRoomOccupied($assignedRoom, $dt, $dt2);
-            if ($isRoomOccupied) {   // reset $assignedRoom to negative number if desired room was is occupied.
-                $assignedRoom = -2;
-            }
-        }
-        if ($assignedRoom <= 0) {
-            // appointment time not available, throw error.
-            $results = ['success' => false, 'error' => 'Time not available, please choose different time.'];
-            return $results;
-        }
-
         // start DB transaction.
         DB::beginTransaction();
 
         $appointment = new Appointment();
-        $appointment->start_time = $dt;
-        $appointment->end_time = $dt2;
-        $appointment->room_id = $assignedRoom;
+        $appointment->start_time = $appointmentDates['start_time'];
+        $appointment->end_time = $appointmentDates['end_time'];
+        $appointment->room_id = $appointmentDates['room_id'];
         $appointment->user_id = $user->id;
         $appointment->service_id = $request->serviceId;
 //        $appointment->package_id
@@ -336,5 +311,97 @@ class AppointmentController extends Controller
             return $results;
         }
         return redirect()->route('orders.index');
+    }
+
+    /**
+     * @param Request $request
+     * @param $id
+     * @return array|void
+     */
+    public function reschedule(Request $request, $id) {
+        $user = Auth::user();
+        $booking = CustomerBooking::find($id);
+//        echo 'reschedule id222=' . json_encode($booking);
+//        echo 'reschedule id333=' . $booking->appointment->user_id;
+
+        // only allow user itself to reschedule their own appointment(customer booking maybe pointed to package/course).
+        if ($user->id == $booking->appointment->user_id) {
+            if (empty($booking->checkin)) {
+                // can amend 48 hours before appointment start time.
+                $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-48 hours');
+                $now = new DateTime();
+                $now->setTimezone(new DateTimeZone(env("JWS_TIMEZONE")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
+                if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
+                    if ($booking->revision_counter == 0) {
+                        // ok to change booking once.
+                        // get appointment dates.
+                        $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true);
+                        $booking->appointment->start_time = $appointmentDates['start_time'];
+                        $booking->appointment->end_time = $appointmentDates['end_time'];
+                        $booking->appointment->room_id = $appointmentDates['room_id'];
+                        $booking->appointment->save();
+                        $booking->revision_counter += 1;
+                        $booking->save();
+                        $results = ['success' => true, 'room' => Room::find($booking->appointment->room_id)];
+                    } else {
+                        $results = ['success' => false, 'error' => 'You have been rescheduled several times.', 'params' => $booking->revision_counter];
+                    }
+                } else {
+                    $results = ['success' => false, 'error' => 'You must reschedule before 48 hours of appointment start time.'];
+                }
+            }
+        } else {
+            $results = ['success' => false, 'error' => 'You cannot reschedule for others.'];
+        }
+        if ($request->expectsJson()) {
+            return $results;
+        }
+
+    }
+
+    private function getAppointmentDates($user, $date, $time, $noOfSession, $sessionInterval, $room_id) {
+        // get min & max dates by user
+        $dates = $this->getDates($user);
+        $minDate = $dates[0];
+        $maxDate = $dates[1];
+        $appointmentDate = new Carbon($date);
+        $dateOk = $appointmentDate->between($minDate, $maxDate);
+        if (!$dateOk) {
+            // FIXME throw error in case someone hack the appointment date.
+
+        }
+        $startTime = $appointmentDate->timestamp + $time;
+        $dt = (new DateTime("@$startTime"))->format('Y-m-d H:i:s');
+//        echo "<br />startTime2=" . $dt;
+        $endTime = $appointmentDate->timestamp + $time + ($noOfSession * $sessionInterval);
+        $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
+//        echo "<br />startTime3=" . $dt2;
+
+        // Room availability checking.
+        $assignRandomRoom = true;   // can get from Company settings.
+        $assignedRoom = -1;
+        if ($assignRandomRoom) {
+            // support to assign dynamic room.
+            $rooms = Room::inRandomOrder()->where('status', 1001)->get();   // no need to orderBy, let it return randomly.
+            foreach ($rooms as $room) {
+                $isRoomOccupied = $this->isRoomOccupied($room->id, $dt, $dt2);
+                if (!$isRoomOccupied) {
+                    $assignedRoom = $room->id;
+                    break;   // exit foreach rooms.
+                }
+            }
+        } else {
+            // check duplicate by roomId and appointment time.
+            $assignedRoom = $room_id;   // param from client side.
+            $isRoomOccupied = $this->isRoomOccupied($assignedRoom, $dt, $dt2);
+            if ($isRoomOccupied) {   // reset $assignedRoom to negative number if desired room was is occupied.
+                $assignedRoom = -2;
+            }
+        }
+        return [
+            'start_time' => $dt,
+            'end_time' => $dt2,
+            'room_id' => $assignedRoom
+        ];
     }
 }
