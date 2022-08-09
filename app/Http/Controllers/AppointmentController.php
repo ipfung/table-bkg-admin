@@ -225,7 +225,10 @@ class AppointmentController extends Controller
     {
         $chkDup = Appointment::where('room_id', $roomId)
             ->whereIn('status', ['approved', 'pending'])
-            ->whereRaw('(? between start_time and end_time OR ? between start_time and end_time)', [$startTime, $endTime])
+            // ref: https://stackoverflow.com/questions/6571538/checking-a-table-for-time-overlap
+            ->where('start_time', '<', $endTime)
+            ->where('end_time', '>', $startTime)
+//            ->whereRaw('(? between start_time1 and end_time OR ? between start_time and end_time)', [$startTime, $endTime])
             ->get();
         return count($chkDup) > 0;
     }
@@ -252,7 +255,7 @@ class AppointmentController extends Controller
         $results = [];
         if ($assignedRoom <= 0) {
             // appointment time not available, throw error.
-            $results = ['success' => false, 'error' => 'Time not available, please choose different time.'];
+            $results = ['success' => false, 'error' => 'Time not available, please choose different time.', 'param' => $assignedRoom];
             return $results;
         }
 
