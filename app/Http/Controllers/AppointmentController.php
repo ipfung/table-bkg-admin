@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\AppointmentApproved;
 use App\Models\Appointment;
 use App\Models\CustomerBooking;
 use App\Models\Order;
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AppointmentController extends Controller
 {
@@ -326,6 +328,12 @@ class AppointmentController extends Controller
 //        $payment->parent_id = ;
         $payment->entity = 'appointment';
         $payment->save();
+
+        if ($appointment->status == 'approved') {
+            Mail::to($user->email)
+                ->bcc(config('mail.from.admin'))
+                ->send(new AppointmentApproved(CustomerBooking::find($customerBooking->id)));
+        }
 
         DB::commit();
 

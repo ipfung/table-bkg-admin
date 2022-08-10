@@ -14,4 +14,12 @@ class CustomerBooking extends Model
     {
         return $this->hasOne(Appointment::class, 'id', 'appointment_id');
     }
+
+    /**
+     * Get the customer of the customer booking.
+     */
+    public function customer()
+    {
+        return $this->hasOne(User::class, 'id', 'customer_id');
+    }
 }
