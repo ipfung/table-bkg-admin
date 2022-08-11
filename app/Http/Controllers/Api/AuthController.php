@@ -20,7 +20,7 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        if(Auth::attempt(['email' => $request->email, 'password' => $request->password])){
+        if(Auth::attempt(['email' => $request->email, 'password' => $request->password, 'status' => 'active'])) {
             $user = Auth::user();
             $success['token'] =  $user->createToken('MyApp')->plainTextToken;
             $success['name'] =  $user->name;
@@ -29,6 +29,7 @@ class AuthController extends Controller
         }
         else{
             return response()->json([
+                'success' => false,
                 'message' => 'Invalid login details'
             ], 401);
         }

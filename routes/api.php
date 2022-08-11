@@ -23,6 +23,10 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::post('/reschedule/{id}', 'AppointmentController@reschedule');
     Route::get('/booking', 'BookingController@index');
     Route::post('/booking-checkin/{id}', 'BookingController@punchInBooking');
+    //
+    Route::apiResource('users', 'Api\UserController');
+    Route::put('/ban-user/{id}', 'Api\UserController@banUser');
+    Route::put('/active-user/{id}', 'Api\UserController@activeUser');
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
