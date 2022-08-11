@@ -73,7 +73,7 @@ class BookingController extends Controller
             if (empty($booking->checkin)) {
                 // check payment status.
                 $osAmount = $this->paidAmount($id) - $booking->price;
-                if ($osAmount <= 0) {
+                if ($osAmount < 0) {
                     $results = ['success' => false, 'error' => 'Please pay the outstanding amount HK$' . abs($osAmount)];
                     goto output;    // break
                 }
@@ -107,33 +107,43 @@ class BookingController extends Controller
     }
 
     /**
+     * cancel booking.
+     *
      * @param Request $request
      * @param $id
      * @return array|void
      */
-    public function takeLeave(Request $request, $id) {
+    public function cancelBooking(Request $request, $id) {
         $user = Auth::user();
-        $booking = CustomerBooking::find($id)->with('appointment');
-        // only allow user itself to take leave.
+        $booking = CustomerBooking::find($id);
+
+        // only allow user to cancel unpaid booking.
         if ($user->id == $booking->customer_id) {
-            if (empty($booking->checkin)) {
-                $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time);
+            $osAmount = $this->paidAmount($id) - $booking->price;
+            if ($osAmount < 0) {   // not paid, can cancel.
+                // can amend 48 hours before appointment start time.
+                $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-48 hours');
                 $now = new DateTime();
                 $now->setTimezone(new DateTimeZone(env("JWS_TIMEZONE")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
-                if ($now < $can_amend_time) {   // now is just before appointment start time.
-                    // ok to take leave
+                if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
                     if ($booking->revision_counter == 0) {
-                        $booking->take_leave_time = $now->format('Y-m-d H:i:s');
+                        // ok to cancel booking once.
+                        $booking->appointment->status = 'canceled';
+                        $booking->appointment->save();
                         $booking->revision_counter += 1;
                         $booking->save();
-                        $results = ['success' => true];
+                        $results = ['success' => true, 'status' => 'canceled'];
+                    } else {
+                        $results = ['success' => false, 'error' => 'You have been modified several times.', 'params' => $booking->revision_counter];
                     }
                 } else {
-                    $results = ['success' => false, 'error' => 'You cannot take leave after appointment start time %.', 'params' => $booking->appointment->start_time];
+                    $results = ['success' => false, 'error' => 'You must cancel before 48 hours of appointment start time.'];
                 }
+            } else {
+                $results = ['success' => false, 'error' => 'Cancellation is not suitable for paid booking.'];
             }
         } else {
-            $results = ['success' => false, 'error' => 'You cannot take leave for others.'];
+            $results = ['success' => false, 'error' => 'You cannot reschedule for others.'];
         }
         if ($request->expectsJson()) {
             return $results;
