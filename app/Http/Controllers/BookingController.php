@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\AppointmentCanceled;
 use App\Models\CustomerBooking;
 use DateTime;
 use DateTimeZone;
@@ -9,6 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class BookingController extends Controller
 {
@@ -133,6 +135,12 @@ class BookingController extends Controller
                         $booking->revision_counter += 1;
                         $booking->save();
                         $results = ['success' => true, 'status' => 'canceled'];
+                        // send mail if notify option enabled.
+                        if ($booking->appointment->status == 'canceled') {   // FIXME check option.
+                            Mail::to($user->email)
+                                ->bcc(config('mail.from.address'))
+                                ->send(new AppointmentCanceled($booking));
+                        }
                     } else {
                         $results = ['success' => false, 'error' => 'You have been modified several times.', 'params' => $booking->revision_counter];
                     }
