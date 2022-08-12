@@ -52,7 +52,8 @@ class AppointmentReminderJob implements ShouldQueue
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
                 'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name')
 //testing            ->where('appointments.start_time', '2022-08-16 01:00:00')
-            ->whereRaw('DATE_SUB(appointments.start_time, INTERVAL 1 DAY)=?', [date('d-m-y h:i:s')])
+                // a day before appointment start_time.
+            ->whereRaw('DATE_SUB(appointments.start_time, INTERVAL 1 DAY)=?', [date('Y-d-m h:i:s')])
             ->get();
         Log::info('AppointmentReminderJob: Running the handle function');
         foreach ($bookings as $booking) {
