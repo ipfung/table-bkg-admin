@@ -24,8 +24,9 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/booking', 'BookingController@index');
     Route::put('/booking-cancel/{id}', 'BookingController@cancelBooking');
     Route::post('/booking-checkin/{id}', 'BookingController@punchInBooking');
-    // trainer
-    Route::get('/trainer-students', 'Api\TrainerController@index');
+    // trainer-student actions
+    Route::apiResource('/trainer-students', 'Api\TrainerController');
+    Route::get('/availability-students/{id}', 'Api\TrainerController@getNotMyStudents');
     // all user actions
     Route::apiResource('users', 'Api\UserController');
     Route::put('/ban-user/{id}', 'Api\UserController@banUser');
