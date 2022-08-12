@@ -10,6 +10,11 @@ use App\Http\Controllers\Controller as Controller;
 
 class BaseController extends Controller
 {
+    protected function isSuperLevel($user) {
+        $super_levels = ['manager', 'admin'];
+        return in_array($user->role->name, $super_levels);
+    }
+
     /**
      * success response method.
      *

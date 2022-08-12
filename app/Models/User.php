@@ -47,4 +47,9 @@ class User extends \TCG\Voyager\Models\User
     {
         return $this->belongsTo(Role::class);
     }
+
+    public function teammates()
+    {
+        return $this->belongsToMany(User::class, 'user_teammates', 'user_id', 'teammate_id');
+    }
 }
