@@ -45,7 +45,7 @@ class AppointmentController extends Controller
         $minDate = $dates[0];
         $maxDate = $dates[1];
         // get timeslot
-        $EPOCH = env("JWS_EPOCH");
+        $EPOCH = 60;
         $dayOfWeek_timeslots = Timeslot::all();
 //        $roomId = -1;     // TODO how to support dynamic room to user?
         $roomId = 1;     // hardcode it for testing.
@@ -361,7 +361,7 @@ class AppointmentController extends Controller
                 // can amend 48 hours before appointment start time.
                 $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-48 hours');
                 $now = new DateTime();
-                $now->setTimezone(new DateTimeZone(env("JWS_TIMEZONE")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
+                $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
                 if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
                     if ($booking->revision_counter == 0) {
                         // ok to change booking once.
