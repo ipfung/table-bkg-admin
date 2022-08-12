@@ -43,6 +43,17 @@ class User extends \TCG\Voyager\Models\User
         'email_verified_at' => 'datetime',
     ];
 
+    protected $appends = [
+        'rating'
+    ];
+
+    public function getRatingAttribute()
+    {
+        // FIXME get rating.
+        return rand(1, 5);
+    }
+
+
     public function role()
     {
         return $this->belongsTo(Role::class);
