@@ -21,4 +21,8 @@ class Appointment extends Model
     {
         return $this->belongsTo(Room::class);
     }
+
+    public function customerBookings() {
+        return $this->hasMany(CustomerBooking::class, 'appointment_id', 'id');
+    }
 }

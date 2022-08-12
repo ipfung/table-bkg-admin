@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Jobs\AppointmentReminderJob;
+use App\Jobs\AutoRejectNoPaymentBookingJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -20,6 +21,8 @@ class Kernel extends ConsoleKernel
              //->cron('* 0,20,30 * * *');   // fire every :00 or :30
 //             ->everyTwoMinutes();
             ->everyThirtyMinutes();
+         //
+        $schedule->job(new AutoRejectNoPaymentBookingJob)->everyThirtyMinutes();
     }
 
     /**
