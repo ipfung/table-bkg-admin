@@ -37,10 +37,13 @@ class AutoRejectNoPaymentBookingJob implements ShouldQueue
         $hour = config("app.jws.auto_reject_unpaid_booking");
         Log::info('AutoRejectNoPaymentBookingJob: Running the handle function SQL. hour=' . $hour);
         if ($hour > 0) {
+            $now = date('Y-m-d h:i:s');
+//            Log::info('AutoRejectNoPaymentBookingJob: Running the handle function SQL. now=' . $now);
             // select > update > inform client.
             $unpaidAppointments = Appointment::orderBy('id', 'asc')
+                ->where('status', '<>', 'rejected')
                 // 1 day after appointment created_at.
-                ->whereRaw('DATE_ADD(created_at, INTERVAL ? DAY) < ?', [$hour, date('Y-d-m h:i:s')])
+                ->whereRaw('DATE_ADD(created_at, INTERVAL ? HOUR) < ?', [$hour, $now])
                 ->whereRaw('id in (select appointment_id from customer_bookings, order_details, payments where customer_bookings.id=order_details.booking_id and order_details.order_type=? and order_details.order_id=payments.order_id and payments.status=?)', ['booking', 'pending'])
                 ->get();
             foreach ($unpaidAppointments as $appointment) {
