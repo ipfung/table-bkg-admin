@@ -1,18 +1,20 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\customer;
 use App\Mail\AppointmentCanceled;
 use App\Models\CustomerBooking;
 use DateTime;
 use DateTimeZone;
-use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
-class BookingController extends Controller
+class BookingController extends BaseController
 {
     /**
      * Create a new controller instance.
@@ -44,18 +46,29 @@ class BookingController extends Controller
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->select('customer_bookings.*',
+                DB::raw('(select name from users where id=customer_bookings.customer_id) as customer_name'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
                 'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name')
-            ->where('customer_id', $user->id)
             ->where('appointments.start_time', '>=', $fromDate )
             ->where('appointments.end_time', '<=', $toDate )
             ->orderBy('appointments.start_time', 'asc')
-            ->orderBy('rooms.name', 'asc')
-            ->get();
+            ->orderBy('rooms.name', 'asc');
+        $results = [];
+        if ($this->isSuperLevel($user)) {
+            if ($request->has('customer_id')) {
+                $bookings->where('customer_id', $request->customer_id);
+            }
+            $results['showCustomer'] = true;
+        } else {
+            $bookings->where('customer_id', $user->id);
+            $results['showCustomer'] = false;
+        }
 
         if ($request->expectsJson()) {
-            return $bookings;
+            $results['success'] = true;
+            $results['data'] = $bookings->get();
+            return $results;
         }
         return view("bookings", $bookings);
 
@@ -91,6 +104,8 @@ class BookingController extends Controller
                     $booking->checkin = $now->format('Y-m-d H:i:s');
                     $booking->save();
                     $results = ['success' => true, 'checkin' => $booking->checkin];
+                    // TODO inform parties concerned(e.g. parent APP & email).
+
                 } else if ($now < $can_checkin_time) {
                     $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.'];
                 } else if ($now > $booking_end_time) {
