@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::put('/ban-user/{id}', 'Api\UserController@banUser');
     Route::put('/active-user/{id}', 'Api\UserController@activeUser');
     // simple API
+    Route::apiResource('/timeslots', 'Api\TimeslotController');
     Route::apiResource('/rooms', 'Api\RoomController');
     Route::get('/locations', 'Api\LocationController@index');    //
 });
