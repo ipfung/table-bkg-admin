@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Room extends Model
 {
+    protected $fillable = [
+        'name', 'location_id', 'translations', 'status'
+    ];
 
     public function location()
     {
