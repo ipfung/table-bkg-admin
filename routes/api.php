@@ -27,6 +27,8 @@ Route::middleware(['auth:sanctum'])->group(function (){
     // trainer-student actions
     Route::apiResource('/trainer-students', 'Api\TrainerController');
     Route::get('/availability-students/{id}', 'Api\TrainerController@getNotMyStudents');
+    // finance
+    Route::get('/finance', 'Api\PaymentController@index');
     // all user actions
     Route::apiResource('users', 'Api\UserController');
     Route::put('/ban-user/{id}', 'Api\UserController@banUser');
