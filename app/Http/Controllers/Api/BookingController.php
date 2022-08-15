@@ -7,7 +7,6 @@ use App\Http\Controllers\customer;
 use App\Mail\AppointmentCanceled;
 use App\Models\CustomerBooking;
 use DateTime;
-use DateTimeZone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -95,8 +94,7 @@ class BookingController extends BaseController
 
                 $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-1 hour');   // 1 hour before appointment start time.
                 $booking_end_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time);
-                $now = new DateTime();
-                $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
+                $now = $this->getCurrentDateTime();
 //echo 'can_checkin_time=' . $can_checkin_time->format('Y-m-d H:i:s');
 //echo ', booking_end_time=' . $booking_end_time->format('Y-m-d H:i:s');
 //echo ', now=' . $now->format('Y-m-d H:i:s');
@@ -140,8 +138,7 @@ class BookingController extends BaseController
             if ($osAmount < 0) {   // not paid, can cancel.
                 // can amend 48 hours before appointment start time.
                 $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-48 hours');
-                $now = new DateTime();
-                $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
+                $now = $this->getCurrentDateTime();
                 if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
                     if ($booking->revision_counter == 0) {
                         // ok to cancel booking once.

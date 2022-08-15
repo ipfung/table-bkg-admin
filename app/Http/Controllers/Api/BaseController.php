@@ -4,12 +4,20 @@
 namespace App\Http\Controllers\Api;
 
 
+use DateTime;
+use DateTimeZone;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller as Controller;
 
 
 class BaseController extends Controller
 {
+    protected function getCurrentDateTime() {
+        $now = new DateTime();
+        $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
+        return $now;
+    }
+
     protected function isSuperLevel($user) {
         $super_levels = ['manager', 'admin'];
         return in_array($user->role->name, $super_levels);

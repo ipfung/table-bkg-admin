@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Room;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +19,9 @@ class RoomController extends BaseController
         $user = Auth::user();
         //
         DB::enableQueryLog(); // Enable query log
-        $rooms = Room::orderBy('name', 'asc');
+        $rooms = Room::orderBy('name', 'asc')
+            ->select('rooms.*')
+            ->selectRaw("(select id from appointments where room_id=rooms.id and status not in ('canceled', 'rejected') and ? between start_time and end_time) as appointment_id", [($this->getCurrentDateTime())->format('Y-m-d H:i:s')]);
 
         if ($request->has('status')) {
             if ($request->status > 0)
