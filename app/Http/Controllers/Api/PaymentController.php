@@ -34,18 +34,24 @@ class PaymentController extends BaseController
 //            ->whereBetween('order_date', [$fromDate, $toDate]);
 
         if ($request->has('payment_status')) {
-            if ($request->payment_status > 0)
+            if (!empty($request->payment_status))
                 $payments->where('payment_status', $request->payment_status);
         }
-
-        if ($request->has('customer_id')) {
-            if ($request->customer_id > 0)
+        $showCustomer = false;
+        if ($this->isSuperLevel($user)) {
+            if ($request->has('customer_id')) {
                 $payments->where('customer_id', $request->customer_id);
+            }
+            $showCustomer = true;
+        } else {
+            $payments->where('customer_id', $user->id);
         }
 
         if ($request->expectsJson()) {
 //            return $payments->get();
-            return $payments->with('customer', 'details', 'payments')->paginate();
+            $data = $payments->with('customer', 'details', 'payments')->paginate()->toArray();
+            $data['showCustomer'] = $showCustomer;   // append to paginate()
+            return $data;
         }
         return view("finance.list", $payments);
     }
