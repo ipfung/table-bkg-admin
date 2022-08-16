@@ -302,10 +302,11 @@ class AppointmentController extends Controller
         $order->order_number = uniqid();
         $order->order_date = Carbon::today()->format('Y-m-d');
         $order->order_total = $request->price;
+        $order->discount = $request->discount;
         $order->customer_id = $customerBooking->customer_id;
         $order->user_id = $user->id;
         $order->payment_status = 'pending';       // FIXME get payment status from gateway response.
-        $order->order_status = $appointment->status;
+        $order->order_status = $appointment->status == 'approved' ? 'confirmed' : 'pending';
         $order->save();
 
         $orderDetail = new OrderDetail();
@@ -320,7 +321,7 @@ class AppointmentController extends Controller
 
         $payment = new Payment();
         $payment->order_id = $order->id;
-        $payment->amount = $order->id;
+        $payment->amount = $order->order_total;
         $payment->payment_date_time = (new DateTime())->format('Y-m-d H:i:s');
         $payment->status = $order->payment_status;
         $payment->payment_method = 'electronic';
@@ -331,7 +332,7 @@ class AppointmentController extends Controller
 
         if ($appointment->status == 'approved') {
             Mail::to($user->email)
-                ->bcc(config('mail.from.admin'))
+                ->bcc(config('mail.from.address'))
                 ->send(new AppointmentApproved(CustomerBooking::find($customerBooking->id)));
         }
 
@@ -374,6 +375,7 @@ class AppointmentController extends Controller
                         $booking->revision_counter += 1;
                         $booking->save();
                         $results = ['success' => true, 'room' => Room::find($booking->appointment->room_id)];
+                        // TODO mail
                     } else {
                         $results = ['success' => false, 'error' => 'You have been rescheduled several times.', 'params' => $booking->revision_counter];
                     }
