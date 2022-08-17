@@ -20,6 +20,7 @@ Route::post('/logout', 'Api\AuthController@logout');
 Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/menu', 'Api\MenuController@index');
 
+    Route::get('/dashboard', 'Api\DashboardController@index');
     Route::get('/appointment', 'AppointmentController@index');
     Route::post('/appointment', 'AppointmentController@store');
     Route::post('/reschedule/{id}', 'AppointmentController@reschedule');
@@ -40,6 +41,8 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::put('/active-user/{id}', 'Api\UserController@activeUser');
     Route::post('/register-push', 'Api\UserController@registerPush');
 
+    // notifications
+    Route::get('/notifications', 'Api\NotificationController@index');
     // simple API
     Route::apiResource('/timeslots', 'Api\TimeslotController');
     Route::apiResource('/rooms', 'Api\RoomController');
