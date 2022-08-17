@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Services\UserDeviceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -49,6 +50,7 @@ class PaymentController extends BaseController
 
         if ($request->expectsJson()) {
 //            return $payments->get();
+            // ref: https://stackoverflow.com/questions/52559732/how-to-add-custom-properties-to-laravel-paginate-json-response
             $data = $payments->with('customer', 'details', 'payments')->paginate()->toArray();
             $data['showCustomer'] = $showCustomer;   // append to paginate()
             return $data;
@@ -91,4 +93,18 @@ class PaymentController extends BaseController
         return $trainer->with('teammates');
     }
 
+    public function sendBillReminder($id) {
+        $order = Order::find($id);
+        if ($order->payment_status != 'paid') {
+            $payload = [
+                'title' => 'Payment Reminder',
+                'body' => 'You have an unpaid invoice.',
+                // extra params.
+                'order_id' => $order->id,
+                'order_number' => $order->order_number
+            ];
+            UserDeviceService::sendToCustomer($order->customer_id, $payload);
+            return ['success' => true, 'pushed' => true];
+        }
+    }
 }

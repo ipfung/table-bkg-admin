@@ -33,6 +33,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/appointments', 'Api\CalendarAppointmentController@index');
     // finance
     Route::get('/finance', 'Api\PaymentController@index');
+    Route::put('/payment-reminder/{id}', 'Api\PaymentController@sendBillReminder');
     // all user actions
     Route::apiResource('users', 'Api\UserController');
     Route::put('/ban-user/{id}', 'Api\UserController@banUser');

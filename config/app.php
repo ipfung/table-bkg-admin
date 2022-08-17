@@ -235,5 +235,6 @@ return [
     'jws' => [
         'local_timezone' => env('JWS_TIMEZONE'),
         'auto_reject_unpaid_booking' => env('JWS_AUTO_REJECT_UNPAID_APPOINTMENT'),
+        'fcm_server_key' => env('FCM_SERVER_KEY'),
     ]
 ];
