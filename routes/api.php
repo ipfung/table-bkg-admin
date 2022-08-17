@@ -18,6 +18,8 @@ Route::post('/login', 'Api\AuthController@login');
 Route::post('/logout', 'Api\AuthController@logout');
 
 Route::middleware(['auth:sanctum'])->group(function (){
+    Route::get('/menu', 'Api\MenuController@index');
+
     Route::get('/appointment', 'AppointmentController@index');
     Route::post('/appointment', 'AppointmentController@store');
     Route::post('/reschedule/{id}', 'AppointmentController@reschedule');
