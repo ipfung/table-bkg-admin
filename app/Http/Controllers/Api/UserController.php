@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\User;
-use Carbon\Carbon;
+use App\Models\UserDevice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -205,5 +205,31 @@ class UserController extends BaseController
         if ($request->expectsJson()) {
             return $results;
         }
+    }
+
+    /**
+     * @param Request $request the push registration key.
+     * @return void
+     */
+    public function registerPush(Request $request) {
+        $request->validate([
+            'reg_id' => 'required',
+        ]);
+
+        $user = Auth::user();
+        $device = UserDevice::where('user_id', $user->id)
+            ->where('reg_id', $request->reg_id)
+            ->first();
+        if (empty($device)) {
+            $device = new UserDevice($request->all());
+            $device->user_id = $user->id;
+            $device->status = 'approved';
+            $device->save();
+        } else if ($device->status == 'canceled') {
+            // update back to approved.
+            $device->status = 'approved';
+            $device->save();
+        }
+        return ['success' => true];
     }
 }
