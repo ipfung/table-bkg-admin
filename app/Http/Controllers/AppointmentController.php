@@ -302,7 +302,10 @@ class AppointmentController extends Controller
         $order->order_number = uniqid();
         $order->order_date = Carbon::today()->format('Y-m-d');
         $order->order_total = $request->price;
-        $order->discount = $request->discount;
+        if ($request->has('discount')) {
+            if ($request->discount > 0)
+                $order->discount = $request->discount;
+        }
         $order->customer_id = $customerBooking->customer_id;
         $order->user_id = $user->id;
         $order->payment_status = 'pending';       // FIXME get payment status from gateway response.
