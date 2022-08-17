@@ -100,10 +100,14 @@ class PaymentController extends BaseController
                 'title' => 'Payment Reminder',
                 'body' => 'You have an unpaid invoice.',
                 // extra params.
-                'order_id' => $order->id,
-                'order_number' => $order->order_number
+                'data' => [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number
+                ]
             ];
-            UserDeviceService::sendToCustomer($order->customer_id, $payload);
+            $responseCode = UserDeviceService::sendToCustomer($order->customer_id, $payload, Auth::user()->id);
+            if ($responseCode <= 0)
+                return ['success' => false, 'reason' => false];
             return ['success' => true, 'pushed' => true];
         }
     }

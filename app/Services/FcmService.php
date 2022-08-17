@@ -20,7 +20,7 @@ class FcmService
                     'title' => $notification['title'],
                     'body' => $notification['body']
                 ],
-                'data' => $notification
+                'data' => $notification['data']
             ]
         );
         return $response->status();
@@ -28,7 +28,7 @@ class FcmService
 
     public static function sendMultiple($tokens, $notification)
     {
-        Http::acceptJson()->withToken(config('app.jws.fcm_server_key'))->post(
+        $response = Http::acceptJson()->withToken(config('app.jws.fcm_server_key'))->post(
             'https://fcm.googleapis.com/fcm/send',
             [
                 'registration_ids' => $tokens,
@@ -36,8 +36,9 @@ class FcmService
                     'title' => $notification['title'],
                     'body' => $notification['body']
                 ],
-                'data' => $notification
+                'data' => $notification['data']
             ]
         );
+        return $response->status();
     }
 }
