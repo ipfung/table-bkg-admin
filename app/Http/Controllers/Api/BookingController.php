@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Http\Controllers\customer;
 use App\Mail\AppointmentCanceled;
 use App\Models\CustomerBooking;
+use App\Services\UserDeviceService;
 use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -101,9 +100,20 @@ class BookingController extends BaseController
                 if ($now > $can_checkin_time && $now < $booking_end_time) {
                     $booking->checkin = $now->format('Y-m-d H:i:s');
                     $booking->save();
-                    $results = ['success' => true, 'checkin' => $booking->checkin];
-                    // TODO inform parties concerned(e.g. parent APP & email).
-
+                    // inform parties concerned(e.g. parent APP & email).
+                    $payload = [
+                        'title' => 'Check in',
+                        'body' => 'You have just checked-in the class.',
+                        // extra params.
+                        'data' => [
+                            'page' => 'none',
+                            'customer_name' => $booking->customer->name,
+                            'time' => $booking->checkin,
+                            'id' => $booking->id
+                        ]
+                    ];
+                    $responseCode = UserDeviceService::sendToCustomer($booking->customer_id, $payload, $user->id);
+                    $results = ['success' => true, 'checkin' => $booking->checkin, 'pushed' => (200 == $responseCode)];
                 } else if ($now < $can_checkin_time) {
                     $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.'];
                 } else if ($now > $booking_end_time) {
