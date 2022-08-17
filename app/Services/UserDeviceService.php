@@ -22,7 +22,7 @@ class UserDeviceService
             }
             if (200 == $responseCode && $log_to_db) {
                 $message = new NotifyMessage;
-                $message->user_id = $custId;
+                $message->customer_id = $custId;
                 $message->title = $payload['title'];
                 $message->body = $payload['body'];
                 $message->params = json_encode($payload['data']);
