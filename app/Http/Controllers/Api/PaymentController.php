@@ -101,6 +101,7 @@ class PaymentController extends BaseController
                 'body' => 'You have an unpaid invoice.',
                 // extra params.
                 'data' => [
+                    'page' => 'finance',
                     'order_id' => $order->id,
                     'order_number' => $order->order_number
                 ]
