@@ -12,6 +12,9 @@ use App\Http\Controllers\Controller as Controller;
 
 class BaseController extends Controller
 {
+    protected $dateTimeFormat = 'Y-m-d h:i:s';
+    protected $dateFormat = 'Y-m-d';
+
     protected function getCurrentDateTime() {
         $now = new DateTime();
         $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
