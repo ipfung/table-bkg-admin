@@ -2,13 +2,23 @@
 
 namespace App\Services;
 
+use App\Mail\PayloadNotification;
 use App\Models\NotifyMessage;
+use App\Models\User;
 use App\Models\UserDevice;
+use Illuminate\Support\Facades\Mail;
 
 class UserDeviceService
 {
     public static function sendToCustomer($custId, $payload, $created_by, $log_to_db = true)
     {
+        // email once.
+        $user = User::find($custId);
+        Mail::to($user->email)
+            ->bcc(config('mail.from.address'))
+            ->send(new PayloadNotification($payload));
+
+        // app push notification.
         $userDevice = UserDevice::where('user_id', $custId)
             ->where('status', 'approved');
         $counter = $userDevice->count();

@@ -98,10 +98,11 @@ class PaymentController extends BaseController
         if ($order->payment_status != 'paid') {
             $payload = [
                 'title' => 'Payment Reminder',
-                'body' => 'You have an unpaid invoice.',
+                'body' => 'You have an unpaid invoice ' . $order->order_number . '.',
                 // extra params.
                 'data' => [
                     'page' => 'finance',
+                    'customer_name' => $order->customer->name,
                     'order_id' => $order->id,
                     'order_number' => $order->order_number
                 ]
