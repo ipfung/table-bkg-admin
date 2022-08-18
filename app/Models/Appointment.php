@@ -14,7 +14,7 @@ class Appointment extends Model
         $start = DateTime::createFromFormat('Y-m-d H:i:s', $this->start_time);
         $end = DateTime::createFromFormat('Y-m-d H:i:s', $this->end_time);
         $interval = $start->diff($end);
-        return $interval->format('%h hours %i minutes');
+        return $interval->format('%h h %i min');
     }
 
     public function room()
