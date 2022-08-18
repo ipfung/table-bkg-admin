@@ -27,13 +27,22 @@ class TrainerController extends BaseController
                     ->whereIn('name', ['manager', 'internal_coach', 'external_coach']);// who will be trainers.
             });
 
+        $editable = false;
         // trainer himself can see self only.
         if (!$this->isSuperLevel($user)) {
             $trainers->where('id', $user->id);
+        } else {
+            $editable = true;
+        }
+        if ($request->has('status')) {
+            if ($request->status != '')
+                $trainers->where('status', $request->status);
         }
 
         if ($request->expectsJson()) {
-            return $trainers->with('role')->with('teammates')->paginate(request()->all());
+            $data = $trainers->with('role')->with('teammates')->paginate()->toArray();
+            $data['editable'] = $editable;   // append to paginate()
+            return $data;
         }
         return view("trainers.list", $trainers);
     }
@@ -106,6 +115,6 @@ class TrainerController extends BaseController
                     ->from(with(new UserTeammate)->getTable())
                     ->where('user_id', $id);
             });
-        return $students->paginate(request()->all());
+        return $students->paginate();
     }
 }

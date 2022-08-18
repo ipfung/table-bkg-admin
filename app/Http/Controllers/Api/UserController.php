@@ -27,6 +27,7 @@ class UserController extends BaseController
         DB::enableQueryLog(); // Enable query log
         $users = User::orderBy('id', 'desc');
 
+        $editable = false;
         // only can see self if user is not in above level.
         if (!$this->isSuperLevel($user)) {
             $users->where('id', $user->id);
@@ -35,6 +36,7 @@ class UserController extends BaseController
             if ($user->role->name == 'manager') {
                 $users->whereRaw('role_id in (select id from roles where name<>?)', ['admin']);
             }
+            $editable = true;
         }
 
         if ($request->has('status')) {
@@ -59,7 +61,9 @@ class UserController extends BaseController
 //        $results = end($aaa);    // debug
 //        return $this->sendResponse($results, "ok");    // debug
         if ($request->expectsJson()) {
-            return $users->with('role')->paginate(request()->all());
+            $data = $users->with('role')->paginate()->toArray();
+            $data['editable'] = $editable;   // append to paginate()
+            return $data;
         }
         return view("users.list", $users);
     }
