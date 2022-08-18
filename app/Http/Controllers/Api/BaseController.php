@@ -26,6 +26,16 @@ class BaseController extends Controller
         return in_array($user->role->name, $super_levels);
     }
 
+    protected function isInternalCoachLevel($user) {
+        $super_levels = ['manager', 'admin', 'internal_coach'];
+        return in_array($user->role->name, $super_levels);
+    }
+
+    protected function isExternalCoachLevel($user) {
+        $super_levels = ['manager', 'admin', 'internal_coach', 'external_coach'];
+        return in_array($user->role->name, $super_levels);
+    }
+
     /**
      * success response method.
      *
