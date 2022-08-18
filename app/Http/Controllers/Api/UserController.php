@@ -11,10 +11,6 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends BaseController
 {
-    private function isSuperLevel($user) {
-        $super_levels = ['manager', 'admin'];
-        return in_array($user->role->name, $super_levels);
-    }
     /**
      * Display a listing of the resource.
      *
