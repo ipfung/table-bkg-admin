@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\Appointment;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use TCG\Voyager\Models\Role;
@@ -23,7 +21,7 @@ class RoleController extends BaseController
         DB::enableQueryLog(); // Enable query log
         $roles = Role::orderBy('name', 'asc');
         if ($this->isSuperLevel($user)) {
-            $roles->where('name', '<>', 'admin');
+            $roles->whereIn('name', ['manager', 'internal_coach', 'external_coach', 'member', 'user']);
         } else {
             $roles->where('name', $user->role->name);
         }
