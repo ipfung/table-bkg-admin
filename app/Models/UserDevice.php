@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class UserDevice extends Model
 {
     protected $fillable = [
-        'reg_id'
+        'reg_id', 'platform', 'uuid'
     ];
 
 }
