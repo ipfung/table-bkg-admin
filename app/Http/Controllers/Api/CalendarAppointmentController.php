@@ -29,7 +29,6 @@ class CalendarAppointmentController extends BaseController
             $toDate = $request->to_date;
         }
 
-        DB::enableQueryLog(); // Enable query log
         $appointments = Appointment::orderBy('start_time', 'asc')
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->join('users', 'appointments.user_id', '=', 'users.id')
