@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Appointment;
+use App\Models\NotifyMessage;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -20,12 +21,11 @@ class DashboardController extends BaseController
     {
         $user = Auth::user();
         $isSuperUser = $this->isSuperLevel($user);
-        $isSuperUser = true;    // FIXME remove it.
 
         $futureApt = new Appointment;
-        $futureApt->start_time = date($this->dateTimeFormat);
+        $futureApt->start_time = $this->getCurrentDateTime();
         // general
-        $showBookingCount = true;
+        $showBookingCount = $isSuperUser;
         $totalBooking = $this->getTotalBookingCount(null, $user, $isSuperUser);
         $totalFutureBooking = $this->getTotalBookingCount($futureApt, $user, $isSuperUser);
         //
@@ -41,11 +41,13 @@ class DashboardController extends BaseController
         $showUpcomingAppointments = true;
         $appointments = $this->getCustomerBookings($user, $isSuperUser);
         //
-        $showPayment = true;
+        $showPayment = $isSuperUser;
         $totalSales = $this->getPaymentAmount(null, $user, $isSuperUser)->total_sales;
         $orderSearch = new Order;
         $orderSearch->payment_status = 'pending';
         $totalUnpaid = $this->getPaymentAmount($orderSearch, $user, $isSuperUser)->total_paid;
+        //
+        $noOfNewNotifications = $this->getNotificationCount($user);
         if ($request->expectsJson()) {
             return compact(
                 'showBookingCount',
@@ -60,6 +62,7 @@ class DashboardController extends BaseController
                 'showSalesChart',
                 'currentWeekSales',
                 'lastWeekSales',
+                'noOfNewNotifications',
                 'showUpcomingAppointments',
                 'appointments',
 //                'time'
@@ -159,5 +162,11 @@ class DashboardController extends BaseController
 
         return $bookings->get();
 
+    }
+
+    private function getNotificationCount($user) {
+        return NotifyMessage::where('customer_id', $user->id)
+            ->where('has_read', 0)
+            ->count();
     }
 }
