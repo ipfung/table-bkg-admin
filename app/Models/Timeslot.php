@@ -12,6 +12,11 @@ class Timeslot extends Model
         'day_idx', 'location_id', 'from_time', 'to_time'
     ];
 
+    protected $casts = [
+        'from_time'  => 'date:H:i',
+        'to_time' => 'date:H:i',
+    ];
+
     public function location()
     {
         return $this->belongsTo(Location::class);
