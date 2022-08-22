@@ -22,11 +22,13 @@ class MenuController extends BaseController
             ['label' => 'Calendar', 'icon' => 'pi pi-fw pi-calendar', 'routerLink' => ['/calendar'], 'visible' => $isSuperUser],
             ['label' => 'Appointment', 'icon' => 'pi pi-fw pi-exclamation-circle', 'routerLink' => ['/appointment-list']],
             ['label' => 'Finance', 'icon' => 'pi pi-fw pi-dollar', 'routerLink' => ['/finance']],
-            ['label' => 'Partner', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list'], 'visible' => $isSuperUser],
+//            ['label' => 'Trainer', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list/Trainer'], 'visible' => $isExternalCoach],
+//            ['label' => 'Student', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list/Student'], 'visible' => $isExternalCoach],
             ['label' => 'Trainer Student', 'icon' => 'pi pi-fw pi-users', 'routerLink' => ['/trainer-student-list'], 'visible' => $isExternalCoach],
             ['label' => 'Settings', 'icon' => 'pi pi-fw pi-cog', 'visible' => $isSuperUser, 'items' => [
-                ['label' => 'Room', 'icon' => 'pi pi-fw pi-table', 'routerLink' => ['/settings/table-list']],
-                ['label' => 'Working Hours', 'icon' => 'pi pi-fw pi-clock', 'routerLink' => ['/settings/working-hours-list']],
+                ['label' => 'User', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list/User'], 'visible' => $isSuperUser],
+                ['label' => 'Room', 'icon' => 'pi pi-fw pi-table', 'routerLink' => ['/settings/table-list'], 'visible' => $isExternalCoach],
+                ['label' => 'Working Hours', 'icon' => 'pi pi-fw pi-clock', 'routerLink' => ['/settings/working-hours-list'], 'visible' => $isExternalCoach],
             ]],
         ];
         return $menu;

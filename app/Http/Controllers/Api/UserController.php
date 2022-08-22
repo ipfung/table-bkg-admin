@@ -26,13 +26,27 @@ class UserController extends BaseController
         $editable = false;
         // only can see self if user is not in above level.
         if (!$this->isSuperLevel($user)) {
-            $users->where('id', $user->id);
+            if ($user->role->name == 'internal_coach') {
+                $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?, ?))', ['internal_coach', 'external_coach', 'member', 'user']);
+            } else {
+                $users->where('id', $user->id);
+            }
         } else {
             // TODO manager cannot see admin.
             if ($user->role->name == 'manager') {
                 $users->whereRaw('role_id in (select id from roles where name<>?)', ['admin']);
             }
             $editable = true;
+        }
+
+        if ($request->has('role')) {
+            if ($request->role == 'User') {
+//                $users->whereRaw('role_id in (select id from roles where name=?)', ['admin']);
+            }
+            if ($request->role == 'Trainer')
+                $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['internal_coach', 'external_coach']);
+            if ($request->role == 'Student')
+                $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['member', 'user']);
         }
 
         if ($request->has('status')) {
@@ -76,13 +90,15 @@ class UserController extends BaseController
         $request->validate([
             'name' => 'required|max:255',    // first name
             'email' => 'required|max:255|unique:users',   //|email
+            'role_id' => 'required|exists:roles,id',   //roles
 //            'mobile_no' => 'required|min:8',
-            'password' => 'min:8|confirmed',
+            'password' => 'required|min:8',
         ]);
-        $user = new User($request->all());
-        $user->save();
-
-        return $user;
+        $data = new User($request->all());
+        $data->password = Hash::make($request->password);
+        $data->save();
+        $success = true;
+        return compact('success', 'data');
     }
 
     /**
@@ -97,44 +113,37 @@ class UserController extends BaseController
         $user = User::find($id);
         return $user;
     }
-//
-//    /**
-//     * Update the specified resource in storage.
-//     *
-//     * @param  \Illuminate\Http\Request  $request
-//     * @param  int  $id
-//     * @return \Illuminate\Http\Response
-//     */
-//    public function update(Request $request, $id)
-//    {
-//        $request->validate([
-//            'name' => 'required|max:255',
-//            'surname' => 'required|max:255',
-//            'level' => 'required|min:2|max:2',
-////            'email' => 'required|email|max:255',
-////            'mobile_no' => 'required|min:8',
-//        ]);
-//        $user = User::find($id);
-//        // update user, we don't use fill here because avatar and roles shouldn't be updated.
-//        $user->nickname = $request->nickname;
-//        $user->name = $request->name;
-//        $user->surname = $request->surname;
-//        $user->chiname = $request->chiname;
-//        $user->level = $request->level;
-//        $user->sex = $request->sex;
-//        $user->mobile_no = $request->mobile_no;
-//        $user->tel1 = $request->tel1;
-//        $user->status = $request->status;
-//        if ($request->password && $request->password_confirmation)
-//            $user->password = Hash::make($request->password);
-//
-//        $user->save();
-//        $success = $user;
-//
-//        //return response()->json(['success' => $res]);
-//        return $this->sendResponse($success, 'Updated successfully.');
-//    }
-//
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|max:255',    // first name
+            'role_id' => 'required|exists:roles,id',   //roles
+            'password' => 'min:8',
+        ]);
+        $user = User::find($id);
+        // update user, we don't use fill here because avatar and roles shouldn't be updated.
+        $user->name = $request->name;
+        $user->role_id = $request->role_id;
+        $user->status = $request->status;
+        if ($request->has('password')) {
+            if ($request->password != '') {
+                $user->password = Hash::make($request->password);
+            }
+        }
+        $user->save();
+        $success = true;
+
+        return compact('success');
+    }
+
 //    /**
 //     * Remove the specified resource from storage.
 //     *
