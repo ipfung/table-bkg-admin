@@ -23,6 +23,13 @@ class RoomController extends BaseController
             ->select('rooms.*')
             ->selectRaw("(select id from appointments where room_id=rooms.id and status not in ('canceled', 'rejected') and ? between start_time and end_time) as appointment_id", [($this->getCurrentDateTime())->format('Y-m-d H:i:s')]);
 
+        $editable = false;
+        // this module is only for manager.
+        if (!$this->isSuperLevel($user)) {
+            $rooms->where('status', 1001);   // see active rooms only.
+        } else {
+            $editable = true;
+        }
         if ($request->has('status')) {
             if ($request->status > 0)
                 $rooms->where('status', $request->status);
@@ -33,7 +40,9 @@ class RoomController extends BaseController
         }
 
         if ($request->expectsJson()) {
-            return $rooms->with('location')->paginate();
+            $data = $rooms->with('location')->paginate()->toArray();
+            $data['editable'] = $editable;   // append to paginate()
+            return $data;
         }
         return view("rooms.list", $rooms);
     }

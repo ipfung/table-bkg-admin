@@ -23,13 +23,20 @@ class TimeslotController extends BaseController
             ->orderBy('from_time', 'asc')
             ->where('location_id', 1);
 
+        $editable = false;
+        // this module is only for manager.
+        if ($this->isSuperLevel($user)) {
+            $editable = true;
+        }
         if ($request->has('day_idx')) {
             if ($request->day_idx > 0)
                 $timeslots->where('day_idx', $request->day_idx);
         }
 
         if ($request->expectsJson()) {
-            return $timeslots->with('location')->paginate();
+            $data = $timeslots->with('location')->paginate()->toArray();
+            $data['editable'] = $editable;   // append to paginate()
+            return $data;
         }
         return view("timeslots.list", $timeslots);
     }
@@ -46,8 +53,8 @@ class TimeslotController extends BaseController
         $request->validate([
             'day_idx' => 'required|integer',    // Monday = 1, Sunday = 7
             'location_id' => 'required',
-            'from_time' => 'required|time',
-            'to_time' => 'required|time',
+            'from_time' => 'required',
+            'to_time' => 'required',
         ]);
         $timeslot = new Timeslot($request->all());
         $timeslot->save();
