@@ -108,9 +108,13 @@ class PaymentController extends BaseController
                 ]
             ];
             $responseCode = UserDeviceService::sendToCustomer($order->customer_id, $payload, Auth::user()->id);
-            if ($responseCode <= 0)
-                return ['success' => false, 'reason' => false];
-            return ['success' => true, 'pushed' => true];
+            if ($responseCode == -1) {    // no push devices found. email only.
+                return ['success' => true, 'pushed' => false];
+            } else if ($responseCode == 200) {    // email and push ok.
+                return ['success' => true, 'pushed' => true];
+            }
+            // FIXME something wrong.
+            return ['success' => false, 'reason' => false];
         }
     }
 }

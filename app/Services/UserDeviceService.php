@@ -24,12 +24,7 @@ class UserDeviceService
         $counter = $userDevice->count();
 //echo 'push $counter=' . $counter;
         if ($counter > 0) {
-            if (1 == $counter) {
-                $device = $userDevice->get()[0]->reg_id;
-                $responseCode = FcmService::send($device, $payload);
-            } else {
-                $responseCode = FcmService::sendMultiple($userDevice->pluck('reg_id')->toArray(), $payload);
-            }
+            $responseCode = FcmService::sendMultiple($userDevice->pluck('reg_id')->toArray(), $payload);
             if (200 == $responseCode && $log_to_db) {
                 $message = new NotifyMessage;
                 $message->customer_id = $custId;
