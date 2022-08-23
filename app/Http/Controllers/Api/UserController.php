@@ -234,11 +234,11 @@ class UserController extends BaseController
             $device->user_id = $user->id;
             $device->status = 'approved';
             $device->save();
-        } else if ($device->status == 'canceled') {
+        } else if ($device->status != 'approved') {
             // update back to approved.
             $device->status = 'approved';
             $device->save();
         }
-        return ['success' => true];
+        return ['success' => true, 'id' => $device->id];
     }
 }
