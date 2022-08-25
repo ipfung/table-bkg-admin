@@ -89,8 +89,56 @@ class PaymentController extends BaseController
      */
     public function show($id)
     {
-        $trainer = User::find($id);
-        return $trainer->with('teammates');
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'amount' => 'required',
+            'status' => 'required',
+        ]);
+        $payment = Payment::find($id);
+        $payment->amount = $request->amount;
+        $payment->status = $request->status;
+        DB::beginTransaction();;
+        $payment->save();
+        $paymentStatus = $this->updatePaymentStatusByOrderId($payment->order_id);
+        DB::commit();
+        $success = true;
+
+        return compact('success', 'paymentStatus');
+    }
+
+    private function updatePaymentStatusByOrderId($order_id) {
+        $order = Order::find($order_id);
+        $payment = Payment::where('order_id', $order_id)
+            ->where('status', 'paid')
+            ->selectRaw(DB::raw('sum(amount) as total_paid'))
+            ->first();
+        if (!empty($payment)) {
+            $order_amount = $order->order_total - $order->discount;;
+            $order->paid_amount = $payment->total_paid;
+            if ($payment->total_paid >= $order_amount) {
+                $order->payment_status = 'paid';
+            } else if (($order_amount - $payment->total_paid) > 0) {
+                $order->payment_status = 'partially';
+            }
+            // change the order status as well.
+            if ($order->order_status != 'confirmed') {
+                $order->order_status = 'confirmed';
+            }
+        } else {
+            $order->payment_status = 'pending';
+        }
+        $order->save();
+        return $order->payment_status;
     }
 
     public function sendBillReminder($id) {

@@ -9,7 +9,7 @@ class Order extends Model
 {
 
     protected $appends = [
-        'due_amount', 'total_amount', 'paid_amount'
+        'due_amount', 'total_amount'
     ];
 
     /**
@@ -25,25 +25,8 @@ class Order extends Model
      */
     public function getDueAmountAttribute()
     {
-        $amt = $this->order_total - $this->getPaidAmountAttribute();
+        $amt = $this->order_total - $this->paid_amount;
         return $amt;
-    }
-
-    /**
-     * @return double paid amounts.
-     */
-    public function getPaidAmountAttribute()
-    {
-        $paid = 0;
-        if ($this->payments()) {
-            $payments = $this->payments();
-            foreach ($payments as $payment) {
-                if ($payment->status == 'paid') {
-                    $paid += $payment->amount;
-                }
-            }
-        }
-        return $paid;
     }
 
     public function customer()
