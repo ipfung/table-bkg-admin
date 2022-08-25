@@ -44,6 +44,7 @@ class BookingController extends BaseController
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->select('customer_bookings.*',
+                DB::raw('(select roles.color_name from users, roles where users.id=customer_bookings.customer_id and users.role_id=roles.id) as role_color_name'),
                 DB::raw('(select name from users where id=customer_bookings.customer_id) as customer_name'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),

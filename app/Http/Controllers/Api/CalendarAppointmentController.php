@@ -34,6 +34,7 @@ class CalendarAppointmentController extends BaseController
             ->join('users', 'appointments.user_id', '=', 'users.id')
             ->join('roles', 'users.role_id', '=', 'roles.id')
             ->select('appointments.id',
+                DB::raw('roles.color_name as role_color_name'),
                 DB::raw("CASE WHEN roles.name <> 'user' THEN users.name ELSE 'user' END as title"),
                 DB::raw('rooms.color'),
                 DB::raw('appointments.start_time as start'),

@@ -1,0 +1,48 @@
+--20220824
+update orders set paid_amount=(select sum(amount) from payments where order_id=orders.id and STATUS='paid');
+update orders set paid_amount=0 where paid_amount is null;
+
+--20220825
+update roles set color_name='red' where name='admin';
+update roles set color_name='orange' where name='manager';
+update roles set color_name='yellow' where name='internal_coach';
+update roles set color_name='green' where name='external_coach';
+update roles set color_name='blue' where name='member';
+update roles set color_name='purple' where name='user';
+
+
+
+
+--20220825. Below deprecated, use program seems better because we need to update both paid_amount and payment_status.
+DROP TRIGGER IF EXISTS upd_order_paidamt;
+DROP TRIGGER IF EXISTS ins_order_paidamt;
+
+DELIMITER $$
+CREATE TRIGGER ins_order_paidamt AFTER INSERT ON payments FOR EACH ROW
+BEGIN
+    DECLARE total_paid DOUBLE;
+
+    select sum(amount) INTO total_paid from payments, orders where payments.order_id=NEW.order_id and payments.STATUS='paid';
+
+    IF total_paid > 0 THEN
+        update orders set paid_amount=total_paid where id=NEW.order_id;
+    ELSE
+        update orders set paid_amount=0 where id=NEW.order_id;
+    END IF;
+END $$
+DELIMITER ;
+
+DELIMITER $$
+CREATE TRIGGER upd_order_paidamt AFTER UPDATE ON payments FOR EACH ROW
+BEGIN
+    DECLARE total_paid DOUBLE;
+
+    select sum(amount) INTO total_paid from payments where order_id=NEW.order_id and STATUS='paid';
+
+    IF total_paid > 0 THEN
+        update orders set paid_amount=total_paid where id=NEW.order_id;
+    ELSE
+        update orders set paid_amount=0 where id=NEW.order_id;
+    END IF;
+END $$
+DELIMITER ;

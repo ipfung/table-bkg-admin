@@ -51,7 +51,7 @@ class PaymentController extends BaseController
         if ($request->expectsJson()) {
 //            return $payments->get();
             // ref: https://stackoverflow.com/questions/52559732/how-to-add-custom-properties-to-laravel-paginate-json-response
-            $data = $payments->with('customer', 'details', 'payments')->paginate()->toArray();
+            $data = $payments->with('customer.role', 'details', 'payments')->paginate()->toArray();
             $data['showCustomer'] = $showCustomer;   // append to paginate()
             return $data;
         }
