@@ -21,7 +21,8 @@ class UserController extends BaseController
         $user = Auth::user();
         //
         DB::enableQueryLog(); // Enable query log
-        $users = User::orderBy('id', 'desc');
+        $users = User::orderBy('name', 'asc')
+            ->orderBy('id', 'desc');
 
         $editable = false;
         // only can see self if user is not in above level.
