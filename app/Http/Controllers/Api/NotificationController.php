@@ -42,4 +42,16 @@ class NotificationController extends BaseController
         }
         return view("notifications.list", $messages);
     }
+
+    public function update(Request $request, $id)
+    {
+        $user = Auth::user();
+        $message = NotifyMessage::find($id);
+        if ($message->customer_id == $user->id && $request->has('read')) {   // message recipient.
+            $message->has_read = $request->read;
+            $message->save();
+            return ['success' => true, 'read' => $request->read];
+        }
+        return ['success' => false];
+    }
 }

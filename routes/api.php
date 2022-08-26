@@ -44,7 +44,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::post('/register-push', 'Api\UserController@registerPush');
 
     // notifications
-    Route::get('/notifications', 'Api\NotificationController@index');
+    Route::apiResource('/notifications', 'Api\NotificationController');
     // simple API
     Route::apiResource('/timeslots', 'Api\TimeslotController');
     Route::apiResource('/rooms', 'Api\RoomController');
