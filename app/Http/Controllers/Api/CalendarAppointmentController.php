@@ -51,9 +51,22 @@ class CalendarAppointmentController extends BaseController
             $appointments->where('user_id', $user->id);
         }
 
+        if ($request->has('user_id')) {
+            if ($request->user_id > 0)
+                $appointments->where('user_id', $request->user_id);
+        }
+
+        if ($request->has('role_id')) {
+            if ($request->role_id > 0)
+                $appointments->where('users.role_id', $request->role_id);
+        }
+
         if ($request->has('room_id')) {
             if ($request->room_id > 0)
                 $appointments->where('room_id', $request->room_id);
+        } else if ($request->has('room_ids')) {
+            $myArray = explode(',', $request->room_ids);
+            $appointments->whereIn('room_id', $myArray);
         }
 
         if ($request->has('service_id')) {
