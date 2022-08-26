@@ -61,6 +61,16 @@ class RoomController extends BaseController
             'location_id' => 'required'
         ]);
         $room = new Room($request->all());
+        $colors = ["1788FB","FBC22D","FA3C52","D696B8","689BCA","26CC2B","4BBEC6","FD7E35","E38587","774DFB","31CDF3","6AB76C","FD5FA1","A697C5"];
+        shuffle($colors);
+        foreach ($colors as $color) {
+            $color = '#'.$color;
+            $dup = Room::where('color', $color)->first();
+            if (empty($dup)) {
+                $room->color = $color;
+                break;
+            }
+        }
         $room->save();
         return $this->sendResponse($room, 'Create successfully.');
     }
