@@ -55,7 +55,7 @@ class UserController extends BaseController
         }
         if ($request->has('name')) {
             if ($request->name != '')
-                $users->whereRaw('(upper(name) LIKE upper(?) or upper(mobile_no) = upper(?))', [$request->name . '%', $request->name]);
+                $users->whereRaw('(upper(name) LIKE upper(?))', [$request->name . '%']);
         }
         if ($request->has('email')) {
             if ($request->email != '')
