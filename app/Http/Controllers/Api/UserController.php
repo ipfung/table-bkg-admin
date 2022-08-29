@@ -50,8 +50,13 @@ class UserController extends BaseController
                 $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['member', 'user']);
         }
 
+        if ($request->has('role_id')) {
+            if ($request->role_id > 0)
+                $users->where('role_id', $request->role_id);
+        }
+
         if ($request->has('status')) {
-            if ($request->status > 0)
+            if ($request->status != '')
                 $users->where('status', $request->status);
         }
         if ($request->has('name')) {
