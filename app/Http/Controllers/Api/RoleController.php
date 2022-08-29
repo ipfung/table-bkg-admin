@@ -19,7 +19,7 @@ class RoleController extends BaseController
         $user = Auth::user();
 
         DB::enableQueryLog(); // Enable query log
-        $roles = Role::orderBy('name', 'asc');
+        $roles = Role::orderByRaw('FIELD(name, "manager", "internal_coach", "external_coach", "member", "user")');
         if ($this->isSuperLevel($user)) {
             $roles->whereIn('name', ['manager', 'internal_coach', 'external_coach', 'member', 'user']);
         } else {
