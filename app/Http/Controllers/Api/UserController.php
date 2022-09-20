@@ -63,6 +63,15 @@ class UserController extends BaseController
             if ($request->name != '')
                 $users->whereRaw('(upper(name) LIKE upper(?))', [$request->name . '%']);
         }
+        if ($request->has('second_name')) {
+            if ($request->second_name != '')
+                $users->whereRaw('(upper(second_name) LIKE upper(?))', [$request->second_name . '%']);
+        }
+
+        if ($request->has('mobile_no')) {
+            if ($request->mobile_no != '')
+                $users->where('mobile_no', 'LIKE', $request->mobile_no . '%');
+        }
         if ($request->has('email')) {
             if ($request->email != '')
                 $users->where('email', 'LIKE', $request->email . '%');
@@ -97,7 +106,7 @@ class UserController extends BaseController
             'name' => 'required|max:255',    // first name
             'email' => 'required|max:255|unique:users',   //|email
             'role_id' => 'required|exists:roles,id',   //roles
-//            'mobile_no' => 'required|min:8',
+            'mobile_no' => 'required|min:8',
             'password' => 'required|min:8',
         ]);
         $data = new User($request->all());
@@ -136,7 +145,9 @@ class UserController extends BaseController
         ]);
         $user = User::find($id);
         // update user, we don't use fill here because avatar and roles shouldn't be updated.
+        $user->mobile_no = $request->mobile_no;
         $user->name = $request->name;
+        $user->second_name = $request->second_name;
         $user->role_id = $request->role_id;
         $user->status = $request->status;
         if ($request->has('password')) {

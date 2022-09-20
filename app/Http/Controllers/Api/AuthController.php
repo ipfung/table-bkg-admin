@@ -20,10 +20,16 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        if(Auth::attempt(['email' => $request->email, 'password' => $request->password, 'status' => 'active'])) {
+        if ($request->input('loginMethod') == 'phone') {
+            $field = 'mobile_no';
+        } else {
+            $field = 'email';
+        }
+        if(Auth::attempt([$field => $request->input($field), 'password' => $request->password, 'status' => 'active'])) {
             $user = Auth::user();
             $success['token'] =  $user->createToken('MyApp')->plainTextToken;
             $success['name'] =  $user->name;
+            $success['email'] =  $user->email;
             $success['avatar'] =  $user->avatar;
 
             return $success;
