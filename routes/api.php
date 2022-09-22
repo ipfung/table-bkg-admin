@@ -49,6 +49,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::apiResource('/notifications', 'Api\NotificationController');
     // simple API
     Route::apiResource('/timeslots', 'Api\TimeslotController');
+    Route::apiResource('/trainer-timeslots', 'Api\TrainerTimeslotController');
     Route::apiResource('/rooms', 'Api\RoomController');
     Route::get('/locations', 'Api\LocationController@index');    //
 });
