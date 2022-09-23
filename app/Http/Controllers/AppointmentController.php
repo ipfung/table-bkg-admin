@@ -395,7 +395,7 @@ class AppointmentController extends Controller
 
     }
 
-    private function getAppointmentDates($user, $date, $time, $noOfSession, $sessionInterval, $room_id) {
+    private function getAppointmentDates($user, $date, $time, $noOfSession, $sessionInterval, $room_id, $assignRandomRoom) {
         // get min & max dates by user
         $dates = $this->getDates($user);
         $minDate = $dates[0];
@@ -414,7 +414,6 @@ class AppointmentController extends Controller
 //        echo "<br />startTime3=" . $dt2;
 
         // Room availability checking.
-        $assignRandomRoom = true;   // can get from Company settings.
         $assignedRoom = -1;
         if ($assignRandomRoom) {
             // support to assign dynamic room.
