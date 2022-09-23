@@ -9,13 +9,15 @@ use App\Models\Order;
 use App\Models\OrderDetail;
 use App\Models\Payment;
 use App\Models\Room;
+use App\Models\Service;
 use App\Models\Timeslot;
+use App\Models\TrainerTimeslot;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use DateTime;
 use DateTimeZone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -46,22 +48,46 @@ class AppointmentController extends Controller
         $maxDate = $dates[1];
         // get timeslot
         $EPOCH = 60;
-        $dayOfWeek_timeslots = Timeslot::all();
-//        $roomId = -1;     // TODO how to support dynamic room to user?
-        $roomId = 1;     // hardcode it for testing.
+        $roomId = -1;
         if ($request->has('room_id')) {
             $roomId = $request->room_id;
         }
-        $appointmentId = 0;     // for reschedule use, bypass the booked appointment so user could book +/- one session time.
-        $sessionInterval = 30;    // minute, from Location settings.
-        $noOfSession = 2;         // minimum session, from Location settings.
-        $serviceTime = 60;        // minute, from Service record.
-        $price = $user->role->default_price;              // from Service record, FIXME different user has different price.
+        if ($request->has('the_date')) {
+            $minDate = $request->the_date;
+            $maxDate = $request->the_date;
+        }
+        $locationId = 1;          // FIXME from roomId
+        $appointmentId = 0;       // for reschedule use, bypass the booked appointment so user could book +/- one session time.
+        $service = Service::find(1);
+        // support passing service_id from client side, use service's duration, price...etc.
+        if ($request->has('service_id')) {
+            if ($request->service_id > 1) {
+                $service = Service::find($request->service_id);
+            }
+        } else {
+            // TODO throw error if no service id?
+        }
+        $sessionMinute = $service->session_min;        // each session minute, from Service settings.
+        $sessionDuration = $service->duration;        // default duration, from Service settings.
+        $serviceTime = $service->min_duration;        // min minute duration, from Service record.
+        $noOfSession = $serviceTime / $sessionDuration;         // minimum session, from Service settings.
+        $customerId = -1;
+        $price = $service->price;
+        if ($request->has('customer_id')) {    // custom appointment(means it's not from appointment wizard)
+            $customerId = $request->customer_id;
+            $customer = User::find($customerId)->first();  // get price.
+            if ($service->price < 0)
+                $price = $customer->role->default_price;
+        } else {
+            if ($service->price < 0)
+                $price = $user->role->default_price;              // from Service record, FIXME different user has different price.
+        }
         if ($price <= 0) {
             $price = 999;
         }
-        $sessionPrice = $price / ($serviceTime / $sessionInterval);
-        $sessionIntervalEpoch = $sessionInterval * $EPOCH;
+        $sessionPrice = $price / ($serviceTime / $sessionDuration);
+        $sessionIntervalEpoch = $sessionMinute * $EPOCH;
+        $sessionDurationEpoch = $sessionDuration * $EPOCH;
         if ($request->has('noOfSession')) {
             if ($request->noOfSession < $noOfSession) {
                 // FIXME prompt error if selected sessions less than default session.
@@ -75,17 +101,30 @@ class AppointmentController extends Controller
             // find number of session.
             $appointedTime = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->timestamp;
             $appointedEndTime = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time)->timestamp;
-            $noOfSession = ($appointedEndTime - $appointedTime) / $sessionIntervalEpoch;
+            $noOfSession = ($appointedEndTime - $appointedTime) / $sessionDurationEpoch;
             $price = $sessionPrice * $noOfSession;
 //        echo 'bookId noOfSession, price=' . $price . ', ' . $noOfSession;
         }
 //        echo 'dayOfWeek_timeslots=' . $dayOfWeek_timeslots;
         // create a TODAY 0:00 epoch.
         $today = Carbon::today()->timestamp;
-        $tomorrow = Carbon::today()->addDay()->timestamp;
-        $sessionToBeBooked = ($noOfSession * $sessionIntervalEpoch);   // client selected session * each session, in epoch.
+        $sessionToBeBooked = ($noOfSession * $sessionDurationEpoch);   // client selected session * each session, in epoch.
+        $trainerId = 0;
         // 2-dimension array per week_number.
         $freeTimesolts = array(array());
+        if ($request->has('trainer_id')) {
+            $trainerId = $request->trainer_id;
+            $dayOfWeek_timeslots = TrainerTimeslot::where('location_id', $locationId)
+                ->where('trainer_id', $trainerId)
+                ->orderBy('day_idx', 'asc')
+                ->orderBy('from_time', 'asc')
+                ->get();
+        } else {
+            $dayOfWeek_timeslots = Timeslot::where('location_id', $locationId)
+                ->orderBy('day_idx', 'asc')
+                ->orderBy('from_time', 'asc')
+                ->get();
+        }
         foreach ($dayOfWeek_timeslots as $key => $dow) {
 //            echo 'key=' . $key;
 //            echo '<br />' . $dow->day_idx . ': ' . $dow->from_time . ' to ' . $dow->to_time;
@@ -119,42 +158,49 @@ class AppointmentController extends Controller
             }
 //            echo ', $freeTimesolts[$dow->day_idx]=' . json_encode($freeTimesolts[$dow->day_idx]) . '!';
         }
+//
+//        // TODO get appointed timeslot by minDate and maxDate.
+//        $nextDayOfMaxDate = Carbon::parse($maxDate)->addDay();
+//        $appointments = Appointment::orderBy('start_time', 'asc')
+//            ->whereIn('status', ['approved', 'pending'])
+//            ->where('start_time', '>=', $minDate)
+//            ->where('end_time', '<=', $nextDayOfMaxDate);
+//        if ($roomId > 0) {
+//            $appointments->where('room_id', $roomId);
+//        }
+//        if ($appointmentId > 0) {   // bypass for reschedule.
+//            $appointments->where('id', '<>', $appointmentId);
+//        }
+//        if ($trainerId > 0) {   // bypass trainer.
+//            $appointments->where('user_id', '<>', $trainerId);
+//        }
+//        $appointments = $appointments->get();
+////echo 'appointed=' . $nextDayOfMaxDate . json_encode($appointments);
+//
+//        // convert appointed to time epoch.
+//        $appointedEpoch = [];
+//        foreach ( $appointments as $appointed ) {
+//            $appointedTime = Carbon::createFromFormat('Y-m-d H:i:s', $appointed->start_time)->timestamp;
+//            $appointedEndTime = Carbon::createFromFormat('Y-m-d H:i:s', $appointed->end_time)->timestamp;
+//            $totalAppointedSessions = (($appointedEndTime - $appointedTime) / $sessionIntervalEpoch);
+////echo 'appointed totalAppointedSessions=' . $totalAppointedSessions . '....';
+//            // convert appointed start_time to end_time to each session time epoch.
+//            for ($i = 0; $i < $totalAppointedSessions; $i++) {
+////echo ', =' . ($appointedTime + ($i * $sessionIntervalEpoch));
+//                $appointedEpoch[] = ($appointedTime + ($i * $sessionIntervalEpoch));
+//            }
+//            // also need to block time of appointed' start_time - $sessionToBeBooked.
+//            for ($i = 1; $i < $noOfSession; $i++) {
+////echo ', ===' . ($appointedTime + ($i * $sessionIntervalEpoch));
+//                $appointedEpoch[] = ($appointedTime - ($i * $sessionIntervalEpoch));
+//            }
+//        }
+////echo 'appointed epoch=' . json_encode($appointedEpoch);
 
-        // TODO get appointed timeslot by minDate and maxDate.
-        $nextDayOfMaxDate = Carbon::parse($maxDate)->addDay();
-        $appointments = Appointment::orderBy('start_time', 'asc')
-            ->whereIn('status', ['approved', 'pending'])
-            ->where('start_time', '>=', $minDate)
-            ->where('end_time', '<=', $nextDayOfMaxDate);
-        if ($roomId > 0) {
-            $appointments->where('room_id', $roomId);
-        }
-        if ($appointmentId > 0) {   // bypass for reschedule.
-            $appointments->where('id', '<>', $appointmentId);
-        }
-        $appointments = $appointments->get();
-//echo 'appointed=' . $nextDayOfMaxDate . json_encode($appointments);
-
-        // convert appointed to time epoch.
-        $appointedEpoch = [];
-        foreach ( $appointments as $appointed ) {
-            $appointedTime = Carbon::createFromFormat('Y-m-d H:i:s', $appointed->start_time)->timestamp;
-            $appointedEndTime = Carbon::createFromFormat('Y-m-d H:i:s', $appointed->end_time)->timestamp;
-            $totalAppointedSessions = (($appointedEndTime - $appointedTime) / $sessionIntervalEpoch);
-//echo 'appointed totalAppointedSessions=' . $totalAppointedSessions . '....';
-            // convert appointed start_time to end_time to each session time epoch.
-            for ($i = 0; $i < $totalAppointedSessions; $i++) {
-//echo ', =' . ($appointedTime + ($i * $sessionIntervalEpoch));
-                $appointedEpoch[] = ($appointedTime + ($i * $sessionIntervalEpoch));
-            }
-            // also need to block time of appointed' start_time - $sessionToBeBooked.
-            for ($i = 1; $i < $noOfSession; $i++) {
-//echo ', ===' . ($appointedTime + ($i * $sessionIntervalEpoch));
-                $appointedEpoch[] = ($appointedTime - ($i * $sessionIntervalEpoch));
-            }
-        }
-//echo 'appointed epoch=' . json_encode($appointedEpoch);
-
+        $all_rooms = Room::orderBy('name', 'asc')
+            ->where('status', 1001)
+//            ->limit(2)   // FIXME debug use only.
+            ->get();
         $start_date = strtotime($minDate);
         $end_date = strtotime($maxDate);
 //        echo '<br/>maxDate=' . $maxDate;
@@ -169,11 +215,21 @@ class AppointmentController extends Controller
             foreach ( $freeslots as $index=>$slot ) {
 //echo "s3=" . ($start_date + $slot["time"]);
                 $dateTimeEpoch = $start_date + $slot["time"];
-                for ($i=0; $i<sizeof($appointedEpoch); $i++) {
-                    if ($dateTimeEpoch == $appointedEpoch[$i]) {
-                        unset($freeslots[$index]);
+//echo "<br />dateTimeEpoch0000=" . $dateTimeEpoch;
+                $dt = (new DateTime("@$dateTimeEpoch"))->format('Y-m-d H:i:s');
+                $endTime = $dateTimeEpoch + ($noOfSession * $sessionMinute);
+                $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
+//echo "<br />startTime0=" . $dt . ', en0=' . $dt2;
+                $allRoomOccupied = true;
+                foreach ($all_rooms as $room) {
+//echo "roomid2222=" . $room->id;
+                    if (!$this->isRoomOccupied($room->id, $dt, $dt2)) {   // false = not occupied.
+                        $allRoomOccupied = false;
                         break;
                     }
+                }
+                if ($allRoomOccupied) {
+                    unset($freeslots[$index]);
                 }
 //echo "slot_time====" . $slot_time;
             }
@@ -185,7 +241,7 @@ class AppointmentController extends Controller
             $d->addDay();
             $start_date = $d->timestamp;
         }
-        $results = ['minDate' => $minDate, 'maxDate' => $maxDate, 'noOfSession' => $noOfSession, 'sessionInterval' => $sessionIntervalEpoch, 'data' => $dateFreeslots];
+        $results = ['minDate' => $minDate, 'maxDate' => $maxDate, 'noOfSession' => $noOfSession, 'sessionInterval' => $sessionDurationEpoch, 'data' => $dateFreeslots];
 //        $results['role'] = $user;   // debug use only
 //        echo '<br/>result=' . json_encode($results) . '!';
         if ($request->expectsJson()) {
@@ -246,7 +302,7 @@ class AppointmentController extends Controller
             'roomId' => 'required|integer',
             'serviceId' => 'required|integer',
             'price' => 'required',
-            'paymentMethod' => 'required',
+//            'paymentMethod' => 'required',
 //            'order_status' => 'required',
         ]);
         $assignRandomRoom         = true;   // can get from Company settings.
@@ -308,7 +364,8 @@ class AppointmentController extends Controller
         }
         $order->customer_id = $customerBooking->customer_id;
         $order->user_id = $user->id;
-        $order->payment_status = 'pending';       // FIXME get payment status from gateway response.
+        $order->paid_amount = $appointment->status == 'approved' ? $order->order_total : 0;
+        $order->payment_status = $appointment->status == 'approved' ? 'paid' : 'pending';       // FIXME get payment status from gateway response.
         $order->order_status = $appointment->status == 'approved' ? 'confirmed' : 'pending';
         $order->save();
 
@@ -333,11 +390,9 @@ class AppointmentController extends Controller
         $payment->entity = 'appointment';
         $payment->save();
 
-        if ($appointment->status == 'approved') {
-            Mail::to($user->email)
-                ->bcc(config('mail.from.address'))
-                ->send(new AppointmentApproved(CustomerBooking::find($customerBooking->id)));
-        }
+        Mail::to($user->email)
+            ->bcc(config('mail.from.address'))
+            ->send(new AppointmentApproved(CustomerBooking::find($customerBooking->id)));
 
         DB::commit();
 
