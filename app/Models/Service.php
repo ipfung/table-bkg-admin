@@ -18,6 +18,7 @@ class Service extends Model
         $max_count = $this->max_duration / $this->duration;
         $sessions = [];
         for ($i=$counter; $i<=$max_count; $i++) {
+            $hours = 0;
             if ($duration > 59) {
                 $hours = floor($duration / 60);
                 $minutes = ($duration % 60);
