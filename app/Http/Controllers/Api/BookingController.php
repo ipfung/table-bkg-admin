@@ -134,6 +134,37 @@ class BookingController extends BaseController
     }
 
     /**
+     * reject booking.
+     *
+     * @param Request $request
+     * @param $id
+     * @return array|void
+     */
+    public function rejectBooking(Request $request, $id) {
+        $user = Auth::user();
+        // only allow user to cancel unpaid booking.
+        if ($this->isSuperLevel($user)) {
+            $booking = CustomerBooking::find($id);
+            // ok to cancel booking once.
+            $booking->appointment->status = 'rejected';
+            $booking->appointment->save();
+            $booking->save();
+            $results = ['success' => true, 'status' => $booking->appointment->status];
+            // send mail if notify option enabled.
+//                if ($booking->appointment->status == 'reject') {   // FIXME check option.
+//                    Mail::to($user->email)
+//                        ->bcc(config('mail.from.address'))
+//                        ->send(new AppointmentRejected($booking));
+//                }
+        } else {
+            $results = ['success' => false, 'error' => 'You cannot reject appointment.'];
+        }
+        if ($request->expectsJson()) {
+            return $results;
+        }
+    }
+
+    /**
      * approve booking.
      *
      * @param Request $request

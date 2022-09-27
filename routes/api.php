@@ -27,6 +27,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::post('/reschedule/{id}', 'AppointmentController@reschedule');
     Route::get('/booking', 'Api\BookingController@index');
     Route::put('/booking-approve/{id}', 'Api\BookingController@approveBooking');
+    Route::put('/booking-reject/{id}', 'Api\BookingController@rejectBooking');
     Route::put('/booking-cancel/{id}', 'Api\BookingController@cancelBooking');
     Route::post('/booking-checkin/{id}', 'Api\BookingController@punchInBooking');
     // trainer-student actions
