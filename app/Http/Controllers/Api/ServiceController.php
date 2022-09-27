@@ -44,6 +44,24 @@ class ServiceController extends BaseController
     }
 
     /**
+     * get logged user's default service object.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getUserService(Request $request)
+    {
+        $user = Auth::user();
+        if ($user->service_id > 0) {
+            $service = Service::where('id', $user->service_id)
+                ->where('status', 1001);
+            if ($request->expectsJson()) {
+                return $service->first();
+            }
+            return view("services.list", $service);
+        }
+    }
+
+    /**
      * Store a newly created resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request

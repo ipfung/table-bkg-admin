@@ -45,6 +45,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::put('/active-user/{id}', 'Api\UserController@activeUser');
     Route::post('/register-push', 'Api\UserController@registerPush');
 
+    Route::get('/user-service', 'Api\ServiceController@getUserService');
     // notifications
     Route::apiResource('/notifications', 'Api\NotificationController');
     // simple API
