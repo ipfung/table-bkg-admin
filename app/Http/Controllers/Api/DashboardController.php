@@ -152,7 +152,7 @@ class DashboardController extends BaseController
                 DB::raw('(select color_name from roles where id=appointments.user_id) as role_color_name'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
-                'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name')
+                'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name', 'rooms.color')
             ->whereIn('appointments.status', ['pending', 'approved'])
             ->where('appointments.start_time', '>=', $this->getCurrentDateTime() )
             ->orderBy('appointments.start_time', 'asc')
