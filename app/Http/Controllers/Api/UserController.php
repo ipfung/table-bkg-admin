@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\User;
 use App\Models\UserDevice;
+use App\Models\UserTeammate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use TCG\Voyager\Models\Role;
 
 class UserController extends BaseController
 {
@@ -45,7 +47,7 @@ class UserController extends BaseController
 //                $users->whereRaw('role_id in (select id from roles where name=?)', ['admin']);
             }
             if ($request->role == 'Trainer')
-                $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['internal_coach', 'external_coach']);
+                $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?))', ['internal_coach', 'external_coach', 'manager']);
             if ($request->role == 'Student')
                 $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['member', 'user']);
         }
@@ -94,6 +96,39 @@ class UserController extends BaseController
     }
 
     /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getByRole(Request $request)
+    {
+        DB::enableQueryLog(); // Enable query log
+        $users = User::orderBy('name', 'asc')
+            ->orderBy('id', 'desc');
+
+        if ($request->role == 'User') {
+//                $users->whereRaw('role_id in (select id from roles where name=?)', ['admin']);
+        }
+        if ($request->role == 'Trainer')
+            $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?))', ['internal_coach', 'external_coach', 'manager']);
+        if ($request->role == 'Student')
+            $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['member', 'user']);
+
+        if ($request->has('status')) {
+            if ($request->status != '')
+                $users->where('status', $request->status);
+        }
+        if ($request->expectsJson()) {
+            return $users->paginate();
+        }
+        return view("users.list", $users);
+    }
+
+    private function getRole($roleId) {
+        return Role::find($roleId);
+    }
+
+    /**
      * Store a newly created resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -111,9 +146,24 @@ class UserController extends BaseController
         ]);
         $data = new User($request->all());
         $data->password = Hash::make($request->password);
+        $settings = $request->input('settings');
+        $data->settings = json_encode($settings);
+
+        DB::beginTransaction();
         $data->save();
+        $saveTrainer = false;
+        if ($settings['trainer']) {
+            // add to user_teammates
+            $userTeammate = new UserTeammate;
+            $userTeammate->user_id = $settings['trainer'];
+            $userTeammate->teammate_id = $data->id;
+            $userTeammate->created_by = $data->id;
+            $userTeammate->save();
+            $saveTrainer = true;
+        }
+        DB::commit();
         $success = true;
-        return compact('success', 'data');
+        return compact('success', 'data', 'saveTrainer');
     }
 
     /**
@@ -155,10 +205,24 @@ class UserController extends BaseController
                 $user->password = Hash::make($request->password);
             }
         }
+        DB::beginTransaction();
+//        $settings = $this->getReqSettings($request);
+        $settings = $request->input('settings');
+        $user->settings = json_encode($settings);
+        $saveTrainer = false;
+        if ($settings['trainer']) {
+            // update user_teammates
+            $userTeammate = UserTeammate::where('teammate_id', $id)->first();
+            $userTeammate->user_id = $settings['trainer'];
+            $userTeammate->created_by = $user->id;
+            $userTeammate->save();
+            $saveTrainer = true;
+        }
         $user->save();
+        DB::commit();
         $success = true;
 
-        return compact('success');
+        return compact('success', 'saveTrainer');
     }
 
 //    /**

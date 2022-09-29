@@ -53,6 +53,14 @@ class User extends \TCG\Voyager\Models\User
         return rand(1, 5);
     }
 
+    /**
+     * override Voyager' settings which will cause us toJson() error.
+     * @param $value
+     * @return void
+     */
+    public function setSettingsAttribute($value) {
+        $this->attributes['settings'] = $value;
+    }
 
     public function role()
     {

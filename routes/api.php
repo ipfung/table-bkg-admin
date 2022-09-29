@@ -42,6 +42,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     // all user actions
     Route::get('/roles', 'Api\RoleController@index');
     Route::apiResource('users', 'Api\UserController');
+    Route::get('trainers', 'Api\UserController@getByRole');
     Route::put('/ban-user/{id}', 'Api\UserController@banUser');
     Route::put('/active-user/{id}', 'Api\UserController@activeUser');
     Route::post('/register-push', 'Api\UserController@registerPush');
