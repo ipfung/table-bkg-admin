@@ -211,6 +211,7 @@ class AppointmentController extends Controller
             // TODO check if it's special day/holiday.
             // get freeslot from week_number freeslot.
             $freeslots = $freeTimesolts[$d->dayOfWeek];    // it contains 'time', 'price'.
+            $isDayOff = (sizeof($freeslots) == 0);
             // TODO remove occupied time.
             foreach ( $freeslots as $index=>$slot ) {
 //echo "s3=" . ($start_date + $slot["time"]);
@@ -236,7 +237,7 @@ class AppointmentController extends Controller
             $freeslots = array_values($freeslots);   // ref: https://stackoverflow.com/questions/369602/deleting-an-element-from-an-array-in-php
             // TODO remove time that is less than selected sessions.
             // the date & its availability.
-            $dateFreeslots[] = ['date' => $d->format('Y-m-d'), 'freeslots' => $freeslots];
+            $dateFreeslots[] = ['date' => $d->format('Y-m-d'), 'freeslots' => $freeslots, 'dayoff' => $isDayOff];
             // increment 1 day for next iterate.
             $d->addDay();
             $start_date = $d->timestamp;
