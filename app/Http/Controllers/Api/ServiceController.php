@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Service;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -55,7 +56,15 @@ class ServiceController extends BaseController
             $service = Service::where('id', $user->service_id)
                 ->where('status', 1001);
             if ($request->expectsJson()) {
-                return $service->first();
+                $data = $service->first();
+                if (!empty($user->settings)) {
+                    $settings = json_decode($user->settings);
+                    if ($settings->trainer) {
+                        $trainer = User::find($settings->trainer);
+                        $data->trainer = ["id" => $settings->trainer, "name" => $trainer->name, "avatar" => $trainer->avatar, "mobile_no" => $trainer->mobile_no];
+                    }
+                    return $data;
+                }
             }
             return view("services.list", $service);
         }
