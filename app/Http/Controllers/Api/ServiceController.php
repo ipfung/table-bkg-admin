@@ -59,7 +59,7 @@ class ServiceController extends BaseController
                 $data = $service->first();
                 if (!empty($user->settings)) {
                     $settings = json_decode($user->settings);
-                    if ($settings->trainer) {
+                    if (isset($settings->trainer)) {
                         $trainer = User::find($settings->trainer);
                         $data->trainer = ["id" => $settings->trainer, "name" => $trainer->name, "avatar" => $trainer->avatar, "mobile_no" => $trainer->mobile_no];
                     }
