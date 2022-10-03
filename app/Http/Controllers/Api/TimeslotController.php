@@ -61,6 +61,27 @@ class TimeslotController extends BaseController
         return $this->sendResponse($timeslot, 'Create successfully.');
     }
 
+    public function copyMonday(Request $request) {
+        // get Monday only timeslots.
+        $monday_timeslots = Timeslot::where('day_idx', 1)->where('location_id', 1)->get();
+        DB::beginTransaction();
+        // delete all except Monday timeslots.
+        Timeslot::where('day_idx', '<>', 1)->where('location_id', 1)->delete();
+        // loop Tue to Sun in order to copy Monday timeslots.
+        for ($i=2; $i<8; $i++) {
+            foreach ($monday_timeslots as $monday_timeslot) {
+                $day = new Timeslot;
+                $day->day_idx = $i;
+                $day->location_id = $monday_timeslot->location_id;
+                $day->from_time = $monday_timeslot->from_time;
+                $day->to_time = $monday_timeslot->to_time;
+                $day->save();
+            }
+        }
+        DB::commit();
+        return $this->sendResponse($monday_timeslots, 'Copy successfully.');
+    }
+
     /**
      * Display the specified resource.
      *
