@@ -10,6 +10,7 @@ use App\Models\OrderDetail;
 use App\Models\Payment;
 use App\Models\Room;
 use App\Models\Service;
+use App\Models\Holiday;
 use App\Models\Timeslot;
 use App\Models\TrainerTimeslot;
 use App\Models\User;
@@ -201,7 +202,7 @@ class AppointmentController extends Controller
             ->where('status', 1001)
 //            ->limit(2)   // FIXME debug use only.
             ->get();
-        $start_date = strtotime($minDate);
+        $start_date = strtotime($minDate);   // to epoch.
         $end_date = strtotime($maxDate);
 //        echo '<br/>maxDate=' . $maxDate;
         $d = new Carbon($start_date);
@@ -209,32 +210,39 @@ class AppointmentController extends Controller
         // ref: https://tecadmin.net/php-loop-between-two-dates/#:~:text=PHP%20Loop%20Between%20Two%20Dates%20with%20Alternate%20Dates%3A&text=%3C%3F-,php%20date_default_timezone_set('UTC')%3B%20%24start_date%20%3D%20'2015%2D01,)))%3B%20%7D%20%3F%3E
         while ($start_date <= $end_date) {
             // TODO check if it's special day/holiday.
-            // get freeslot from week_number freeslot.
-            $freeslots = $freeTimesolts[$d->dayOfWeek];    // it contains 'time', 'price'.
-            $isDayOff = (sizeof($freeslots) == 0);
-            // TODO remove occupied time.
-            foreach ( $freeslots as $index=>$slot ) {
+            // check office days off.
+            $daysoff = Holiday::where('location_id', $locationId)->whereRaw('(? between start_date and end_date)', $d->format('Y-m-d'))->first();
+            if (!empty($daysoff)) {
+                $isDayOff = true;
+                $freeslots = [];
+            } else {
+                // get freeslot from week_number freeslot.
+                $freeslots = $freeTimesolts[$d->dayOfWeek];    // it contains 'time', 'price'.
+                $isDayOff = (sizeof($freeslots) == 0);
+                // TODO remove occupied time.
+                foreach ($freeslots as $index => $slot) {
 //echo "s3=" . ($start_date + $slot["time"]);
-                $dateTimeEpoch = $start_date + $slot["time"];
+                    $dateTimeEpoch = $start_date + $slot["time"];
 //echo "<br />dateTimeEpoch0000=" . $dateTimeEpoch;
-                $dt = (new DateTime("@$dateTimeEpoch"))->format('Y-m-d H:i:s');
-                $endTime = $dateTimeEpoch + ($noOfSession * $sessionMinute);
-                $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
+                    $dt = (new DateTime("@$dateTimeEpoch"))->format('Y-m-d H:i:s');
+                    $endTime = $dateTimeEpoch + ($noOfSession * $sessionMinute);
+                    $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
 //echo "<br />startTime0=" . $dt . ', en0=' . $dt2;
-                $allRoomOccupied = true;
-                foreach ($all_rooms as $room) {
+                    $allRoomOccupied = true;
+                    foreach ($all_rooms as $room) {
 //echo "roomid2222=" . $room->id;
-                    if (!$this->isRoomOccupied($room->id, $dt, $dt2)) {   // false = not occupied.
-                        $allRoomOccupied = false;
-                        break;
+                        if (!$this->isRoomOccupied($room->id, $dt, $dt2)) {   // false = not occupied.
+                            $allRoomOccupied = false;
+                            break;
+                        }
                     }
-                }
-                if ($allRoomOccupied) {
-                    unset($freeslots[$index]);
-                }
+                    if ($allRoomOccupied) {
+                        unset($freeslots[$index]);
+                    }
 //echo "slot_time====" . $slot_time;
+                }
+                $freeslots = array_values($freeslots);   // ref: https://stackoverflow.com/questions/369602/deleting-an-element-from-an-array-in-php
             }
-            $freeslots = array_values($freeslots);   // ref: https://stackoverflow.com/questions/369602/deleting-an-element-from-an-array-in-php
             // TODO remove time that is less than selected sessions.
             // the date & its availability.
             $dateFreeslots[] = ['date' => $d->format('Y-m-d'), 'freeslots' => $freeslots, 'dayoff' => $isDayOff];
