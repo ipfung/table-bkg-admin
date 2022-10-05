@@ -40,8 +40,8 @@ class CalendarAppointmentController extends BaseController
                 DB::raw('appointments.start_time as start'),
                 DB::raw('appointments.end_time as end')
             )
-            ->where('start_time', '>=', $fromDate )
-            ->where('end_time', '<=', $toDate )
+            ->whereRaw('CAST(appointments.start_time AS DATE)>=?', $fromDate )
+            ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate )
             ->whereIn("appointments.status", ['approved', 'pending']);   // pending also classify as booked.
         if ($this->isSuperLevel($user)) {
             if ($request->has('user_id')) {
