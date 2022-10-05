@@ -238,6 +238,7 @@ return [
         'local_timezone' => env('JWS_TIMEZONE'),
         'auto_reject_unpaid_booking' => env('JWS_AUTO_REJECT_UNPAID_APPOINTMENT'),
         'settings' => [
+            'room_icon' => env('LEMONADE_ROOM_ICON'),
             'finance' => env('LEMONADE_FINANCE'),
         ],
         'fcm_server_key' => env('FCM_SERVER_KEY'),
