@@ -51,8 +51,8 @@ class BookingController extends BaseController
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
                 'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name', 'rooms.color')
-            ->where('appointments.start_time', '>=', $fromDate )
-            ->where('appointments.end_time', '<=', $toDate )
+            ->whereRaw('CAST(appointments.start_time AS DATE)>=?', $fromDate )
+            ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate )
             ->orderBy('appointments.start_time', 'asc')
             ->orderBy('rooms.name', 'asc');
         $results = [];
