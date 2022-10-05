@@ -326,15 +326,19 @@ class AppointmentController extends Controller
             return $results;
         }
 
+        // use trainer_id as appointment user, if the appointment is trainer-student relationship.
+        $userId = $user->id;
+        if ($request->has('trainerId')) {
+            if ($request->trainerId > 0) {
+                $userId = $request->trainerId;
+            }
+        }
         // check if user is new, make appointment status to 'pending' instead.
         $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
         $isFirstTimeBookUser = true;
         foreach ($bookedAppointments as $bookedAppointment) {
             if ($bookedAppointment->status == 'approved') {
                 $isFirstTimeBookUser = false;
-            }
-            if ($bookedAppointment->start_time) {    // check any future booking, restrict number of booking to be booked.
-
             }
         }
 
@@ -345,7 +349,7 @@ class AppointmentController extends Controller
         $appointment->start_time = $appointmentDates['start_time'];
         $appointment->end_time = $appointmentDates['end_time'];
         $appointment->room_id = $appointmentDates['room_id'];
-        $appointment->user_id = $user->id;
+        $appointment->user_id = $userId;
         $appointment->service_id = $request->serviceId;
 //        $appointment->package_id
 //        $appointment->lesson_space

@@ -45,6 +45,7 @@ class BookingController extends BaseController
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->select('customer_bookings.*',
+                DB::raw('(select name from users where id=appointments.user_id) as user_name'),
                 DB::raw('(select roles.color_name from users, roles where users.id=customer_bookings.customer_id and users.role_id=roles.id) as role_color_name'),
                 DB::raw('(select name from users where id=customer_bookings.customer_id) as customer_name'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
@@ -55,14 +56,27 @@ class BookingController extends BaseController
             ->orderBy('appointments.start_time', 'asc')
             ->orderBy('rooms.name', 'asc');
         $results = [];
-        if ($this->isSuperLevel($user)) {
+        if ($this->isInternalCoachLevel($user)) {
+            $results['newable'] = true;
             if ($request->has('customer_id')) {
                 $bookings->where('customer_id', $request->customer_id);
             }
             $results['showCustomer'] = true;
+            $results['showTrainer'] = true;
+        } else if ($this->isExternalCoachLevel($user)) {
+            $results['newable'] = false;
+            if ($request->has('customer_id')) {
+                $bookings->where('customer_id', $request->customer_id);
+            }
+            // trainer and coach could see student appointments.
+            $bookings->where('user_id', $user->id);
+            $results['showCustomer'] = true;
+            $results['showTrainer'] = false;
         } else {
+            $results['newable'] = false;
             $bookings->where('customer_id', $user->id);
             $results['showCustomer'] = false;
+            $results['showTrainer'] = true;
         }
 
         if ($request->expectsJson()) {
@@ -195,7 +209,6 @@ class BookingController extends BaseController
         if ($request->expectsJson()) {
             return $results;
         }
-
     }
 
     /**
