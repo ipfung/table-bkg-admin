@@ -45,7 +45,7 @@ class BookingController extends BaseController
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->select('customer_bookings.*',
-                DB::raw('(select name from users where id=appointments.user_id) as user_name'),
+                DB::raw("(select a.name from users a, roles b where a.id=appointments.user_id and a.role_id=b.id and b.name in ('manager', 'internal_coach', 'external_coach')) as user_name"),
                 DB::raw('(select roles.color_name from users, roles where users.id=customer_bookings.customer_id and users.role_id=roles.id) as role_color_name'),
                 DB::raw('(select name from users where id=customer_bookings.customer_id) as customer_name'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
@@ -148,7 +148,7 @@ class BookingController extends BaseController
     }
 
     /**
-     * reject booking.
+     * reject booking by trainer or above.
      *
      * @param Request $request
      * @param $id
@@ -157,8 +157,13 @@ class BookingController extends BaseController
     public function rejectBooking(Request $request, $id) {
         $user = Auth::user();
         // only allow user to cancel unpaid booking.
-        if ($this->isSuperLevel($user)) {
+        if ($this->isExternalCoachLevel($user)) {
             $booking = CustomerBooking::find($id);
+            if (!$this->isSuperLevel($user)) {
+                if ($booking->appointment->user_id != $user->id) {
+                    return ['success' => false, 'error' => 'You cannot reject appointment that is not belong to you.'];
+                }
+            }
             // ok to cancel booking once.
             $booking->appointment->status = 'rejected';
             $booking->appointment->save();
@@ -179,7 +184,7 @@ class BookingController extends BaseController
     }
 
     /**
-     * approve booking.
+     * approve booking by trainer or above.
      *
      * @param Request $request
      * @param $id
@@ -188,9 +193,14 @@ class BookingController extends BaseController
     public function approveBooking(Request $request, $id) {
         $user = Auth::user();
         // only allow user to cancel unpaid booking.
-        if ($this->isSuperLevel($user)) {
+        if ($this->isExternalCoachLevel($user)) {
             $booking = CustomerBooking::find($id);
             if ($booking->appointment->status == 'pending') {
+                if (!$this->isSuperLevel($user)) {
+                    if ($booking->appointment->user_id != $user->id) {
+                        return ['success' => false, 'error' => 'You cannot approve appointment that is not belong to you.'];
+                    }
+                }
                 // ok to cancel booking once.
                 $booking->appointment->status = 'approved';
                 $booking->appointment->save();

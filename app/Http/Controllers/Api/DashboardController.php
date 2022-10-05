@@ -21,6 +21,7 @@ class DashboardController extends BaseController
     {
         $user = Auth::user();
         $isSuperUser = $this->isSuperLevel($user);
+        $isTrainerUser = $this->isExternalCoachLevel($user);
 
         $futureApt = new Appointment;
         $futureApt->start_time = $this->getCurrentDateTime();
@@ -65,6 +66,7 @@ class DashboardController extends BaseController
                 'noOfNewNotifications',
                 'showUpcomingAppointments',
                 'appointments',
+                'isTrainerUser'
 //                'time'
             );
         }
@@ -143,21 +145,36 @@ class DashboardController extends BaseController
         return $booking->count();
     }
 
+    /**
+     * Shall we get Appointments(only) or Customer Booking?
+     *
+     * @param $user
+     * @param $isSuperUser
+     * @return \Illuminate\Support\Collection
+     */
     private function getCustomerBookings($user, $isSuperUser)
     {
+        $filterDate = $this->getCurrentDateTime();
         $bookings = DB::table('customer_bookings')
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->select('customer_bookings.*',
+                DB::raw("(select a.name from users a, roles b where a.id=appointments.user_id and a.role_id=b.id and b.name in ('manager', 'internal_coach', 'external_coach')) as user_name"),
                 DB::raw('(select color_name from roles where id=appointments.user_id) as role_color_name'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
                 'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name', 'rooms.color')
             ->whereIn('appointments.status', ['pending', 'approved'])
-            ->where('appointments.start_time', '>=', $this->getCurrentDateTime() )
+            ->where('appointments.start_time', '>=',  $filterDate)
             ->orderBy('appointments.start_time', 'asc')
             ->orderBy('rooms.name', 'asc');
-        if (!$isSuperUser) {
+        if ($isSuperUser) {
+            // manager or above.
+//        } else if ($this->isInternalCoachLevel($user)) {
+
+        } else if ($this->isExternalCoachLevel($user)) {
+            $bookings->where('user_id', $user->id);
+        } else {
             $bookings->where('customer_id', $user->id);
         }
 

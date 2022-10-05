@@ -19,7 +19,7 @@ class MenuController extends BaseController
         $isExternalCoach = $this->isExternalCoachLevel($user);
         $menu = [
             ['label' => 'Dashboard', 'icon' => 'pi pi-fw pi-th-large', 'routerLink' => ['/']],
-            ['label' => 'Calendar', 'icon' => 'pi pi-fw pi-calendar', 'routerLink' => ['/calendar'], 'visible' => $isSuperUser],
+            ['label' => 'Calendar', 'icon' => 'pi pi-fw pi-calendar', 'routerLink' => ['/calendar'], 'visible' => $isExternalCoach],
             ['label' => 'Appointment', 'icon' => 'pi pi-fw pi-exclamation-circle', 'routerLink' => ['/appointment-list']],
             ['label' => 'Finance', 'icon' => 'pi pi-fw pi-dollar', 'routerLink' => ['/finance'], 'visible' => config("app.jws.settings.finance")],
 //            ['label' => 'Trainer', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list/Trainer'], 'visible' => $isExternalCoach],

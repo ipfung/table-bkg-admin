@@ -47,6 +47,8 @@ class CalendarAppointmentController extends BaseController
             if ($request->has('user_id')) {
                 $appointments->where('user_id', $request->user_id);
             }
+        } else if ($this->isExternalCoachLevel($user)) {
+            $appointments->where('user_id', $user->id);
         } else {
             $appointments->where('user_id', $user->id);
         }
