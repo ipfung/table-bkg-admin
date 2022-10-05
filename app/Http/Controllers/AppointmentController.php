@@ -58,8 +58,18 @@ class AppointmentController extends Controller
             $maxDate = $request->the_date;
         }
         $locationId = 1;          // FIXME from roomId
+        $serviceId = 1;
         $appointmentId = 0;       // for reschedule use, bypass the booked appointment so user could book +/- one session time.
-        $service = Service::find(1);
+        $booking = false;
+        $tableSessions = false;
+        if ($request->has('bookId')) {    // reschedule.
+            $booking = CustomerBooking::find($request->bookId);
+            $serviceId = $booking->appointment->service_id;
+            // for bypass reschedule.
+            $appointmentId = $booking->appointment->id;
+            $tableSessions = $booking->appointment->service->sessions;
+        }
+        $service = Service::find($serviceId);
         // support passing service_id from client side, use service's duration, price...etc.
         if ($request->has('service_id')) {
             if ($request->service_id > 1) {
@@ -95,10 +105,7 @@ class AppointmentController extends Controller
             }
             $noOfSession = $request->noOfSession;
             $price = $sessionPrice * $noOfSession;
-        } else if ($request->has('bookId')) {    // reschedule.
-            $booking = CustomerBooking::find($request->bookId);
-            // for bypass reschedule.
-            $appointmentId = $booking->appointment->id;
+        } else if ($request->has('bookId') && $booking) {    // reschedule.
             // find number of session.
             $appointedTime = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->timestamp;
             $appointedEndTime = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time)->timestamp;
@@ -250,7 +257,7 @@ class AppointmentController extends Controller
             $d->addDay();
             $start_date = $d->timestamp;
         }
-        $results = ['minDate' => $minDate, 'maxDate' => $maxDate, 'noOfSession' => $noOfSession, 'sessionInterval' => $sessionDurationEpoch, 'data' => $dateFreeslots];
+        $results = ['minDate' => $minDate, 'maxDate' => $maxDate, 'noOfSession' => $noOfSession, 'sessionInterval' => $sessionDurationEpoch, 'tableSessions' => $tableSessions, 'data' => $dateFreeslots];
 //        $results['role'] = $user;   // debug use only
 //        echo '<br/>result=' . json_encode($results) . '!';
         if ($request->expectsJson()) {
@@ -373,7 +380,7 @@ class AppointmentController extends Controller
         if ($isDup) {
             DB::rollBack();
             if ($request->expectsJson()) {
-                return ['success' => false, 'error' => 'Found duplicate booking.'];
+                return ['success' => false, 'error' => 'Found duplicate appointment.'];
             }
         }
         $appointment->save();
@@ -448,34 +455,53 @@ class AppointmentController extends Controller
 //        echo 'reschedule id333=' . $booking->appointment->user_id;
 
         // only allow user itself to reschedule their own appointment(customer booking maybe pointed to package/course).
-        if ($user->id == $booking->appointment->user_id) {
-            if (empty($booking->checkin)) {
-                // can amend 48 hours before appointment start time.
-                $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-48 hours');
-                $now = new DateTime();
-                $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
-                if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
-                    if ($booking->revision_counter == 0) {
-                        // ok to change booking once.
-                        // get appointment dates.
-                        $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true);
-                        $booking->appointment->start_time = $appointmentDates['start_time'];
-                        $booking->appointment->end_time = $appointmentDates['end_time'];
-                        $booking->appointment->room_id = $appointmentDates['room_id'];
-                        $booking->appointment->save();
-                        $booking->revision_counter += 1;
-                        $booking->save();
-                        $results = ['success' => true, 'room' => Room::find($booking->appointment->room_id)];
-                        // TODO mail
-                    } else {
-                        $results = ['success' => false, 'error' => 'You have been rescheduled several times.', 'params' => $booking->revision_counter];
-                    }
-                } else {
-                    $results = ['success' => false, 'error' => 'You must reschedule before 48 hours of appointment start time.'];
+        if ($user->id != $booking->appointment->user_id) {
+            if ($booking->appointment->entity == 'appointment') {
+                return ['success' => false, 'error' => 'You cannot reschedule for others.'];
+            }
+        }
+        if (!empty($booking->checkin)) {
+            return ['success' => false, 'error' => 'You have checked-in.'];
+        }
+        if ($booking->revision_counter > 0) {
+            return ['success' => false, 'error' => 'You have been rescheduled several times.', 'params' => $booking->revision_counter];
+        }
+        // can amend 48 hours before appointment start time.
+        $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-48 hours');
+        $now = new DateTime();
+        $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
+        if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
+            // ok to change booking once.
+            // get appointment dates.
+            $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true);
+            // check duplicate, in Appointment system should not allow same user book same timeslot.
+            $isDup = false;
+            for ($i=0; $i<2; $i++) {
+                $paramDate = $i == 0 ? $appointmentDates['start_time'] : $appointmentDates['end_time'];
+                $found = DB::table('customer_bookings')
+                    ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+                    ->where('customer_bookings.customer_id', $user->id)
+                    ->whereRaw('? between appointments.start_time and appointments.end_time', $paramDate)->first();
+                if (!empty($found)) {
+                    $isDup = true;
+                    break;
                 }
             }
+            if ($isDup) {
+                if ($request->expectsJson()) {
+                    return ['success' => false, 'error' => 'Found duplicate appointment.'];
+                }
+            }
+            $booking->appointment->start_time = $appointmentDates['start_time'];
+            $booking->appointment->end_time = $appointmentDates['end_time'];
+            $booking->appointment->room_id = $appointmentDates['room_id'];
+            $booking->appointment->save();
+            $booking->revision_counter += 1;
+            $booking->save();
+            $results = ['success' => true, 'room' => Room::find($booking->appointment->room_id)];
+            // TODO mail
         } else {
-            $results = ['success' => false, 'error' => 'You cannot reschedule for others.'];
+            $results = ['success' => false, 'error' => 'You must reschedule before 48 hours of appointment start time.'];
         }
         if ($request->expectsJson()) {
             return $results;

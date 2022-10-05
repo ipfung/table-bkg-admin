@@ -46,3 +46,60 @@ BEGIN
     END IF;
 END $$
 DELIMITER ;
+
+--20220830, to update demo data.
+UPDATE `appointments` SET `start_time`=DATE_ADD(start_time, INTERVAL 25 DAY), `end_time`=DATE_ADD(end_time, INTERVAL 25 DAY);
+UPDATE `orders` SET `order_date`=DATE_ADD(order_date, INTERVAL 25 DAY);
+UPDATE `payments` SET `payment_date_time`=DATE_ADD(payment_date_time, INTERVAL 25 DAY);
+
+UPDATE `appointments` SET `start_time`=DATE_SUB(start_time, INTERVAL 5 DAY), `end_time`=DATE_SUB(end_time, INTERVAL 5 DAY);
+UPDATE `orders` SET `order_date`=DATE_SUB(order_date, INTERVAL 5 DAY);
+UPDATE `payments` SET `payment_date_time`=DATE_SUB(payment_date_time, INTERVAL 5 DAY);
+
+--20220920
+added second_name & mobile_no.
+
+--20220922
+CREATE TABLE `trainer_timeslots` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `location_id` int(10) UNSIGNED NOT NULL,
+  `trainer_id` int(10) UNSIGNED NOT NULL,
+  `day_idx` int(11) NOT NULL,
+  `from_time` time NOT NULL,
+  `to_time` time NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+   PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO trainer_timeslots (location_id, trainer_id, day_idx, from_time, to_time) SELECT location_id, b.id, day_idx, from_time, to_time FROM timeslots a, users b WHERE b.role_id IN (select id from roles where name in ('manager', 'internal_coach', 'external_coach'));
+
+--
+ALTER TABLE `users` ADD `service_id` INT NOT NULL DEFAULT '1' AFTER `second_name`;
+
+--20221001 [done]
+CREATE TABLE `holidays` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `location_id` int(10) UNSIGNED NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `user_id` int(10) UNSIGNED DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+ALTER TABLE `holidays`
+  ADD PRIMARY KEY (`id`);
+
+--20221005, update appointments user_id to trainer id based on student's linked trainer.
+--for driving school only. [done]
+select * from users where settings like '%trainer%';
+update appointments set user_id=4 where user_id=3;
+update appointments set user_id=6 where user_id=8;
+update appointments set user_id=2 where user_id=9;
+update appointments set user_id=4 where user_id=10;
+
+ALTER TABLE `appointments` ADD `entity` VARCHAR(20) NOT NULL DEFAULT 'appointment' AFTER `internal_remark`;
+--for drivingdb
+ALTER TABLE `appointments` ADD `entity` VARCHAR(20) NOT NULL DEFAULT 'training' AFTER `internal_remark`;
+
