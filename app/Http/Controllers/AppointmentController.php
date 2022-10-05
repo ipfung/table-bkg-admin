@@ -356,6 +356,26 @@ class AppointmentController extends Controller
 //        $appointment->internal_remark
         $appointment->status = $isFirstTimeBookUser ? 'pending' : 'approved';     // get defaults from settings.
 //        $appointment->parent_id
+
+        // check duplicate, in Appointment system should not allow same user book same timeslot.
+        $isDup = false;
+        for ($i=0; $i<2; $i++) {
+            $paramDate = $i == 0 ? $appointmentDates['start_time'] : $appointmentDates['end_time'];
+            $found = DB::table('customer_bookings')
+                ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+                ->where('customer_bookings.customer_id', $user->id)
+                ->whereRaw('? between appointments.start_time and appointments.end_time', $paramDate)->first();
+            if (!empty($found)) {
+                $isDup = true;
+                break;
+            }
+        }
+        if ($isDup) {
+            DB::rollBack();
+            if ($request->expectsJson()) {
+                return ['success' => false, 'error' => 'Found duplicate booking.'];
+            }
+        }
         $appointment->save();
 
         $customerBooking = new CustomerBooking();
