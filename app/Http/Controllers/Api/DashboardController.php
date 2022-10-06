@@ -160,6 +160,7 @@ class DashboardController extends BaseController
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->select('customer_bookings.*',
                 DB::raw("(select a.name from users a, roles b where a.id=appointments.user_id and a.role_id=b.id and b.name in ('manager', 'internal_coach', 'external_coach')) as user_name"),
+                DB::raw('(select name from users where id=customer_bookings.customer_id) as customer_name'),
                 DB::raw('(select color_name from roles where id=appointments.user_id) as role_color_name'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
