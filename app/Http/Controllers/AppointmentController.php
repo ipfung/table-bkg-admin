@@ -315,15 +315,38 @@ class AppointmentController extends Controller
             'date' => 'required|date',
             'time' => 'required|integer',
             'noOfSession' => 'required|integer',
+            'sessionInterval' => 'required|integer',
             'roomId' => 'required|integer',
             'serviceId' => 'required|integer',
             'price' => 'required',
-//            'paymentMethod' => 'required',
+            'paymentMethod' => 'required',
 //            'order_status' => 'required',
         ]);
         $assignRandomRoom         = true;   // can get from Company settings.
+        $saveAsPending = true;
+        // onsite appointment, use Customer as user.
+        if ($request->paymentMethod == 'onsite') {
+            $request->validate([
+                'customerId' => 'required|integer',
+            ]);
+            $user = User::find($request->customerId);
+            if ($request->roomId > 0) {
+                $assignRandomRoom = false;
+            }
+            if ($request->has('status')) {
+                $saveAsPending = ($request->status == 'pending');
+            }
+        } else {
+            // check if user is new, make appointment status to 'pending' instead.
+            $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
+            foreach ($bookedAppointments as $bookedAppointment) {
+                if ($bookedAppointment->status == 'approved') {
+                    $saveAsPending = false;
+                }
+            }
+        }
         // get appointment dates.
-        $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, $assignRandomRoom);
+        $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom);
 
         $assignedRoom = $appointmentDates['room_id'];
         $results = [];
@@ -340,14 +363,6 @@ class AppointmentController extends Controller
                 $userId = $request->trainerId;
             }
         }
-        // check if user is new, make appointment status to 'pending' instead.
-        $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
-        $isFirstTimeBookUser = true;
-        foreach ($bookedAppointments as $bookedAppointment) {
-            if ($bookedAppointment->status == 'approved') {
-                $isFirstTimeBookUser = false;
-            }
-        }
 
         // start DB transaction.
         DB::beginTransaction();
@@ -361,7 +376,7 @@ class AppointmentController extends Controller
 //        $appointment->package_id
 //        $appointment->lesson_space
 //        $appointment->internal_remark
-        $appointment->status = $isFirstTimeBookUser ? 'pending' : 'approved';     // get defaults from settings.
+        $appointment->status = $saveAsPending ? 'pending' : 'approved';     // get defaults from settings.
 //        $appointment->parent_id
 
         // check duplicate, in Appointment system should not allow same user book same timeslot.
@@ -430,11 +445,12 @@ class AppointmentController extends Controller
         $payment->entity = 'appointment';
         $payment->save();
 
+        DB::commit();
+
+        // send email.
         Mail::to($user->email)
             ->bcc(config('mail.from.address'))
             ->send(new AppointmentApproved(CustomerBooking::find($customerBooking->id)));
-
-        DB::commit();
 
         if ($request->expectsJson()) {
             $results = ['success' => true];
@@ -543,7 +559,7 @@ class AppointmentController extends Controller
             // check duplicate by roomId and appointment time.
             $assignedRoom = $room_id;   // param from client side.
             $isRoomOccupied = $this->isRoomOccupied($assignedRoom, $dt, $dt2);
-            if ($isRoomOccupied) {   // reset $assignedRoom to negative number if desired room was is occupied.
+            if ($isRoomOccupied) {   // reset $assignedRoom to negative number if desired room was occupied.
                 $assignedRoom = -2;
             }
         }
