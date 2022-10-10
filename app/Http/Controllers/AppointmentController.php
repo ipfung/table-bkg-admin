@@ -319,7 +319,7 @@ class AppointmentController extends Controller
             'roomId' => 'required|integer',
             'serviceId' => 'required|integer',
             'price' => 'required',
-            'paymentMethod' => 'required',
+//            'paymentMethod' => 'required',
 //            'order_status' => 'required',
         ]);
         $assignRandomRoom         = true;   // can get from Company settings.
