@@ -223,6 +223,7 @@ class AppointmentController extends Controller
                 $isDayOff = true;
                 $freeslots = [];
             } else {
+                // TODO check if it's special day/holiday of Trainer.
                 // get freeslot from week_number freeslot.
                 $freeslots = $freeTimesolts[$d->dayOfWeek];    // it contains 'time', 'price'.
                 $isDayOff = (sizeof($freeslots) == 0);
@@ -236,11 +237,17 @@ class AppointmentController extends Controller
                     $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
 //echo "<br />startTime0=" . $dt . ', en0=' . $dt2;
                     $allRoomOccupied = true;
-                    foreach ($all_rooms as $room) {
-//echo "roomid2222=" . $room->id;
-                        if (!$this->isRoomOccupied($room->id, $dt, $dt2)) {   // false = not occupied.
+                    if ($trainerId > 0) {   // use trainer to check occupation.
+                        if (!$this->isTrainerOccupied($trainerId, $dt, $dt2)) {   // false = not occupied.
                             $allRoomOccupied = false;
-                            break;
+                        }
+                    } else {
+                        foreach ($all_rooms as $room) {
+//echo "roomid2222=" . $room->id;
+                            if (!$this->isRoomOccupied($room->id, $dt, $dt2)) {   // false = not occupied.
+                                $allRoomOccupied = false;
+                                break;
+                            }
                         }
                     }
                     if ($allRoomOccupied) {
@@ -287,6 +294,24 @@ class AppointmentController extends Controller
             $maxDate = $today->add(1, 'day')->format('Y-m-d');
         }
         return [$minDate, $maxDate];
+    }
+
+    /**
+     * @param $trainerId
+     * @param $startTime
+     * @param $endTime
+     * @return bool true = occupied, false = not occupied.
+     */
+    private function isTrainerOccupied($trainerId, $startTime, $endTime)
+    {
+        $chkDup = Appointment::where('user_id', $trainerId)
+            ->whereIn('status', ['approved', 'pending'])
+            // ref: https://stackoverflow.com/questions/6571538/checking-a-table-for-time-overlap
+            ->where('start_time', '<', $endTime)
+            ->where('end_time', '>', $startTime)
+//            ->whereRaw('(? between start_time1 and end_time OR ? between start_time and end_time)', [$startTime, $endTime])
+            ->get();
+        return count($chkDup) > 0;
     }
 
     /**
