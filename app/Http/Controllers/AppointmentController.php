@@ -127,7 +127,12 @@ class AppointmentController extends Controller
                 ->orderBy('day_idx', 'asc')
                 ->orderBy('from_time', 'asc')
                 ->get();
-        } else {
+            if (count($dayOfWeek_timeslots) == 0 && config("app.jws.settings.always_filter_trainer")) {
+                return ["success" => false, "error" => "No trainer working hours have found."];
+            }
+        }
+        // get office working hours, if no working hours from trainer_id.
+        if (count($dayOfWeek_timeslots) == 0) {
             $dayOfWeek_timeslots = Timeslot::where('location_id', $locationId)
                 ->orderBy('day_idx', 'asc')
                 ->orderBy('from_time', 'asc')
@@ -463,16 +468,7 @@ class AppointmentController extends Controller
             $amount = $request->price;
         }
 
-        $customerBooking = new CustomerBooking();
-        $customerBooking->appointment_id = $appointment->id;
-        $customerBooking->customer_id = $user->id;
-        $customerBooking->price = $request->price;
-        $customerBooking->info = json_decode($request->personalInformation);    // if any.
-        $customerBooking->revised_appointment_id = $appointment->id;
-        $customerBooking->revision_counter = 0;
-        $customerBooking->save();
-
-        $order = new Order();
+        $order = new Order;
         $order->order_number = uniqid();
         $order->order_date = Carbon::today()->format('Y-m-d');
         $order->order_total = $amount;
