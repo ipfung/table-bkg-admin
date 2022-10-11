@@ -27,6 +27,7 @@ class UserController extends BaseController
             ->orderBy('id', 'desc');
 
         $editable = false;
+        $newable = false;
         // only can see self if user is not in above level.
         if (!$this->isSuperLevel($user)) {
             if ($user->role->name == 'internal_coach') {
@@ -40,6 +41,7 @@ class UserController extends BaseController
                 $users->whereRaw('role_id in (select id from roles where name<>?)', ['admin']);
             }
             $editable = true;
+            $newable = true;
         }
 
         if ($request->has('role')) {
@@ -63,7 +65,7 @@ class UserController extends BaseController
         }
         if ($request->has('name')) {
             if ($request->name != '')
-                $users->whereRaw('(upper(name) LIKE upper(?))', [$request->name . '%']);
+                $users->whereRaw('(upper(name) LIKE upper(?) or upper(second_name) LIKE upper(?))', [$request->name . '%', $request->name . '%']);
         }
         if ($request->has('second_name')) {
             if ($request->second_name != '')
@@ -90,36 +92,9 @@ class UserController extends BaseController
         if ($request->expectsJson()) {
             $data = $users->with('role')->paginate()->toArray();
             $data['editable'] = $editable;   // append to paginate()
+            $data['newable'] = $newable;
+            $data['multi_student'] = config('app.jws.settings.trainer_multiple_student');
             return $data;
-        }
-        return view("users.list", $users);
-    }
-
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function getByRole(Request $request)
-    {
-        DB::enableQueryLog(); // Enable query log
-        $users = User::orderBy('name', 'asc')
-            ->orderBy('id', 'desc');
-
-        if ($request->role == 'User') {
-//                $users->whereRaw('role_id in (select id from roles where name=?)', ['admin']);
-        }
-        if ($request->role == 'Trainer')
-            $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?))', ['internal_coach', 'external_coach', 'manager']);
-        if ($request->role == 'Student')
-            $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['member', 'user']);
-
-        if ($request->has('status')) {
-            if ($request->status != '')
-                $users->where('status', $request->status);
-        }
-        if ($request->expectsJson()) {
-            return $users->paginate();
         }
         return view("users.list", $users);
     }
@@ -141,7 +116,7 @@ class UserController extends BaseController
             'name' => 'required|max:255',    // first name
             'email' => 'required|max:255|unique:users',   //|email
             'role_id' => 'required|exists:roles,id',   //roles
-            'mobile_no' => 'required|min:8',
+            'mobile_no' => 'required',
             'password' => 'required|min:8',
         ]);
         $data = new User($request->all());
@@ -152,7 +127,7 @@ class UserController extends BaseController
         DB::beginTransaction();
         $data->save();
         $saveTrainer = false;
-        if ($settings['trainer']) {
+        if (!config('app.jws.settings.trainer_multiple_student') && $settings && isset($settings['trainer'])) {
             // add to user_teammates
             $userTeammate = new UserTeammate;
             $userTeammate->user_id = $settings['trainer'];
@@ -210,7 +185,7 @@ class UserController extends BaseController
         $settings = $request->input('settings');
         $user->settings = json_encode($settings);
         $saveTrainer = false;
-        if ($settings['trainer']) {
+        if (!config('app.jws.settings.trainer_multiple_student') && $settings && isset($settings['trainer'])) {
             // update user_teammates
             $userTeammate = UserTeammate::where('teammate_id', $id)->first();
             $userTeammate->user_id = $settings['trainer'];

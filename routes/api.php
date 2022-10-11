@@ -31,7 +31,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::put('/booking-cancel/{id}', 'Api\BookingController@cancelBooking');
     Route::post('/booking-checkin/{id}', 'Api\BookingController@punchInBooking');
     // trainer-student actions
-    Route::apiResource('/trainer-students', 'Api\TrainerController');
+    Route::apiResource('/trainers', 'Api\TrainerController');
     Route::get('/availability-students/{id}', 'Api\TrainerController@getNotMyStudents');
     // calendar data
     Route::get('/appointments', 'Api\CalendarAppointmentController@index');
@@ -43,7 +43,6 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/get-roles', 'Api\RoleController@getRoles');
     Route::get('/roles', 'Api\RoleController@index');
     Route::apiResource('users', 'Api\UserController');
-    Route::get('trainers', 'Api\UserController@getByRole');
     Route::put('/ban-user/{id}', 'Api\UserController@banUser');
     Route::put('/active-user/{id}', 'Api\UserController@activeUser');
     Route::post('/register-push', 'Api\UserController@registerPush');
