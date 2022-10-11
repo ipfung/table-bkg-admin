@@ -98,8 +98,13 @@ update appointments set user_id=4 where user_id=3;
 update appointments set user_id=6 where user_id=8;
 update appointments set user_id=2 where user_id=9;
 update appointments set user_id=4 where user_id=10;
-
+--for ping pong[done]
 ALTER TABLE `appointments` ADD `entity` VARCHAR(20) NOT NULL DEFAULT 'appointment' AFTER `internal_remark`;
---for drivingdb
+--for drivingdb[done]
 ALTER TABLE `appointments` ADD `entity` VARCHAR(20) NOT NULL DEFAULT 'training' AFTER `internal_remark`;
 
+--20221010, add fields to appointments.
+ALTER TABLE `appointments` ADD `parent_id` INT NULL AFTER `entity`;
+ALTER TABLE `appointments` ADD `notify_parties` BOOLEAN NOT NULL DEFAULT TRUE AFTER `parent_id`;
+ALTER TABLE `orders` ADD `repeatable` BOOLEAN NOT NULL DEFAULT FALSE AFTER `payment_status`;
+ALTER TABLE `orders` ADD `recurring` TEXT AFTER `payment_status`;   // json array. e.g: {cycle: 'week', repeat: [1,3]}

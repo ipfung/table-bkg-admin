@@ -332,6 +332,49 @@ class AppointmentController extends Controller
         return count($chkDup) > 0;
     }
 
+    public function getPackageDates(Request $request) {
+        $locationId = 1;
+        // use Date and WeekNo to find the timeslot.
+        $d1 = Carbon::createFromFormat('Y-m-d', $request->start_date);
+        $quantity = $request->quantity;
+        $dow_list = $request->dow;   // array day of week.
+
+        $i = 0;
+        $results = [];
+        while ($i < $quantity) {
+            foreach ($dow_list as $dow) {
+                $d1 = $d1->is(Timeslot::WEEKS[$dow]) ? $d1 : $d1->next(Timeslot::WEEKS[$dow]);
+                // check date is public holiday for the office?
+                $daysoff = Holiday::where('location_id', $locationId)->whereRaw('(? between start_date and end_date)', $d1->format('Y-m-d'))->first();
+                if (!empty($daysoff)) {
+                    $d1->addDay();
+                    continue;
+                }
+                // check date is working day.
+                if ($request->has('trainer_id') && $request->trainer_id > 0) {
+                    $trainerId = $request->trainer_id;
+                    $dayOfWeek_timeslots = TrainerTimeslot::where('location_id', $locationId)
+                        ->where('trainer_id', $trainerId);
+                } else {
+                    $dayOfWeek_timeslots = Timeslot::where('location_id', $locationId);
+                }
+                $workingDay = $dayOfWeek_timeslots->whereIn('day_idx', $dow_list)
+                    ->orderBy('day_idx', 'asc')
+                    ->orderBy('from_time', 'asc')
+                    ->first();
+                if (empty($workingDay)) {
+                    $d1->addDay();
+                    continue;
+                }
+                $results[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
+                $d1->addDay();
+                $i++;
+                if ($i == $quantity) break;
+            }
+        }
+        return $results;
+    }
+
     public function store(Request $request)
     {
         // get user's book days in advance.
@@ -347,10 +390,16 @@ class AppointmentController extends Controller
 //            'paymentMethod' => 'required',
 //            'order_status' => 'required',
         ]);
-        $assignRandomRoom         = true;   // can get from Company settings.
+        $assignRandomRoom = true;   // can get from Company settings.
         $saveAsPending = true;
+        $isPackage = false;
+        $appointmentDate = $request->date;
+        $paymentGatway = $request->paymentMethod;
+        $entity = 'appointment';
         // onsite appointment, use Customer as user.
         if ($request->paymentMethod == 'onsite') {
+            $paymentMethod = 'onsite';
+            $paymentGatway = 'cash';
             $request->validate([
                 'customerId' => 'required|integer',
             ]);
@@ -358,10 +407,15 @@ class AppointmentController extends Controller
             if ($request->roomId > 0) {
                 $assignRandomRoom = false;
             }
+            if ($request->has('is_package')) {
+                $isPackage = $request->is_package;
+                $appointmentDate = $request->lesson_dates[0];
+            }
             if ($request->has('status')) {
                 $saveAsPending = ($request->status == 'pending');
             }
         } else {
+            $paymentMethod = 'electronic';
             // check if user is new, make appointment status to 'pending' instead.
             $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
             foreach ($bookedAppointments as $bookedAppointment) {
@@ -371,16 +425,107 @@ class AppointmentController extends Controller
             }
         }
         // get appointment dates.
-        $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom);
+        $appointmentDates = $this->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom);
 
         $assignedRoom = $appointmentDates['room_id'];
         $results = [];
         if ($assignedRoom <= 0) {
             // appointment time not available, throw error.
-            $results = ['success' => false, 'error' => 'Time not available, please choose different time.', 'param' => $assignedRoom];
+            $results = ['success' => false, 'error' => 'Selected time is not available, please choose different time.', 'param' => $assignedRoom];
             return $results;
         }
 
+        // start DB transaction.
+        DB::beginTransaction();
+
+        $appointmentStatus = $saveAsPending ? 'pending' : 'approved';
+        // save appointment, it is 1st appointment if it is package.
+        $savedAppointment = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, 0);
+        $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user);
+        $results[] = $savedAppointment;
+
+        // package handling.
+        if ($isPackage) {
+            $dates = $request->lesson_dates;
+            $pkg_count = count($dates);
+            for ($i=1; $i<$pkg_count; $i++) {
+                // pass 1st appointment's id as parent_id as ref.
+                $appointmentDates = $this->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom);
+                $savedAppointment2 = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $savedAppointment->id);
+                $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user);
+                $results[] = $savedAppointment2;
+            }
+            $type_of_apt = 'package';
+            $amount = $request->package_amount;
+            $entity = 'package';
+        } else {
+            $type_of_apt = 'booking';
+            $amount = $request->price;
+        }
+
+        $customerBooking = new CustomerBooking();
+        $customerBooking->appointment_id = $appointment->id;
+        $customerBooking->customer_id = $user->id;
+        $customerBooking->price = $request->price;
+        $customerBooking->info = json_decode($request->personalInformation);    // if any.
+        $customerBooking->revised_appointment_id = $appointment->id;
+        $customerBooking->revision_counter = 0;
+        $customerBooking->save();
+
+        $order = new Order();
+        $order->order_number = uniqid();
+        $order->order_date = Carbon::today()->format('Y-m-d');
+        $order->order_total = $amount;
+        if ($request->has('discount')) {
+            if ($request->discount > 0)
+                $order->discount = $request->discount;
+        }
+        $order->customer_id = $customerBooking->customer_id;
+        $order->user_id = Auth::user()->id;
+        $order->paid_amount = $appointmentStatus == 'approved' ? $order->order_total : 0;
+        $order->payment_status = $appointmentStatus == 'approved' ? 'paid' : 'pending';       // FIXME get payment status from gateway response.
+        $order->order_status = $appointmentStatus == 'approved' ? 'confirmed' : 'pending';
+        $recurring = $request->input('recurring');
+        $order->recurring = json_encode($recurring);
+        $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
+        $order->save();
+
+        $orderDetail = new OrderDetail;
+        $orderDetail->order_id = $order->id;
+        $orderDetail->order_type = $type_of_apt;
+        $orderDetail->booking_id = $customerBooking->id;
+        $orderDetail->order_description = json_encode($results);
+        $orderDetail->original_price = $request->price;
+        $orderDetail->discounted_price = $request->price;
+        $orderDetail->coupon_id = $request->coupon_id;
+        $orderDetail->save();
+
+        $payment = new Payment;
+        $payment->order_id = $order->id;
+        $payment->amount = $order->order_total;
+        $payment->payment_date_time = (new DateTime())->format('Y-m-d H:i:s');
+        $payment->status = $order->payment_status;
+        $payment->payment_method = $paymentMethod;
+        $payment->gateway = $paymentGatway;
+//        $payment->parent_id = ;
+        $payment->entity = $entity;
+        $payment->save();
+
+        DB::commit();
+
+        // send email.
+        Mail::to($user->email)
+            ->bcc(config('mail.from.address'))
+            ->send(new AppointmentApproved(CustomerBooking::find($customerBooking->id)));
+
+        if ($request->expectsJson()) {
+            $results = ['success' => true];
+            return $results;
+        }
+        return redirect()->route('orders.index');
+    }
+
+    private function saveAppointment(Request $request, $appointmentDates, User $user, string $appointmentStatus, $parentId) {
         // use trainer_id as appointment user, if the appointment is trainer-student relationship.
         $userId = $user->id;
         if ($request->has('trainerId')) {
@@ -389,10 +534,7 @@ class AppointmentController extends Controller
             }
         }
 
-        // start DB transaction.
-        DB::beginTransaction();
-
-        $appointment = new Appointment();
+        $appointment = new Appointment;
         $appointment->start_time = $appointmentDates['start_time'];
         $appointment->end_time = $appointmentDates['end_time'];
         $appointment->room_id = $appointmentDates['room_id'];
@@ -400,10 +542,9 @@ class AppointmentController extends Controller
         $appointment->service_id = $request->serviceId;
 //        $appointment->package_id
 //        $appointment->lesson_space
-//        $appointment->internal_remark
-        $appointment->status = $saveAsPending ? 'pending' : 'approved';     // get defaults from settings.
-//        $appointment->parent_id
-
+        $appointment->internal_remark = $request->internal_remark;
+        $appointment->status = $appointmentStatus;     // get defaults from settings.
+        $appointment->parent_id = $parentId;
         // check duplicate, in Appointment system should not allow same user book same timeslot.
         $isDup = false;
         for ($i=0; $i<2; $i++) {
@@ -425,7 +566,11 @@ class AppointmentController extends Controller
         }
         $appointment->save();
 
-        $customerBooking = new CustomerBooking();
+        return $appointment;
+    }
+
+    private function saveCustomerBooking(Request $request, Appointment $appointment, User $user) {
+        $customerBooking = new CustomerBooking;
         $customerBooking->appointment_id = $appointment->id;
         $customerBooking->customer_id = $user->id;
         $customerBooking->price = $request->price;
@@ -434,54 +579,7 @@ class AppointmentController extends Controller
         $customerBooking->revision_counter = 0;
         $customerBooking->save();
 
-        $order = new Order();
-        $order->order_number = uniqid();
-        $order->order_date = Carbon::today()->format('Y-m-d');
-        $order->order_total = $request->price;
-        if ($request->has('discount')) {
-            if ($request->discount > 0)
-                $order->discount = $request->discount;
-        }
-        $order->customer_id = $customerBooking->customer_id;
-        $order->user_id = $user->id;
-        $order->paid_amount = $appointment->status == 'approved' ? $order->order_total : 0;
-        $order->payment_status = $appointment->status == 'approved' ? 'paid' : 'pending';       // FIXME get payment status from gateway response.
-        $order->order_status = $appointment->status == 'approved' ? 'confirmed' : 'pending';
-        $order->save();
-
-        $orderDetail = new OrderDetail();
-        $orderDetail->order_id = $order->id;
-        $orderDetail->order_type = 'booking';
-        $orderDetail->booking_id = $customerBooking->id;
-        $orderDetail->order_description = json_encode($appointment);
-        $orderDetail->original_price = $request->price;
-        $orderDetail->discounted_price = $request->price;
-        $orderDetail->coupon_id = $request->coupon_id;
-        $orderDetail->save();
-
-        $payment = new Payment();
-        $payment->order_id = $order->id;
-        $payment->amount = $order->order_total;
-        $payment->payment_date_time = (new DateTime())->format('Y-m-d H:i:s');
-        $payment->status = $order->payment_status;
-        $payment->payment_method = 'electronic';
-        $payment->gateway = $request->paymentMethod;
-//        $payment->parent_id = ;
-        $payment->entity = 'appointment';
-        $payment->save();
-
-        DB::commit();
-
-        // send email.
-        Mail::to($user->email)
-            ->bcc(config('mail.from.address'))
-            ->send(new AppointmentApproved(CustomerBooking::find($customerBooking->id)));
-
-        if ($request->expectsJson()) {
-            $results = ['success' => true];
-            return $results;
-        }
-        return redirect()->route('orders.index');
+        return $customerBooking;
     }
 
     /**

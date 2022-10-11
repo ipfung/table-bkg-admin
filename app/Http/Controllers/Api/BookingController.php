@@ -81,6 +81,7 @@ class BookingController extends BaseController
 
         if ($request->expectsJson()) {
             $results['success'] = true;
+            $results['requiredTrainer'] = config("app.jws.settings.always_filter_trainer");
             $results['data'] = $bookings->get();
             return $results;
         }
