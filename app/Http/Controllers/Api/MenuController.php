@@ -21,7 +21,7 @@ class MenuController extends BaseController
             ['label' => 'Dashboard', 'icon' => 'pi pi-fw pi-th-large', 'routerLink' => ['/']],
             ['label' => 'Calendar', 'icon' => 'pi pi-fw pi-calendar', 'routerLink' => ['/calendar'], 'visible' => $isExternalCoach],
             ['label' => 'Appointment', 'icon' => 'pi pi-fw pi-exclamation-circle', 'routerLink' => ['/appointment-list']],
-            ['label' => 'Trainer Commission', 'icon' => 'pi pi-fw pi-dollar', 'routerLink' => ['/trainer-commission'], 'visible' => ($isSuperUser && config("app.jws.settings.finance"))],
+            ['label' => 'Trainer Commission', 'icon' => 'pi pi-fw pi-bitcoin', 'routerLink' => ['/trainer-commission'], 'visible' => ($isSuperUser && config("app.jws.settings.finance"))],
             ['label' => 'Finance', 'icon' => 'pi pi-fw pi-dollar', 'routerLink' => ['/finance'], 'visible' => config("app.jws.settings.finance")],
             ['label' => 'Trainer', 'icon' => 'pi pi-fw pi-users', 'routerLink' => ['/trainer-student-list'], 'visible' => $isExternalCoach],
             ['label' => 'Student', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list/Student'], 'visible' => $isSuperUser],
