@@ -120,6 +120,7 @@ class AppointmentController extends Controller
         $trainerId = 0;
         // 2-dimension array per week_number.
         $freeTimesolts = array(array());
+        $dayOfWeek_timeslots = [];
         if ($request->has('trainer_id') && $request->trainer_id > 0) {
             $trainerId = $request->trainer_id;
             $dayOfWeek_timeslots = TrainerTimeslot::where('location_id', $locationId)
