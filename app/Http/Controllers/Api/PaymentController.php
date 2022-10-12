@@ -12,6 +12,19 @@ use Illuminate\Support\Facades\Auth;
 class PaymentController extends BaseController
 {
     /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $canAccess = config("app.jws.settings.finance");
+        if (!$canAccess) {
+            abort(404);
+        }
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
