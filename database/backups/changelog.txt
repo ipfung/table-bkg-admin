@@ -74,8 +74,13 @@ CREATE TABLE `trainer_timeslots` (
 
 INSERT INTO trainer_timeslots (location_id, trainer_id, day_idx, from_time, to_time) SELECT location_id, b.id, day_idx, from_time, to_time FROM timeslots a, users b WHERE b.role_id IN (select id from roles where name in ('manager', 'internal_coach', 'external_coach'));
 
---
+--[done: victory]
 ALTER TABLE `users` ADD `service_id` INT NOT NULL DEFAULT '1' AFTER `second_name`;
+
+ALTER TABLE `services` ADD `session_min` int(11) NOT NULL AFTER `translations`;
+ALTER TABLE `services` ADD `duration` int(11) DEFAULT NULL AFTER `session_min`;
+ALTER TABLE `services` ADD `min_duration` int(11) NOT NULL AFTER `duration`;
+ALTER TABLE `services` ADD `max_duration` int(11) NOT NULL AFTER `min_duration`;
 
 --20221001 [done]
 CREATE TABLE `holidays` (
@@ -90,6 +95,8 @@ CREATE TABLE `holidays` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ALTER TABLE `holidays`
   ADD PRIMARY KEY (`id`);
+ALTER TABLE `holidays`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --20221005, update appointments user_id to trainer id based on student's linked trainer.
 --for driving school only. [done]
@@ -107,4 +114,7 @@ ALTER TABLE `appointments` ADD `entity` VARCHAR(20) NOT NULL DEFAULT 'training' 
 ALTER TABLE `appointments` ADD `parent_id` INT NULL AFTER `entity`;
 ALTER TABLE `appointments` ADD `notify_parties` BOOLEAN NOT NULL DEFAULT TRUE AFTER `parent_id`;
 ALTER TABLE `orders` ADD `repeatable` BOOLEAN NOT NULL DEFAULT FALSE AFTER `payment_status`;
-ALTER TABLE `orders` ADD `recurring` TEXT AFTER `payment_status`;   // json array. e.g: {cycle: 'week', repeat: [1,3]}
+ALTER TABLE `orders` ADD `recurring` TEXT AFTER `payment_status`;   -- json array. e.g: {cycle: 'week', repeat: [1,3]}
+
+--20221012, add fields for trainer commission.
+ALTER TABLE `orders` ADD `trainer_id` INT UNSIGNED NULL AFTER `paid_amount`, ADD `commission` DOUBLE NULL AFTER `trainer_id`;

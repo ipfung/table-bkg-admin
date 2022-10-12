@@ -34,6 +34,11 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function trainer()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function details()
     {
         return $this->hasMany('App\Models\OrderDetail' );

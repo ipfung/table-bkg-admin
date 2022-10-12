@@ -19,6 +19,7 @@ class PaymentController extends BaseController
     public function index(Request $request)
     {
         $user = Auth::user();
+        $withRelationship = ['customer.role', 'details', 'payments'];
 
         $fromDate = Carbon::today()->format("Y-m-d");
         if ($request->has('from_date')) {
@@ -38,6 +39,15 @@ class PaymentController extends BaseController
             if (!empty($request->payment_status))
                 $payments->where('payment_status', $request->payment_status);
         }
+        if ($request->has('order_type')) {
+            if ($request->order_type == 'commission') {
+                $payments->whereRaw('id in (select order_id from order_details where order_type=?)', 'commission' . ($this->isSuperLevel($user) ? '' : '167'));
+                $withRelationship[] = 'trainer';
+            }
+        }
+        if ($request->has('trainer_id')) {
+            $payments->where('trainer_id', $request->trainer_id);
+        }
         $showCustomer = false;
         if ($this->isSuperLevel($user)) {
             if ($request->has('customer_id')) {
@@ -51,7 +61,7 @@ class PaymentController extends BaseController
         if ($request->expectsJson()) {
 //            return $payments->get();
             // ref: https://stackoverflow.com/questions/52559732/how-to-add-custom-properties-to-laravel-paginate-json-response
-            $data = $payments->with('customer.role', 'details', 'payments')->paginate()->toArray();
+            $data = $payments->with($withRelationship)->paginate()->toArray();
             $data['showCustomer'] = $showCustomer;   // append to paginate()
             return $data;
         }
