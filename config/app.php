@@ -241,6 +241,7 @@ return [
             'room_icon' => env('LEMONADE_ROOM_ICON'),
             'always_filter_trainer' => env('LEMONADE_ALWAYS_FILTER_BY_TRAINER'),
             'finance' => env('LEMONADE_FINANCE'),
+            'trainer_multiple_student' => env('LEMONADE_TRAINER_MULTI_STUDENT'),
         ],
         'fcm_server_key' => env('FCM_SERVER_KEY'),
     ]

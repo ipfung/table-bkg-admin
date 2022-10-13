@@ -180,16 +180,20 @@ class UserController extends BaseController
                 $user->password = Hash::make($request->password);
             }
         }
-        DB::beginTransaction();
-//        $settings = $this->getReqSettings($request);
         $settings = $request->input('settings');
         $user->settings = json_encode($settings);
+        DB::beginTransaction();
+//        $settings = $this->getReqSettings($request);
         $saveTrainer = false;
         if (!config('app.jws.settings.trainer_multiple_student') && $settings && isset($settings['trainer'])) {
             // update user_teammates
             $userTeammate = UserTeammate::where('teammate_id', $id)->first();
+            if (empty($userTeammate)) {
+                $userTeammate = new UserTeammate;
+                $userTeammate->teammate_id = $id;
+                $userTeammate->created_by = $user->id;
+            }
             $userTeammate->user_id = $settings['trainer'];
-            $userTeammate->created_by = $user->id;
             $userTeammate->save();
             $saveTrainer = true;
         }
