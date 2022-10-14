@@ -448,7 +448,7 @@ class AppointmentController extends Controller
         // save appointment, it is 1st appointment if it is package.
         $savedAppointment = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, 0);
         if (is_array($savedAppointment)) {
-            if (!$savedAppointment->success) {
+            if (!$savedAppointment['success']) {
                 return $savedAppointment;
             }
         }
@@ -464,7 +464,7 @@ class AppointmentController extends Controller
                 $appointmentDates = $this->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom);
                 $savedAppointment2 = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $savedAppointment->id);
                 if (is_array($savedAppointment2)) {
-                    if (!$savedAppointment2->success) {
+                    if (!$savedAppointment2['success']) {
                         return $savedAppointment2;
                     }
                 }
