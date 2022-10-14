@@ -447,6 +447,11 @@ class AppointmentController extends Controller
         $appointmentStatus = $saveAsPending ? 'pending' : 'approved';
         // save appointment, it is 1st appointment if it is package.
         $savedAppointment = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, 0);
+        if (is_array($savedAppointment)) {
+            if (!$savedAppointment->success) {
+                return $savedAppointment;
+            }
+        }
         $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user);
         $results[] = $savedAppointment;
 
@@ -458,6 +463,11 @@ class AppointmentController extends Controller
                 // pass 1st appointment's id as parent_id as ref.
                 $appointmentDates = $this->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom);
                 $savedAppointment2 = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $savedAppointment->id);
+                if (is_array($savedAppointment2)) {
+                    if (!$savedAppointment2->success) {
+                        return $savedAppointment2;
+                    }
+                }
                 $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user);
                 $results[] = $savedAppointment2;
             }
