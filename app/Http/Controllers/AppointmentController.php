@@ -485,17 +485,28 @@ class AppointmentController extends Controller
         $recurring = $request->input('recurring');
         $order->recurring = json_encode($recurring);
         $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
+        if ($request->has('commission')) {
+            if ($request->commission > 0 && $request->has('trainerId')) {
+                $order->trainer_id = $request->trainerId;
+                $order->commission = $request->commission;
+                if ($isPackage) {
+                    $order->commission = $request->package_commission;
+                }
+            }
+        }
         $order->save();
 
-        $orderDetail = new OrderDetail;
-        $orderDetail->order_id = $order->id;
-        $orderDetail->order_type = $type_of_apt;
-        $orderDetail->booking_id = $customerBooking->id;
-        $orderDetail->order_description = json_encode($results);
-        $orderDetail->original_price = $request->price;
-        $orderDetail->discounted_price = $request->price;
-        $orderDetail->coupon_id = $request->coupon_id;
-        $orderDetail->save();
+        foreach ($results as $result) {
+            $orderDetail = new OrderDetail;
+            $orderDetail->order_id = $order->id;
+            $orderDetail->order_type = $type_of_apt;
+            $orderDetail->booking_id = $result->id;
+            $orderDetail->order_description = json_encode($result);
+            $orderDetail->original_price = $request->price;
+            $orderDetail->discounted_price = $request->price;
+            $orderDetail->coupon_id = $request->coupon_id;
+            $orderDetail->save();
+        }
 
         $payment = new Payment;
         $payment->order_id = $order->id;
