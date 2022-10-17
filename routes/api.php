@@ -54,6 +54,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::apiResource('/notifications', 'Api\NotificationController');
     // simple API
     Route::apiResource('/timeslots', 'Api\TimeslotController');
+    Route::apiResource('/packages', 'Api\PackageController');
     Route::apiResource('/daysoff', 'Api\HolidayController');
     Route::post('/copy-timeslots', 'Api\TimeslotController@copyMonday');
     Route::apiResource('/trainer-timeslots', 'Api\TrainerTimeslotController');
