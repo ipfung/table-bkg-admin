@@ -7,9 +7,23 @@ use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
 {
+    private static $EPOCH = 60;
     protected $appends = [
         'sessions'
     ];
+
+    public function getNoOfSessionAttribute()
+    {
+        return $this->min_duration / $this->duration;
+    }
+
+    public function getSessionMinuteEpochAttribute() {
+        return $this->session_min * self::$EPOCH;
+    }
+
+    public function getDurationEpochAttribute() {
+        return $this->duration * self::$EPOCH;
+    }
 
     public function getSessionsAttribute()
     {

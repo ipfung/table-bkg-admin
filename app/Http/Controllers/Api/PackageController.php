@@ -113,6 +113,7 @@ class PackageController extends BaseController
         $package->no_of_session = $request->no_of_session;
         $package->start_date = $request->start_date;
         $package->end_date = $request->end_date;
+        $package->start_time = $request->start_time;
         $package->recurring = $request->recurring;
         $package->save();
 

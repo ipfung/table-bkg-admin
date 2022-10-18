@@ -23,6 +23,15 @@ class Package extends Model
         'end_date',
         'recurring'
     ];
+    protected $appends = [
+        'end_time'
+    ];
+
+    public function getEndTimeAttribute() {
+        if ($this->start_time)
+            return $this->start_time + ($this->no_of_session * $this->service->duration_epoch);
+        return null;
+    }
 
     public function room()
     {

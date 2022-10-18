@@ -81,7 +81,7 @@ class AppointmentController extends Controller
         $sessionMinute = $service->session_min;        // each session minute, from Service settings.
         $sessionDuration = $service->duration;        // default duration, from Service settings.
         $serviceTime = $service->min_duration;        // min minute duration, from Service record.
-        $noOfSession = $serviceTime / $sessionDuration;         // minimum session, from Service settings.
+        $noOfSession = $service->no_of_session;         // minimum session, from Service settings.
         $customerId = -1;
         $price = $service->price;
         if ($request->has('customer_id')) {    // custom appointment(means it's not from appointment wizard)
@@ -96,9 +96,9 @@ class AppointmentController extends Controller
         if ($price <= 0) {
             $price = 999;
         }
-        $sessionPrice = $price / ($serviceTime / $sessionDuration);
-        $sessionIntervalEpoch = $sessionMinute * $EPOCH;
-        $sessionDurationEpoch = $sessionDuration * $EPOCH;
+        $sessionPrice = $price / $noOfSession;
+        $sessionIntervalEpoch = $service->session_minute_epoch;
+        $sessionDurationEpoch = $service->duration_epoch;
         if ($request->has('noOfSession')) {
             if ($request->noOfSession < $noOfSession) {
                 // FIXME prompt error if selected sessions less than default session.
@@ -115,11 +115,9 @@ class AppointmentController extends Controller
         }
 //        echo 'dayOfWeek_timeslots=' . $dayOfWeek_timeslots;
         // create a TODAY 0:00 epoch.
-        $today = Carbon::today()->timestamp;
         $sessionToBeBooked = ($noOfSession * $sessionDurationEpoch);   // client selected session * each session, in epoch.
         $trainerId = 0;
         // 2-dimension array per week_number.
-        $freeTimesolts = array(array());
         $dayOfWeek_timeslots = [];
         if ($request->has('trainer_id') && $request->trainer_id > 0) {
             $trainerId = $request->trainer_id;
@@ -139,39 +137,8 @@ class AppointmentController extends Controller
                 ->orderBy('from_time', 'asc')
                 ->get();
         }
-        foreach ($dayOfWeek_timeslots as $key => $dow) {
-//            echo 'key=' . $key;
-//            echo '<br />' . $dow->day_idx . ': ' . $dow->from_time . ' to ' . $dow->to_time;
-            // office start & end.
-            $sTime = Carbon::createFromTimeString($dow->from_time);
-            $eTime = Carbon::createFromTimeString($dow->to_time);
-            if ($eTime->timestamp < $sTime->timestamp) {    // end time is after midnight(next day of start time).
-                $eTime = Carbon::createFromTimeString($dow->to_time)->addDay();
-//                echo '<br />' . $sTime->timestamp . ' ------ ' . $eTime->timestamp;
-            }
+        $freeTimesolts = $this->convertTimeslot($dayOfWeek_timeslots, $sessionToBeBooked, $sessionIntervalEpoch, $price);
 
-            $startTime = ($sTime->timestamp - $today);
-            // support last session. $noOfSession * $sessionInterval * $EPOCH = office end - last session.
-            $endTime = ($eTime->timestamp - $today) - $sessionToBeBooked;
-//            echo '<br />stime=' . $startTime . ', etime=' . $endTime;
-            // get timeslot session
-            $DAY_EPOCH = 24 * 60 * 60;
-            while ($startTime <= $endTime) {
-                $freeTimesolts[$dow->day_idx][] = ['time' => $startTime, 'price' => $price];
-                if (($startTime / $DAY_EPOCH) >= 1) {   // after midnight, add to next day as well.
-                    $nextDayOfWeek = $dow->day_idx + 1;
-                    if ($dow->day_idx > 7) {   // Sunday
-                        $nextDayOfWeek = 1;    // Monday
-                    }
-                    // add to next day.
-//            echo '<br />nextDayOfWeek=' . $nextDayOfWeek . ', etime=' . ($startTime - $DAY_EPOCH);
-                    $freeTimesolts[$nextDayOfWeek][] = ['time' => ($startTime - $DAY_EPOCH), 'price' => $price];
-                }
-                $startTime += $sessionIntervalEpoch;
-//                echo ', starttime=' . $startTime . '!';
-            }
-//            echo ', $freeTimesolts[$dow->day_idx]=' . json_encode($freeTimesolts[$dow->day_idx]) . '!';
-        }
 //
 //        // TODO get appointed timeslot by minDate and maxDate.
 //        $nextDayOfMaxDate = Carbon::parse($maxDate)->addDay();
@@ -338,6 +305,37 @@ class AppointmentController extends Controller
         return count($chkDup) > 0;
     }
 
+    /**
+     * for endpoint /package-timeslots
+     * @param Request $request
+     * @return array
+     */
+    public function getPackageTimeslots(Request $request) {
+        $service = Service::find($request->service_id);
+        $sessionToBeBooked = ($request->noOfSession * $service->durationEpoch);   // client selected session * each session, in epoch.
+        $dow = -1;
+        // use param date to find week number(1-7)
+        if ($request->has('date')) {
+            if ($request->date != '') {
+                $date = new Carbon($request->date);
+                $dow = $date->isoWeekday();
+            }
+        }
+        $timeslots = Timeslot::orderBy('day_idx', 'asc')
+            ->orderBy('from_time', 'asc')
+            ->where('location_id', 1)
+            ->where('day_idx', $dow)
+            ->get();
+        $data = $this->convertTimeslot($timeslots, $sessionToBeBooked, $service->sessionMinuteEpoch, 0)[$dow];
+        $sessionInterval = $service->duration_epoch;
+        return compact('data', 'sessionInterval');
+    }
+
+    /**
+     * for endpoint /package-dates
+     * @param Request $request
+     * @return array
+     */
     public function getPackageDates(Request $request) {
         $locationId = 1;
         // use Date and WeekNo to find the timeslot.
@@ -664,6 +662,45 @@ class AppointmentController extends Controller
             return $results;
         }
 
+    }
+
+    private function convertTimeslot($dayOfWeek_timeslots, $sessionToBeBooked, $sessionIntervalEpoch, $price) {
+        $today = Carbon::today()->timestamp;
+        $DAY_EPOCH = 24 * 60 * 60;
+        $freeTimesolts = array(array());
+        foreach ($dayOfWeek_timeslots as $key => $dow) {
+//            echo 'key=' . $key;
+//            echo '<br />' . $dow->day_idx . ': ' . $dow->from_time . ' to ' . $dow->to_time;
+            // office start & end.
+            $sTime = Carbon::createFromTimeString($dow->from_time);
+            $eTime = Carbon::createFromTimeString($dow->to_time);
+            if ($eTime->timestamp < $sTime->timestamp) {    // end time is after midnight(next day of start time).
+                $eTime = Carbon::createFromTimeString($dow->to_time)->addDay();
+//                echo '<br />' . $sTime->timestamp . ' ------ ' . $eTime->timestamp;
+            }
+
+            $startTime = ($sTime->timestamp - $today);
+            // support last session. $noOfSession * $sessionInterval * $EPOCH = office end - last session.
+            $endTime = ($eTime->timestamp - $today) - $sessionToBeBooked;
+//            echo '<br />stime=' . $startTime . ', etime=' . $endTime;
+            // get timeslot session
+            while ($startTime <= $endTime) {
+                $freeTimesolts[$dow->day_idx][] = ['time' => $startTime, 'price' => $price];
+                if (($startTime / $DAY_EPOCH) >= 1) {   // after midnight, add to next day as well.
+                    $nextDayOfWeek = $dow->day_idx + 1;
+                    if ($dow->day_idx > 7) {   // Sunday
+                        $nextDayOfWeek = 1;    // Monday
+                    }
+                    // add to next day.
+//            echo '<br />nextDayOfWeek=' . $nextDayOfWeek . ', etime=' . ($startTime - $DAY_EPOCH);
+                    $freeTimesolts[$nextDayOfWeek][] = ['time' => ($startTime - $DAY_EPOCH), 'price' => $price];
+                }
+                $startTime += $sessionIntervalEpoch;
+//                echo ', starttime=' . $startTime . '!';
+            }
+//            echo ', $freeTimesolts[$dow->day_idx]=' . json_encode($freeTimesolts[$dow->day_idx]) . '!';
+        }
+        return $freeTimesolts;
     }
 
     private function getAppointmentDates($user, $date, $time, $noOfSession, $sessionInterval, $room_id, $assignRandomRoom) {

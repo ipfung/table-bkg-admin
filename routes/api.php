@@ -25,6 +25,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/appointment', 'AppointmentController@index');
     Route::post('/appointment', 'AppointmentController@store');
     Route::post('/package-dates', 'AppointmentController@getPackageDates');
+    Route::get('/package-timeslots', 'AppointmentController@getPackageTimeslots');
     Route::post('/reschedule/{id}', 'AppointmentController@reschedule');
     Route::get('/booking', 'Api\BookingController@index');
     Route::put('/booking-approve/{id}', 'Api\BookingController@approveBooking');
