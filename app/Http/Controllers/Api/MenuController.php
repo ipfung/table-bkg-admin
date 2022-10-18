@@ -25,7 +25,7 @@ class MenuController extends BaseController
             ['label' => 'Trainer', 'icon' => 'pi pi-fw pi-users', 'routerLink' => ['/trainer-student-list'], 'visible' => $isExternalCoach],
             ['label' => 'Student', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list/Student'], 'visible' => $isSuperUser],
             ['label' => 'Settings', 'icon' => 'pi pi-fw pi-cog', 'visible' => $isSuperUser, 'expanded' => true, 'items' => [
-//                ['label' => 'User', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list/User'], 'visible' => $isSuperUser],
+                ['label' => 'Packages', 'icon' => 'pi pi-fw pi-book', 'routerLink' => ['/settings/package-list'], 'visible' => $isSuperUser],
                 ['label' => 'Room', 'icon' => 'pi pi-fw ' . config("app.jws.settings.room_icon"), 'routerLink' => ['/settings/table-list'], 'visible' => $isExternalCoach],
                 ['label' => 'Working Hours', 'icon' => 'pi pi-fw pi-clock', 'routerLink' => ['/settings/working-hours-list'], 'visible' => $isExternalCoach],
             ]],
