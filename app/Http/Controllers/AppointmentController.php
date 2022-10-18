@@ -313,21 +313,21 @@ class AppointmentController extends Controller
     public function getPackageTimeslots(Request $request) {
         $service = Service::find($request->service_id);
         $sessionToBeBooked = ($request->noOfSession * $service->durationEpoch);   // client selected session * each session, in epoch.
-        $dow = -1;
+        $sessionInterval = $service->duration_epoch;
+        $data = [];
         // use param date to find week number(1-7)
         if ($request->has('date')) {
             if ($request->date != '') {
                 $date = new Carbon($request->date);
                 $dow = $date->isoWeekday();
+                $timeslots = Timeslot::orderBy('day_idx', 'asc')
+                    ->orderBy('from_time', 'asc')
+                    ->where('location_id', 1)
+                    ->where('day_idx', $dow)
+                    ->get();
+                $data = $this->convertTimeslot($timeslots, $sessionToBeBooked, $service->sessionMinuteEpoch, 0)[$dow];
             }
         }
-        $timeslots = Timeslot::orderBy('day_idx', 'asc')
-            ->orderBy('from_time', 'asc')
-            ->where('location_id', 1)
-            ->where('day_idx', $dow)
-            ->get();
-        $data = $this->convertTimeslot($timeslots, $sessionToBeBooked, $service->sessionMinuteEpoch, 0)[$dow];
-        $sessionInterval = $service->duration_epoch;
         return compact('data', 'sessionInterval');
     }
 
