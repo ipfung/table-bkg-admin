@@ -343,6 +343,37 @@ class AppointmentController extends Controller
         $quantity = $request->quantity;
         $dow_list = $request->dow;   // array day of week.
 
+        // loop once to find the closest dow from start_date.
+        $d2 = Carbon::createFromFormat('Y-m-d', $request->start_date);
+        $first_dow = null;
+        if (sizeof($dow_list) > 1) {
+            while ($first_dow == null) {
+                foreach ($dow_list as $dow) {
+                    // the start_date is not the first element of dow_list.
+                    if ($d2->is(Timeslot::WEEKS[$dow])) {
+                        $first_dow = $dow;
+                        break;
+                    }
+                }
+                if ($first_dow == null) {
+                    $d2->addDay();
+                }
+            }
+            // set d1 = d2.
+            $d1 = $d2;
+            // reorder array
+            $newdow_list = [];
+            foreach ($dow_list as $dow) {
+                if ($dow == $first_dow || sizeof($dow_list) > 0) {
+                    $newdow_list[] = $dow;
+                    if (sizeof($newdow_list) == sizeof($dow_list)) {
+                        break;
+                    }
+                }
+            }
+            $dow_list = $newdow_list;
+        }
+
         $i = 0;
         $results = [];
         while ($i < $quantity) {
