@@ -347,6 +347,7 @@ class AppointmentController extends Controller
         $d2 = Carbon::createFromFormat('Y-m-d', $request->start_date);
         $first_dow = null;
         if (sizeof($dow_list) > 1) {
+            sort($dow_list);
             while ($first_dow == null) {
                 foreach ($dow_list as $dow) {
                     // the start_date is not the first element of dow_list.
@@ -363,19 +364,24 @@ class AppointmentController extends Controller
             $d1 = $d2;
             // reorder array
             $newdow_list = [];
+            $start_dow_list = [];
             foreach ($dow_list as $dow) {
-                if ($dow == $first_dow || sizeof($dow_list) > 0) {
-                    $newdow_list[] = $dow;
+                if ($dow == $first_dow || sizeof($newdow_list) > 0) {
+                    array_push($newdow_list, $dow);
                     if (sizeof($newdow_list) == sizeof($dow_list)) {
                         break;
                     }
+                } else {
+                    array_push($start_dow_list, $dow);
                 }
             }
-            $dow_list = $newdow_list;
+            $dow_list = array_merge($newdow_list, $start_dow_list);
+//echo 'd2==' . $d2->format('Y-m-d') . ', newdow_list=' . json_encode($dow_list) . ', first_dow=' . $first_dow;
         }
 
         $i = 0;
-        $results = [];
+        $data = [];
+        $holidays = [];
         while ($i < $quantity) {
             $j = 0;    // to compare if no date can be obtained from $dow_list.
             foreach ($dow_list as $dow) {
@@ -384,6 +390,7 @@ class AppointmentController extends Controller
                 $daysoff = Holiday::where('location_id', $locationId)->whereRaw('(? between start_date and end_date)', $d1->format('Y-m-d'))->first();
                 if (!empty($daysoff)) {
                     // is dayoff, add one day and go to next dow.
+                    $holidays[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
                     $d1->addDay();
                     continue;
                 }
@@ -404,13 +411,13 @@ class AppointmentController extends Controller
                     // dow is not a working day, go to next dow without date increment.
                     continue;
                 }
-                $results[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
+                $data[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
                 $d1->addDay();
                 $i++;
                 if ($i == $quantity) break;
             }
         }
-        return $results;
+        return compact('data', 'holidays');
     }
 
     public function store(Request $request)
