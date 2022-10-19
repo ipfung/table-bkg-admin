@@ -346,11 +346,13 @@ class AppointmentController extends Controller
         $i = 0;
         $results = [];
         while ($i < $quantity) {
+            $j = 0;    // to compare if no date can be obtained from $dow_list.
             foreach ($dow_list as $dow) {
                 $d1 = $d1->is(Timeslot::WEEKS[$dow]) ? $d1 : $d1->next(Timeslot::WEEKS[$dow]);
                 // check date is public holiday for the office?
                 $daysoff = Holiday::where('location_id', $locationId)->whereRaw('(? between start_date and end_date)', $d1->format('Y-m-d'))->first();
                 if (!empty($daysoff)) {
+                    // is dayoff, add one day and go to next dow.
                     $d1->addDay();
                     continue;
                 }
@@ -362,12 +364,13 @@ class AppointmentController extends Controller
                 } else {
                     $dayOfWeek_timeslots = Timeslot::where('location_id', $locationId);
                 }
-                $workingDay = $dayOfWeek_timeslots->whereIn('day_idx', $dow_list)
+                $workingDay = $dayOfWeek_timeslots->where('day_idx', $dow)
                     ->orderBy('day_idx', 'asc')
                     ->orderBy('from_time', 'asc')
                     ->first();
                 if (empty($workingDay)) {
-                    $d1->addDay();
+                    $j++;
+                    // dow is not a working day, go to next dow without date increment.
                     continue;
                 }
                 $results[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
