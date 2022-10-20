@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\AppointmentApproved;
+use App\Mail\PackageApproved;
 use App\Models\Appointment;
 use App\Models\CustomerBooking;
 use App\Models\Order;
@@ -441,8 +442,11 @@ class AppointmentController extends Controller
         $appointmentDate = $request->date;
         $paymentGatway = $request->paymentMethod;
         $entity = 'appointment';
+        $sendNotify = false;
         // onsite appointment, use Customer as user.
         if ($request->paymentMethod == 'onsite') {
+            if ($request->has('notify_parties'))
+                $sendNotify = $request->notify_parties;
             $paymentMethod = 'onsite';
             $paymentGatway = 'cash';
             $request->validate([
@@ -460,6 +464,7 @@ class AppointmentController extends Controller
                 $saveAsPending = ($request->status == 'pending');
             }
         } else {
+            $sendNotify = true;   // always send
             $paymentMethod = 'electronic';
             // check if user is new, make appointment status to 'pending' instead.
             $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
@@ -572,12 +577,22 @@ class AppointmentController extends Controller
         DB::commit();
 
         // send email.
-        Mail::to($user->email)
-            ->bcc(config('mail.from.address'))
-            ->send(new AppointmentApproved(CustomerBooking::find($customerBooking->id)));
+        if ($sendNotify) {
+            if ($isPackage) {
+                $resOrder = Order::find($order->id);
+                Mail::to($user->email)
+                    ->bcc(config('mail.from.address'))
+                    ->send(new PackageApproved($resOrder->load('details', 'customer')));
+            } else {
+                $resCustomerBooking = CustomerBooking::find($customerBooking->id);
+                Mail::to($resCustomerBooking->customer->email)
+                    ->bcc(config('mail.from.address'))
+                    ->send(new AppointmentApproved($resCustomerBooking));
+            }
+        }
 
         if ($request->expectsJson()) {
-            $results = ['success' => true];
+            $results = ['success' => true, 'order_id' => $order->id];
             return $results;
         }
         return redirect()->route('orders.index');
