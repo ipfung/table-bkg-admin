@@ -470,7 +470,7 @@ class AppointmentController extends Controller
             }
         }
         // get appointment dates.
-        $appointmentDates = $this->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom);
+        $appointmentDates = $this->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);
 
         $assignedRoom = $appointmentDates['room_id'];
         $results = [];
@@ -479,35 +479,35 @@ class AppointmentController extends Controller
             $results = ['success' => false, 'error' => 'Selected time is not available, please choose different time.', 'param' => $assignedRoom];
             return $results;
         }
+        $isDup = $appointmentDates['duplicated'];   // for customer!!
+        if ($isDup) {
+            return ['success' => false, 'error' => 'Found duplicate appointment.'];
+        }
 
         // start DB transaction.
         DB::beginTransaction();
 
         $appointmentStatus = $saveAsPending ? 'pending' : 'approved';
         // save appointment, it is 1st appointment if it is package.
-        $savedAppointment = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, 0);
-        if (is_array($savedAppointment)) {
-            if (!$savedAppointment['success']) {
-                return $savedAppointment;
-            }
-        }
+        $savedAppointment = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $sendNotify, 0);
         $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user);
+        $savedAppointment->customer_booking_id = $customerBooking->id;
         $results[] = $savedAppointment;
 
-        // package handling.
+        // Packages handling.
         if ($isPackage) {
             $dates = $request->lesson_dates;
             $pkg_count = count($dates);
             for ($i=1; $i<$pkg_count; $i++) {
                 // pass 1st appointment's id as parent_id as ref.
-                $appointmentDates = $this->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom);
-                $savedAppointment2 = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $savedAppointment->id);
-                if (is_array($savedAppointment2)) {
-                    if (!$savedAppointment2['success']) {
-                        return $savedAppointment2;
-                    }
+                $appointmentDates = $this->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);
+                $isDup = $appointmentDates['duplicated'];   // for customer!!
+                if ($isDup) {
+                    return ['success' => false, 'error' => 'Found duplicate appointment.'];
                 }
+                $savedAppointment2 = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $sendNotify, $savedAppointment->id);
                 $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user);
+                $savedAppointment2->customer_booking_id = $customerBooking2->id;
                 $results[] = $savedAppointment2;
             }
             $type_of_apt = 'package';
@@ -535,6 +535,7 @@ class AppointmentController extends Controller
         $order->recurring = json_encode($recurring);
         $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
         if ($request->has('commission')) {
+            // note trainerId will be saved only for order that has commission.
             if ($request->commission > 0 && $request->has('trainerId')) {
                 $order->trainer_id = $request->trainerId;
                 $order->commission = $request->commission;
@@ -549,7 +550,7 @@ class AppointmentController extends Controller
             $orderDetail = new OrderDetail;
             $orderDetail->order_id = $order->id;
             $orderDetail->order_type = $type_of_apt;
-            $orderDetail->booking_id = $result->id;
+            $orderDetail->booking_id = $result->customer_booking_id;
             $orderDetail->order_description = json_encode($result);
             $orderDetail->original_price = $request->price;
             $orderDetail->discounted_price = $request->price;
@@ -582,7 +583,7 @@ class AppointmentController extends Controller
         return redirect()->route('orders.index');
     }
 
-    private function saveAppointment(Request $request, $appointmentDates, User $user, string $appointmentStatus, $parentId) {
+    private function saveAppointment(Request $request, $appointmentDates, User $user, string $appointmentStatus, bool $sendNotify, $parentId) {
         // use trainer_id as appointment user, if the appointment is trainer-student relationship.
         $userId = $user->id;
         if ($request->has('trainerId')) {
@@ -595,32 +596,26 @@ class AppointmentController extends Controller
         $appointment->start_time = $appointmentDates['start_time'];
         $appointment->end_time = $appointmentDates['end_time'];
         $appointment->room_id = $appointmentDates['room_id'];
+        if ($request->has('package_id')) {
+            // get existing package appointment.
+            $appointment->package_id = $request->package_id;
+            $packageApt = Appointment::where('start_time', $appointment->start_time)
+                ->where('end_time', $appointment->end_time)
+                ->where('room_id', $appointment->room_id)
+                ->where('package_id', $appointment->package_id)
+                ->first();
+            if (!empty($packageApt)) {
+                return $packageApt;
+            }
+        }
         $appointment->user_id = $userId;
         $appointment->service_id = $request->serviceId;
-//        $appointment->package_id
+        $appointment->package_id = $request->package_id;
 //        $appointment->lesson_space
+        $appointment->notify_parties = $sendNotify;
         $appointment->internal_remark = $request->internal_remark;
         $appointment->status = $appointmentStatus;     // get defaults from settings.
         $appointment->parent_id = $parentId;
-        // check duplicate, in Appointment system should not allow same user book same timeslot.
-        $isDup = false;
-        for ($i=0; $i<2; $i++) {
-            $paramDate = $i == 0 ? $appointmentDates['start_time'] : $appointmentDates['end_time'];
-            $found = DB::table('customer_bookings')
-                ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
-                ->where('customer_bookings.customer_id', $user->id)
-                ->whereRaw('? between appointments.start_time and appointments.end_time', $paramDate)->first();
-            if (!empty($found)) {
-                $isDup = true;
-                break;
-            }
-        }
-        if ($isDup) {
-            DB::rollBack();
-            if ($request->expectsJson()) {
-                return ['success' => false, 'error' => 'Found duplicate appointment.'];
-            }
-        }
         $appointment->save();
 
         return $appointment;
@@ -669,32 +664,23 @@ class AppointmentController extends Controller
         if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
             // ok to change booking once.
             // get appointment dates.
-            $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true);
-            // check duplicate, in Appointment system should not allow same user book same timeslot.
-            $isDup = false;
-            for ($i=0; $i<2; $i++) {
-                $paramDate = $i == 0 ? $appointmentDates['start_time'] : $appointmentDates['end_time'];
-                $found = DB::table('customer_bookings')
-                    ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
-                    ->where('customer_bookings.customer_id', $user->id)
-                    ->whereRaw('? between appointments.start_time and appointments.end_time', $paramDate)->first();
-                if (!empty($found)) {
-                    $isDup = true;
-                    break;
-                }
-            }
+            $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true, $booking->appointment->package_id);
+            $isDup = $appointmentDates['duplicated'];   // for customer!!
             if ($isDup) {
-                if ($request->expectsJson()) {
-                    return ['success' => false, 'error' => 'Found duplicate appointment.'];
-                }
+                return ['success' => false, 'error' => 'Found duplicate appointment.'];
             }
-            $booking->appointment->start_time = $appointmentDates['start_time'];
-            $booking->appointment->end_time = $appointmentDates['end_time'];
-            $booking->appointment->room_id = $appointmentDates['room_id'];
-            $booking->appointment->save();
-            $booking->revision_counter += 1;
-            $booking->save();
-            $results = ['success' => true, 'room' => Room::find($booking->appointment->room_id)];
+            if ($booking->appointment->package_id > 0) {
+                // not allow to change package.
+                return ['success' => false, 'error' => 'You cannot reschedule appointment of package.'];
+            } else {
+                $booking->appointment->start_time = $appointmentDates['start_time'];
+                $booking->appointment->end_time = $appointmentDates['end_time'];
+                $booking->appointment->room_id = $appointmentDates['room_id'];
+                $booking->appointment->save();
+                $booking->revision_counter += 1;
+                $booking->save();
+                $results = ['success' => true, 'room' => Room::find($booking->appointment->room_id)];
+            }
             // TODO mail
         } else {
             $results = ['success' => false, 'error' => 'You must reschedule before 48 hours of appointment start time.'];
@@ -744,7 +730,7 @@ class AppointmentController extends Controller
         return $freeTimesolts;
     }
 
-    private function getAppointmentDates($user, $date, $time, $noOfSession, $sessionInterval, $room_id, $assignRandomRoom) {
+    private function getAppointmentDates($user, $date, $time, $noOfSession, $sessionInterval, $room_id, $assignRandomRoom, $package_id) {
         // get min & max dates by user
         $dates = $this->getDates($user);
         $minDate = $dates[0];
@@ -777,15 +763,31 @@ class AppointmentController extends Controller
         } else {
             // check duplicate by roomId and appointment time.
             $assignedRoom = $room_id;   // param from client side.
-            $isRoomOccupied = $this->isRoomOccupied($assignedRoom, $dt, $dt2);
-            if ($isRoomOccupied) {   // reset $assignedRoom to negative number if desired room was occupied.
-                $assignedRoom = -2;
+            if (!$package_id) {
+                $isRoomOccupied = $this->isRoomOccupied($assignedRoom, $dt, $dt2);
+                if ($isRoomOccupied) {   // reset $assignedRoom to negative number if desired room was occupied.
+                    $assignedRoom = -2;
+                }
+            }
+        }
+        // check duplicate, in Appointment system should not allow same user book same timeslot.
+        $isDup = false;
+        for ($i=0; $i<2; $i++) {   // do twice, 1 for start_time, another for end_time.
+            $paramDate = $i == 0 ? $dt : $dt2;
+            $found = DB::table('customer_bookings')
+                ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+                ->where('customer_bookings.customer_id', $user->id)
+                ->whereRaw('? between appointments.start_time and appointments.end_time', $paramDate)->first();
+            if (!empty($found)) {
+                $isDup = true;
+                break;
             }
         }
         return [
             'start_time' => $dt,
             'end_time' => $dt2,
-            'room_id' => $assignedRoom
+            'room_id' => $assignedRoom,
+            'duplicated' => $isDup
         ];
     }
 }
