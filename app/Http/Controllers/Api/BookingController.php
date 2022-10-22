@@ -56,6 +56,19 @@ class BookingController extends BaseController
             ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate )
             ->orderBy('appointments.start_time', 'asc')
             ->orderBy('rooms.name', 'asc');
+        if ($request->has('ownerId')) {
+            $ownerId = $request->ownerId;
+            $bookings->where(function ($query) use ($ownerId){
+                $query->where('customer_id', $ownerId)
+                    ->orWhere('user_id', $ownerId);
+            });
+        }
+        if ($request->has('status')) {
+            if ($request->status != '')
+                $bookings->where('appointments.status', $request->status);
+        }
+
+
         $results = [];
         if ($this->isInternalCoachLevel($user)) {
             $results['newable'] = true;
@@ -65,11 +78,11 @@ class BookingController extends BaseController
             $results['showCustomer'] = true;
             $results['showTrainer'] = true;
         } else if ($this->isExternalCoachLevel($user)) {
-            $results['newable'] = false;
+            $results['newable'] = true;
             if ($request->has('customer_id')) {
                 $bookings->where('customer_id', $request->customer_id);
             }
-            // trainer and coach could see student appointments.
+            // trainer/coach could see their student appointments only.
             $bookings->where('user_id', $user->id);
             $results['showCustomer'] = true;
             $results['showTrainer'] = false;
@@ -83,6 +96,8 @@ class BookingController extends BaseController
         if ($request->expectsJson()) {
             $results['success'] = true;
             $results['requiredTrainer'] = config("app.jws.settings.required_trainer");
+            $results['supportPackages'] = config("app.jws.settings.packages");
+            $results['supportFinance'] = config("app.jws.settings.finance");
             $results['data'] = $bookings->get();
             return $results;
         }
