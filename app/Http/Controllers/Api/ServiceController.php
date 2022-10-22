@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Room;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -62,6 +63,10 @@ class ServiceController extends BaseController
                     if (isset($settings->trainer)) {
                         $trainer = User::find($settings->trainer);
                         $data->trainer = ["id" => $settings->trainer, "name" => $trainer->name, "avatar" => $trainer->avatar, "mobile_no" => $trainer->mobile_no];
+                    }
+                    if (isset($settings->room)) {
+                        $room = Room::find($settings->room);
+                        $data->room = ["id" => $settings->room, "name" => $room->name, "color" => $room->color];
                     }
                     return $data;
                 }
