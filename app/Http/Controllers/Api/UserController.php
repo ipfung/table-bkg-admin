@@ -94,6 +94,8 @@ class UserController extends BaseController
             $data['editable'] = $editable;   // append to paginate()
             $data['newable'] = $newable;
             $data['multi_student'] = config('app.jws.settings.trainer_multiple_student');
+            $data['requiredRoom'] = config("app.jws.settings.required_room");
+            $data['requiredTrainer'] = config("app.jws.settings.required_trainer");
             return $data;
         }
         return view("users.list", $users);
@@ -119,6 +121,19 @@ class UserController extends BaseController
             'mobile_no' => 'required',
             'password' => 'required|min:8',
         ]);
+        if (config("app.jws.settings.required_trainer")) {
+            $request->validate([
+                'settings.trainer' => 'required',    // trainer id.
+            ]);
+        }
+        if (config("app.jws.settings.required_room")) {
+            $request->validate([
+                'settings.room' => 'required',    // room id.
+            ]);
+        }
+        // license checking.
+//        $license_checker = $this->checkLicense($request->role_id);
+
         $data = new User($request->all());
         $data->password = Hash::make($request->password);
         $settings = $request->input('settings');

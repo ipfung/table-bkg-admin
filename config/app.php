@@ -239,7 +239,8 @@ return [
         'auto_reject_unpaid_booking' => env('JWS_AUTO_REJECT_UNPAID_APPOINTMENT'),
         'settings' => [
             'room_icon' => env('LEMONADE_ROOM_ICON'),
-            'always_filter_trainer' => env('LEMONADE_ALWAYS_FILTER_BY_TRAINER'),
+            'required_trainer' => env('LEMONADE_REQUIRED_TRAINER'),
+            'required_room' => env('LEMONADE_REQUIRED_ROOM'),
             'finance' => env('LEMONADE_FINANCE'),
             'trainer_multiple_student' => env('LEMONADE_TRAINER_MULTI_STUDENT'),
         ],

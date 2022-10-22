@@ -127,7 +127,7 @@ class AppointmentController extends Controller
                 ->orderBy('day_idx', 'asc')
                 ->orderBy('from_time', 'asc')
                 ->get();
-            if (count($dayOfWeek_timeslots) == 0 && config("app.jws.settings.always_filter_trainer")) {
+            if (count($dayOfWeek_timeslots) == 0 && config("app.jws.settings.required_trainer")) {
                 return ["success" => false, "error" => "No trainer working hours have found."];
             }
         }
