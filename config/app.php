@@ -242,6 +242,7 @@ return [
             'required_trainer' => env('LEMONADE_REQUIRED_TRAINER'),
             'required_room' => env('LEMONADE_REQUIRED_ROOM'),
             'finance' => env('LEMONADE_FINANCE'),
+            'packages' => env('LEMONADE_PACKAGES'),
             'trainer_multiple_student' => env('LEMONADE_TRAINER_MULTI_STUDENT'),
         ],
         'fcm_server_key' => env('FCM_SERVER_KEY'),
