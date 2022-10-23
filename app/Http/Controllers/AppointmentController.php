@@ -199,7 +199,7 @@ class AppointmentController extends Controller
             } else {
                 // TODO check if it's special day/holiday of Trainer.
                 // get freeslot from week_number freeslot.
-                $freeslots = $freeTimesolts[$d->dayOfWeek];    // it contains 'time', 'price'.
+                $freeslots = $freeTimesolts[$d->dayOfWeekIso];    // it contains 'time', 'price'.
                 $isDayOff = (sizeof($freeslots) == 0);
                 // TODO remove occupied time.
                 foreach ($freeslots as $index => $slot) {
