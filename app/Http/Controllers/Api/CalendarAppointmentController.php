@@ -82,7 +82,7 @@ class CalendarAppointmentController extends BaseController
         }
 
         // always return JSON type for calendar.
-        return $appointments->paginate();
+        return $appointments->paginate(300);
     }
 
 }
