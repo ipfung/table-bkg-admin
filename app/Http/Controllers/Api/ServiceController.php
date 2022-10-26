@@ -61,6 +61,7 @@ class ServiceController extends BaseController
                 if (config('app.jws.settings.timeslots')) {
                     $data->timeslotSetting = config('app.jws.settings.timeslots');
                 }
+                $data->requiredTrainer = config('app.jws.settings.required_trainer');
                 if (!empty($user->settings)) {
                     $settings = json_decode($user->settings);
                     if (isset($settings->trainer)) {
