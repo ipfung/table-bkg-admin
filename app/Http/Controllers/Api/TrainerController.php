@@ -34,6 +34,9 @@ class TrainerController extends BaseController
         if ($this->isSuperLevel($user)) {
             $editable = true;
             $newable = true;
+        } else if ($this->isExternalCoachLevel($user)) {
+            $editable = true;
+            $trainers->where('id', $user->id);
         } else {
             $trainers->where('id', $user->id);
         }
@@ -46,6 +49,7 @@ class TrainerController extends BaseController
             $data = $trainers->with('role')->with('teammates')->paginate()->toArray();
             $data['editable'] = $editable;   // append to paginate()
             $data['newable'] = $newable;
+            $data['timeslotSetting'] = config('app.jws.settings.timeslots');
             $data['multi_student'] = config('app.jws.settings.trainer_multiple_student');
             return $data;
         }

@@ -58,6 +58,9 @@ class ServiceController extends BaseController
                 ->where('status', 1001);
             if ($request->expectsJson()) {
                 $data = $service->first();
+                if (config('app.jws.settings.timeslots')) {
+                    $data->timeslotSetting = config('app.jws.settings.timeslots');
+                }
                 if (!empty($user->settings)) {
                     $settings = json_decode($user->settings);
                     if (isset($settings->trainer)) {

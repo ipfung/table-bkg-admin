@@ -59,6 +59,8 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::apiResource('/daysoff', 'Api\HolidayController');
     Route::post('/copy-timeslots', 'Api\TimeslotController@copyMonday');
     Route::apiResource('/trainer-timeslots', 'Api\TrainerTimeslotController');
+    Route::apiResource('/trainer-workdate-timeslots', 'Api\TrainerWorkdateTimeslotController');
+    Route::get('/trainer-non-workdate/{trainer_id}', 'Api\TrainerWorkdateTimeslotController@getTrainerNonWorkDates');
     Route::apiResource('/rooms', 'Api\RoomController');
     Route::get('/locations', 'Api\LocationController@index');    //
 });

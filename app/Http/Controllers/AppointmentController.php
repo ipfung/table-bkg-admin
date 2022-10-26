@@ -14,6 +14,7 @@ use App\Models\Service;
 use App\Models\Holiday;
 use App\Models\Timeslot;
 use App\Models\TrainerTimeslot;
+use App\Models\TrainerWorkdateTimeslot;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use DateTime;
@@ -120,23 +121,32 @@ class AppointmentController extends Controller
         $trainerId = 0;
         // 2-dimension array per week_number.
         $dayOfWeek_timeslots = [];
-        if ($request->has('trainer_id') && $request->trainer_id > 0) {
+        if (config("app.jws.settings.timeslots") == 'trainer_date') {
             $trainerId = $request->trainer_id;
-            $dayOfWeek_timeslots = TrainerTimeslot::where('location_id', $locationId)
+            $dayOfWeek_timeslots = TrainerWorkdateTimeslot::where('location_id', $locationId)
                 ->where('trainer_id', $trainerId)
-                ->orderBy('day_idx', 'asc')
+                ->where('work_date', $minDate)   // must get 1 date only, otherwise the day_idx will be confused.
                 ->orderBy('from_time', 'asc')
                 ->get();
-            if (count($dayOfWeek_timeslots) == 0 && config("app.jws.settings.required_trainer")) {
-                return ["success" => false, "error" => "No trainer working hours have found."];
+        } else {    // day of week
+            if ($request->has('trainer_id') && $request->trainer_id > 0) {
+                $trainerId = $request->trainer_id;
+                $dayOfWeek_timeslots = TrainerTimeslot::where('location_id', $locationId)
+                    ->where('trainer_id', $trainerId)
+                    ->orderBy('day_idx', 'asc')
+                    ->orderBy('from_time', 'asc')
+                    ->get();
+                if (count($dayOfWeek_timeslots) == 0 && config("app.jws.settings.required_trainer")) {
+                    return ["success" => false, "error" => "No trainer working hours have found."];
+                }
             }
-        }
-        // get office working hours, if no working hours from trainer_id.
-        if (count($dayOfWeek_timeslots) == 0) {
-            $dayOfWeek_timeslots = Timeslot::where('location_id', $locationId)
-                ->orderBy('day_idx', 'asc')
-                ->orderBy('from_time', 'asc')
-                ->get();
+            // get office working hours, if no working hours from trainer_id.
+            if (count($dayOfWeek_timeslots) == 0) {
+                $dayOfWeek_timeslots = Timeslot::where('location_id', $locationId)
+                    ->orderBy('day_idx', 'asc')
+                    ->orderBy('from_time', 'asc')
+                    ->get();
+            }
         }
         $freeTimesolts = $this->convertTimeslot($dayOfWeek_timeslots, $sessionToBeBooked, $sessionIntervalEpoch, $price);
 
