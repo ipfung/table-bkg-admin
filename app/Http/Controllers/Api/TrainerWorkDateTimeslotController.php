@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class TrainerWorkdateTimeslotController extends BaseController
+class TrainerWorkDateTimeslotController extends BaseController
 {
     /**
      * Create a new controller instance.
