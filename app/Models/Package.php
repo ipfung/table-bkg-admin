@@ -33,6 +33,11 @@ class Package extends Model
         return null;
     }
 
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class, 'package_id', 'id');
+    }
+
     public function room()
     {
         return $this->belongsTo(Room::class);
@@ -46,5 +51,10 @@ class Package extends Model
     public function trainer()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function package_dates()
+    {
+        return $this->hasMany(PackageDate::class, 'package_id', 'id');
     }
 }

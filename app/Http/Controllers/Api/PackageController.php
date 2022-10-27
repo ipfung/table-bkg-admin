@@ -2,13 +2,31 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Facade\AppointmentService;
+use App\Models\Appointment;
 use App\Models\Package;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PackageController extends BaseController
 {
+    private $appointmentService;
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct(AppointmentService $appointmentService)
+    {
+        $canAccess = config("app.jws.settings.packages");
+        if (!$canAccess) {
+            abort(404);
+        }
+        $this->appointmentService = $appointmentService;
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -38,7 +56,7 @@ class PackageController extends BaseController
         }
 
         if ($request->expectsJson()) {
-            $data = $packages->with('service', 'room', 'trainer')->paginate()->toArray();
+            $data = $packages->with('service', 'room', 'trainer', 'appointments')->paginate()->toArray();
             $data['editable'] = $editable;   // append to paginate()
             return $data;
         }
@@ -65,7 +83,62 @@ class PackageController extends BaseController
         $package = new Package($request->all());
         $recurring = $request->input('recurring');
         $package->recurring = json_encode($recurring);
+
+        // start DB transaction.
+        DB::beginTransaction();
+
         $package->save();
+
+        // block the dates in appointments table.
+        if ($package->start_date && $package->start_time) {
+            $trainer = User::find($package->trainer_id);
+
+            $appointmentStatus = 'approved';
+            // save appointment, it is 1st appointment if it is package.
+            $dates = $request->lesson_dates;
+            $pkg_count = count($dates);
+            $parentId = 0;
+
+            $results = [];
+            for ($i=0; $i<$pkg_count; $i++) {
+                // pass 1st appointment's id as parent_id as ref.
+                $appointmentDates = $this->appointmentService->getAppointmentDates($trainer, $dates[$i], $request->start_time, $request->no_of_session, $request->sessionInterval, $request->room_id, false, $package->id);
+                $assignedRoom = $appointmentDates['room_id'];
+                if ($assignedRoom <= 0) {
+                    DB::rollBack();
+                    // Room not available for appointment time, throw error.
+                    return ['success' => false, 'error' => 'Room is not available at selected time, please choose different time.', 'param' => $assignedRoom];
+                }
+                if ($this->appointmentService->isTrainerOccupied($package->trainer_id, $appointmentDates['start_time'], $appointmentDates['end_time'])) {   // false = not occupied.
+                    DB::rollBack();
+                    // Room not available for appointment time, throw error.
+                    return ['success' => false, 'error' => 'Trainer is not available at selected time, please choose different time.'];
+                }
+
+                $appointment = new Appointment;
+                $appointment->start_time = $appointmentDates['start_time'];
+                $appointment->end_time = $appointmentDates['end_time'];
+                $appointment->room_id = $appointmentDates['room_id'];
+                $appointment->package_id = $package->id;
+                $appointment->user_id = $trainer->id;
+                $appointment->service_id = $request->service_id;
+                $appointment->notify_parties = true;
+                $appointment->internal_remark = $request->internal_remark;
+                $appointment->status = $appointmentStatus;     // get defaults from settings.
+                if ($parentId > 0) {
+                    $appointment->parent_id = $parentId;
+                }
+
+                $savedAppointment = $this->appointmentService->saveAppointment($appointment, $appointmentDates);
+                if (0 == $i) {
+                    $parentId = $savedAppointment->id;
+                }
+                $results[] = $savedAppointment;
+            }
+
+        }
+        DB::commit();
+
         return $this->sendResponse($package, 'Create successfully.');
     }
 
