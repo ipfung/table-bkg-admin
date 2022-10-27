@@ -12,6 +12,11 @@ class TrainerWorkdateTimeslot extends Model
         'location_id', 'trainer_id', 'work_date', 'from_time', 'to_time'
     ];
 
+    protected $casts = [
+        'from_time'  => 'date:H:i',
+        'to_time' => 'date:H:i',
+    ];
+
     /**
      * @return int make it compatible with TrainerTimeslot by day_idx.
      */
