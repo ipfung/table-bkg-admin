@@ -40,9 +40,31 @@ class TrainerController extends BaseController
         } else {
             $trainers->where('id', $user->id);
         }
+
+        if ($request->has('role_id')) {
+            if ($request->role_id > 0)
+                $trainers->where('role_id', $request->role_id);
+        }
+
         if ($request->has('status')) {
             if ($request->status != '')
                 $trainers->where('status', $request->status);
+        }
+        if ($request->has('name')) {
+            if ($request->name != '')
+                $trainers->whereRaw('(upper(name) LIKE upper(?) or upper(second_name) LIKE upper(?))', [$request->name . '%', $request->name . '%']);
+        }
+        if ($request->has('second_name')) {
+            if ($request->second_name != '')
+                $trainers->whereRaw('(upper(second_name) LIKE upper(?))', [$request->second_name . '%']);
+        }
+        if ($request->has('email')) {
+            if ($request->email != '')
+                $trainers->where('email', 'LIKE', $request->email . '%');
+        }
+        if ($request->has('mobile_no')) {
+            if ($request->mobile_no != '')
+                $trainers->where('mobile_no', 'LIKE', $request->mobile_no . '%');
         }
 
         if ($request->expectsJson()) {

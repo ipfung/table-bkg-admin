@@ -72,10 +72,6 @@ class UserController extends BaseController
                 $users->whereRaw('(upper(second_name) LIKE upper(?))', [$request->second_name . '%']);
         }
 
-        if ($request->has('mobile_no')) {
-            if ($request->mobile_no != '')
-                $users->where('mobile_no', 'LIKE', $request->mobile_no . '%');
-        }
         if ($request->has('email')) {
             if ($request->email != '')
                 $users->where('email', 'LIKE', $request->email . '%');
