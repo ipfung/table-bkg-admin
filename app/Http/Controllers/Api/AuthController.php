@@ -31,6 +31,7 @@ class AuthController extends Controller
             $success['name'] =  $user->name;
             $success['email'] =  $user->email;
             $success['avatar'] =  $user->avatar;
+            $success['color'] =  $user->role->color_name;
 
             return $success;
         }
