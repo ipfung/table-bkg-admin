@@ -201,13 +201,15 @@ class DashboardController extends BaseController
             ->join('customer_bookings', 'order_details.booking_id', '=', 'customer_bookings.id')
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('packages', 'appointments.package_id', '=', 'packages.id')
-            ->select(DB::raw('count(*) as remaining, packages.name, orders.recurring'))
+            ->select(DB::raw('count(*) as remaining, package_id, packages.name, order_id, orders.recurring'))
             ->where('appointments.status', 'approved')
             ->where('appointments.package_id', '>', 0)
             ->where('appointments.start_time', '>',  $filterDate)
             ->where('customer_bookings.customer_id', $user->id)
             ->groupBy('package_id')
-            ->groupBy('orders.id')
+            ->groupBy('packages.name')
+            ->groupBy('order_id')
+            ->groupBy('orders.recurring')
             ->orderBy('packages.name', 'asc');
 
         return $bookings->get();
