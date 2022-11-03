@@ -49,6 +49,8 @@ class DashboardController extends BaseController
         $totalUnpaid = $this->getPaymentAmount($orderSearch, $user, $isSuperUser)->total_paid;
         //
         $noOfNewNotifications = $this->getNotificationCount($user);
+        $role = $user->role->name;
+        $reminingPackages = $this->getRemainingPackages($user);
         if ($request->expectsJson()) {
             return compact(
                 'showBookingCount',
@@ -58,6 +60,7 @@ class DashboardController extends BaseController
                 'totalCustomer',
                 'totalCustomerLastWeek',
                 'showPayment',
+                'role',
                 'totalSales',
                 'totalUnpaid',
                 'showSalesChart',
@@ -66,7 +69,8 @@ class DashboardController extends BaseController
                 'noOfNewNotifications',
                 'showUpcomingAppointments',
                 'appointments',
-                'isTrainerUser'
+                'isTrainerUser',
+                'reminingPackages'
 //                'time'
             );
         }
@@ -161,6 +165,7 @@ class DashboardController extends BaseController
             ->select('customer_bookings.*',
                 DB::raw("(select a.name from users a, roles b where a.id=appointments.user_id and a.role_id=b.id and b.name in ('manager', 'internal_coach', 'external_coach')) as user_name"),
                 DB::raw('(select name from users where id=customer_bookings.customer_id) as customer_name'),
+                DB::raw('(select name from packages where id=appointments.package_id) as package_name'),
                 DB::raw('(select color_name from roles where id=appointments.user_id) as role_color_name'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
@@ -187,5 +192,24 @@ class DashboardController extends BaseController
         return NotifyMessage::where('customer_id', $user->id)
             ->where('has_read', 0)
             ->count();
+    }
+
+    private function getRemainingPackages($user) {
+        $filterDate = $this->getCurrentDateTime();
+        $bookings = DB::table('orders')
+            ->join('order_details', 'orders.id', '=', 'order_details.order_id')
+            ->join('customer_bookings', 'order_details.booking_id', '=', 'customer_bookings.id')
+            ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+            ->join('packages', 'appointments.package_id', '=', 'packages.id')
+            ->select(DB::raw('count(*) as remaining, packages.name, orders.recurring'))
+            ->where('appointments.status', 'approved')
+            ->where('appointments.package_id', '>', 0)
+            ->where('appointments.start_time', '>',  $filterDate)
+            ->where('customer_bookings.customer_id', $user->id)
+            ->groupBy('package_id')
+            ->groupBy('orders.id')
+            ->orderBy('packages.name', 'asc');
+
+        return $bookings->get();
     }
 }
