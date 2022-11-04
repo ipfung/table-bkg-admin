@@ -201,7 +201,7 @@ class DashboardController extends BaseController
             ->join('customer_bookings', 'order_details.booking_id', '=', 'customer_bookings.id')
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('packages', 'appointments.package_id', '=', 'packages.id')
-            ->select(DB::raw('count(*) as remaining, package_id, packages.name, order_id, orders.recurring'))
+            ->select(DB::raw('count(*) as remaining, max(date(appointments.start_time)) as last_lesson_date, package_id, packages.name, order_id, orders.recurring'))
             ->where('appointments.status', 'approved')
             ->where('appointments.package_id', '>', 0)
             ->where('appointments.start_time', '>',  $filterDate)
