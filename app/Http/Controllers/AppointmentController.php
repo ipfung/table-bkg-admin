@@ -101,6 +101,7 @@ class AppointmentController extends Controller
         $sessionPrice = $price / $noOfSession;
         $sessionIntervalEpoch = $service->session_minute_epoch;
         $sessionDurationEpoch = $service->duration_epoch;
+        $trainerId = 0;
         if ($request->has('noOfSession')) {
             if ($request->noOfSession < $noOfSession) {
                 // FIXME prompt error if selected sessions less than default session.
@@ -113,16 +114,19 @@ class AppointmentController extends Controller
             $appointedEndTime = Carbon::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time)->timestamp;
             $noOfSession = ($appointedEndTime - $appointedTime) / $sessionDurationEpoch;
             $price = $sessionPrice * $noOfSession;
+            if (config("app.jws.settings.timeslots") == 'trainer_date') {
+                $trainerId = $booking->appointment->user_id;
+            }
 //        echo 'bookId noOfSession, price=' . $price . ', ' . $noOfSession;
         }
 //        echo 'dayOfWeek_timeslots=' . $dayOfWeek_timeslots;
         // create a TODAY 0:00 epoch.
         $sessionToBeBooked = ($noOfSession * $sessionDurationEpoch);   // client selected session * each session, in epoch.
-        $trainerId = 0;
         // 2-dimension array per week_number.
         $dayOfWeek_timeslots = [];
         if (config("app.jws.settings.timeslots") == 'trainer_date') {
-            $trainerId = $request->trainer_id;
+            if ($request->has('trainer_id'))
+                $trainerId = $request->trainer_id;
             $dayOfWeek_timeslots = TrainerWorkdateTimeslot::where('location_id', $locationId)
                 ->where('trainer_id', $trainerId)
                 ->where('work_date', $minDate)   // must get 1 date only, otherwise the day_idx will be confused.
@@ -189,10 +193,12 @@ class AppointmentController extends Controller
 //        }
 ////echo 'appointed epoch=' . json_encode($appointedEpoch);
 
-        $all_rooms = Room::orderBy('name', 'asc')
-            ->where('status', 1001)
-//            ->limit(2)   // FIXME debug use only.
-            ->get();
+        $rooms = Room::orderBy('name', 'asc')
+            ->where('status', 1001);
+        if (config("app.jws.settings.required_room")) {
+            $rooms->where('id', $roomId);
+        }
+        $all_rooms = $rooms->get();
         $start_date = strtotime($minDate);   // to epoch.
         $end_date = strtotime($maxDate);
 //        echo '<br/>maxDate=' . $maxDate;

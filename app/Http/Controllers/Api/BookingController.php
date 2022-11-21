@@ -45,7 +45,7 @@ class BookingController extends BaseController
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->select('customer_bookings.*',
-                DB::raw("(select a.name from users a, roles b where a.id=appointments.user_id and a.role_id=b.id and b.name in ('manager', 'internal_coach', 'external_coach')) as user_name"),
+                DB::raw("(select a.name from users a, roles b where a.id=appointments.user_id and a.role_id=b.id and b.name in ('manager', 'internal_coach', 'external_coach')) as user_name, appointments.user_id as trainer_id"),
                 DB::raw('(select roles.color_name from users, roles where users.id=customer_bookings.customer_id and users.role_id=roles.id) as role_color_name'),
                 DB::raw('(select name from users where id=customer_bookings.customer_id) as customer_name'),
                 DB::raw('(select name from packages where id=appointments.package_id) as package_name'),
@@ -98,6 +98,7 @@ class BookingController extends BaseController
             $results['requiredTrainer'] = config("app.jws.settings.required_trainer");
             $results['supportPackages'] = config("app.jws.settings.packages");
             $results['supportFinance'] = config("app.jws.settings.finance");
+            $results['timeslotSetting'] = config("app.jws.settings.timeslots");
             $results['data'] = $bookings->get();
             return $results;
         }
