@@ -68,7 +68,7 @@ class TrainerController extends BaseController
         }
 
         if ($request->expectsJson()) {
-            $data = $trainers->with('role')->with('teammates')->paginate()->toArray();
+            $data = $trainers->with('role')->with('teammates.role')->paginate()->toArray();
             $data['editable'] = $editable;   // append to paginate()
             $data['newable'] = $newable;
             $data['timeslotSetting'] = config('app.jws.settings.timeslots');
