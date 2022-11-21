@@ -20,11 +20,11 @@ class CalendarAppointmentController extends BaseController
         $user = Auth::user();
 
         // date range search.
-        $fromDate = Carbon::today()->subDays(30)->format($this->dateFormat);
+        $fromDate = Carbon::today()->subDays(30)->format(BaseController::$dateFormat);
         if ($request->has('from_date')) {
             $fromDate = $request->from_date;
         }
-        $toDate = Carbon::today()->addDays(30)->format($this->dateFormat);
+        $toDate = Carbon::today()->addDays(30)->format(BaseController::$dateFormat);
         if ($request->has('to_date')) {
             $toDate = $request->to_date;
         }

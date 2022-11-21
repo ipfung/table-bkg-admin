@@ -12,8 +12,9 @@ use App\Http\Controllers\Controller as Controller;
 
 class BaseController extends Controller
 {
-    protected $dateTimeFormat = 'Y-m-d h:i:s';
-    protected $dateFormat = 'Y-m-d';
+    public static $timeFormat = 'h:i';
+    public static $dateTimeFormat = 'Y-m-d h:i:s';
+    public static $dateFormat = 'Y-m-d';
 
     protected function getCurrentDateTime() {
         $now = new DateTime();

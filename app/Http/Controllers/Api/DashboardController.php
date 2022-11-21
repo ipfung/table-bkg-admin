@@ -32,7 +32,7 @@ class DashboardController extends BaseController
         //
         $showCustomerCount = $isSuperUser;
         $totalCustomer = $isSuperUser ? $this->getCustomerCount() : -1;
-        $totalCustomerLastWeek = $isSuperUser ? $this->getCustomerCount($this->getCurrentDateTime()->modify('-7 days')->format($this->dateTimeFormat)) : -1;
+        $totalCustomerLastWeek = $isSuperUser ? $this->getCustomerCount($this->getCurrentDateTime()->modify('-7 days')->format(BaseController::$dateTimeFormat)) : -1;
         //weekly sales.
 //        $time = new Carbon(strtotime('sunday this week'));   // testing use.
         $showSalesChart = $isSuperUser;
@@ -96,7 +96,7 @@ class DashboardController extends BaseController
         $orders = DB::table('orders')
             ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
             ->select(DB::raw('SUM(order_total-discount) as total_sales, SUM(payments.amount) as total_paid'))
-            ->where('order_date', '>', $this->getCurrentDateTime()->modify('-30 days')->format($this->dateTimeFormat))
+            ->where('order_date', '>', $this->getCurrentDateTime()->modify('-30 days')->format(BaseController::$dateTimeFormat))
             ->whereIn('order_status',  ['confirmed', 'pending']);
         if (!$superUser) {
             $orders->where('customer_id', $user->id);
@@ -124,8 +124,8 @@ class DashboardController extends BaseController
         while ($fromDate <= $toDate) {
             $found = false;
             foreach ($weekdata as $d) {
-//                echo 'order_date' . $d->order_date . ', ' . date($this->dateFormat, $fromDate);
-                if ($d->order_date == date($this->dateFormat, $fromDate)) {
+//                echo 'order_date' . $d->order_date . ', ' . date(BaseController::$dateFormat, $fromDate);
+                if ($d->order_date == date(BaseController::$dateFormat, $fromDate)) {
                     $found = true;
                     $result[] = $d->total_sales;
                     break;

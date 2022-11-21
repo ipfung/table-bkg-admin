@@ -158,7 +158,7 @@ class TrainerWorkDateTimeslotController extends BaseController
             ->where('trainer_id', $trainer_id)
             ->whereRaw('year(work_date)=?', $year)
             ->whereRaw('month(work_date)=?', $month)
-            ->where('work_date', '>', Carbon::today()->format($this->dateFormat))
+            ->where('work_date', '>', Carbon::today()->format(BaseController::$dateFormat))
             ->select('work_date')
             ->distinct()
             ->pluck('work_date')
@@ -166,10 +166,10 @@ class TrainerWorkDateTimeslotController extends BaseController
 
         $month_dates = [];
         $firstDateOfMonth = Carbon::create($year, $month, 1);
-        $month_dates[] = $firstDateOfMonth->format($this->dateFormat);
+        $month_dates[] = $firstDateOfMonth->format(BaseController::$dateFormat);
         $lastDay = $firstDateOfMonth->daysInMonth;
         for ($d=1; $d<$lastDay; $d++) {
-            $month_dates[] = $firstDateOfMonth->addDay()->format($this->dateFormat);
+            $month_dates[] = $firstDateOfMonth->addDay()->format(BaseController::$dateFormat);
         }
         $data = array_diff($month_dates, $timeslots);
         return array_values($data);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Api\BaseController;
 use App\Facade\AppointmentService;
 use App\Mail\AppointmentApproved;
 use App\Mail\PackageApproved;
@@ -211,7 +212,7 @@ class AppointmentController extends Controller
         while ($start_date <= $end_date) {
             // TODO check if it's special day/holiday.
             // check office days off.
-            $daysoff = Holiday::where('location_id', $locationId)->whereRaw('(? between start_date and end_date)', $d->format('Y-m-d'))->first();
+            $daysoff = Holiday::where('location_id', $locationId)->whereRaw('(? between start_date and end_date)', $d->format(BaseController::$dateFormat))->first();
             if (!empty($daysoff)) {
                 $isDayOff = true;
                 $freeslots = [];
@@ -252,7 +253,7 @@ class AppointmentController extends Controller
             }
             // TODO remove time that is less than selected sessions.
             // the date & its availability.
-            $dateFreeslots[] = ['date' => $d->format('Y-m-d'), 'freeslots' => $freeslots, 'dayoff' => $isDayOff];
+            $dateFreeslots[] = ['date' => $d->format(BaseController::$dateFormat), 'freeslots' => $freeslots, 'dayoff' => $isDayOff];
             // increment 1 day for next iterate.
             $d->addDay();
             $start_date = $d->timestamp;
@@ -493,7 +494,7 @@ class AppointmentController extends Controller
 
         $order = new Order;
         $order->order_number = uniqid();
-        $order->order_date = Carbon::today()->format('Y-m-d');
+        $order->order_date = Carbon::today()->format(BaseController::$dateFormat);
         $order->order_total = $amount;
         if ($request->has('discount')) {
             if ($request->discount > 0)
