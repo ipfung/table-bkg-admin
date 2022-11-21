@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Facade\AppointmentService;
 use App\Mail\AppointmentApproved;
 use App\Mail\PackageApproved;
 use App\Models\Appointment;
@@ -27,13 +28,15 @@ use Illuminate\Support\Facades\Mail;
 
 class AppointmentController extends Controller
 {
+    private $appointmentService;
     /**
      * Create a new controller instance.
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(AppointmentService $appointmentService)
     {
+        $this->appointmentService = $appointmentService;
     }
 
     /**
@@ -46,7 +49,7 @@ class AppointmentController extends Controller
         // get user's book days in advance.
         $user = Auth::user();
         // get min & max dates by user
-        $dates = $this->getDates($user);
+        $dates = $this->appointmentService->getDates($user);
         $minDate = $dates[0];
         $maxDate = $dates[1];
         // get timeslot
@@ -228,13 +231,13 @@ class AppointmentController extends Controller
 //echo "<br />startTime0=" . $dt . ', en0=' . $dt2;
                     $allRoomOccupied = true;
                     if ($trainerId > 0) {   // use trainer to check occupation.
-                        if (!$this->isTrainerOccupied($trainerId, $dt, $dt2)) {   // false = not occupied.
+                        if (!$this->appointmentService->isTrainerOccupied($trainerId, $dt, $dt2, $booking ? $booking->id : -1)) {   // false = not occupied.
                             $allRoomOccupied = false;
                         }
                     } else {
                         foreach ($all_rooms as $room) {
 //echo "roomid2222=" . $room->id;
-                            if (!$this->isRoomOccupied($room->id, $dt, $dt2)) {   // false = not occupied.
+                            if (!$this->appointmentService->isRoomOccupied($room->id, $dt, $dt2)) {   // false = not occupied.
                                 $allRoomOccupied = false;
                                 break;
                             }
@@ -268,58 +271,6 @@ class AppointmentController extends Controller
 //        echo "<br />startTime2=" . $dt->format('Y-m-d H:i:s');
         return view("appointment", $results);
 
-    }
-
-    /**
-     * @param $user get minDate & maxDate based on user level.
-     * @return array
-     */
-    private function getDates($user) {
-        $today = CarbonImmutable::now();
-        if ($user) {
-            $minDate = $today->add(1, 'day')->format('Y-m-d');
-            $maxDate = $today->add($user->role->book_days_in_adv, 'day')->format('Y-m-d');
-        } else {
-            $minDate = $today->add(1, 'day')->format('Y-m-d');
-            $maxDate = $today->add(1, 'day')->format('Y-m-d');
-        }
-        return [$minDate, $maxDate];
-    }
-
-    /**
-     * @param $trainerId
-     * @param $startTime
-     * @param $endTime
-     * @return bool true = occupied, false = not occupied.
-     */
-    private function isTrainerOccupied($trainerId, $startTime, $endTime)
-    {
-        $chkDup = Appointment::where('user_id', $trainerId)
-            ->whereIn('status', ['approved', 'pending'])
-            // ref: https://stackoverflow.com/questions/6571538/checking-a-table-for-time-overlap
-            ->where('start_time', '<', $endTime)
-            ->where('end_time', '>', $startTime)
-//            ->whereRaw('(? between start_time1 and end_time OR ? between start_time and end_time)', [$startTime, $endTime])
-            ->get();
-        return count($chkDup) > 0;
-    }
-
-    /**
-     * @param $roomId
-     * @param $startTime
-     * @param $endTime
-     * @return bool true = occupied, false = not occupied.
-     */
-    private function isRoomOccupied($roomId, $startTime, $endTime)
-    {
-        $chkDup = Appointment::where('room_id', $roomId)
-            ->whereIn('status', ['approved', 'pending'])
-            // ref: https://stackoverflow.com/questions/6571538/checking-a-table-for-time-overlap
-            ->where('start_time', '<', $endTime)
-            ->where('end_time', '>', $startTime)
-//            ->whereRaw('(? between start_time1 and end_time OR ? between start_time and end_time)', [$startTime, $endTime])
-            ->get();
-        return count($chkDup) > 0;
     }
 
     /**
@@ -491,7 +442,7 @@ class AppointmentController extends Controller
             }
         }
         // get appointment dates.
-        $appointmentDates = $this->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);
+        $appointmentDates = $this->appointmentService->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);
 
         $assignedRoom = $appointmentDates['room_id'];
         $results = [];
@@ -521,9 +472,10 @@ class AppointmentController extends Controller
             $pkg_count = count($dates);
             for ($i=1; $i<$pkg_count; $i++) {
                 // pass 1st appointment's id as parent_id as ref.
-                $appointmentDates = $this->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);
+                $appointmentDates = $this->appointmentService->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);
                 $isDup = $appointmentDates['duplicated'];   // for customer!!
                 if ($isDup) {
+                    DB::rollBack();
                     return ['success' => false, 'error' => 'Found duplicate appointment.'];
                 }
                 $savedAppointment2 = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $sendNotify, $savedAppointment->id);
@@ -695,7 +647,7 @@ class AppointmentController extends Controller
         if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
             // ok to change booking once.
             // get appointment dates.
-            $appointmentDates = $this->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true, $booking->appointment->package_id);
+            $appointmentDates = $this->appointmentService->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true, $booking->appointment->package_id);
             $isDup = $appointmentDates['duplicated'];   // for customer!!
             if ($isDup) {
                 return ['success' => false, 'error' => 'Found duplicate appointment.'];
@@ -759,66 +711,5 @@ class AppointmentController extends Controller
 //            echo ', $freeTimesolts[$dow->day_idx]=' . json_encode($freeTimesolts[$dow->day_idx]) . '!';
         }
         return $freeTimesolts;
-    }
-
-    private function getAppointmentDates($user, $date, $time, $noOfSession, $sessionInterval, $room_id, $assignRandomRoom, $package_id) {
-        // get min & max dates by user
-        $dates = $this->getDates($user);
-        $minDate = $dates[0];
-        $maxDate = $dates[1];
-        $appointmentDate = new Carbon($date);
-        $dateOk = $appointmentDate->between($minDate, $maxDate);
-        if (!$dateOk) {
-            // FIXME throw error in case someone hack the appointment date.
-
-        }
-        $startTime = $appointmentDate->timestamp + $time;
-        $dt = (new DateTime("@$startTime"))->format('Y-m-d H:i:s');
-//        echo "<br />startTime2=" . $dt;
-        $endTime = $appointmentDate->timestamp + $time + ($noOfSession * $sessionInterval);
-        $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
-//        echo "<br />startTime3=" . $dt2;
-
-        // Room availability checking.
-        $assignedRoom = -1;
-        if ($assignRandomRoom) {
-            // support to assign dynamic room.
-            $rooms = Room::inRandomOrder()->where('status', 1001)->get();   // no need to orderBy, let it return randomly.
-            foreach ($rooms as $room) {
-                $isRoomOccupied = $this->isRoomOccupied($room->id, $dt, $dt2);
-                if (!$isRoomOccupied) {
-                    $assignedRoom = $room->id;
-                    break;   // exit foreach rooms.
-                }
-            }
-        } else {
-            // check duplicate by roomId and appointment time.
-            $assignedRoom = $room_id;   // param from client side.
-            if (!$package_id) {
-                $isRoomOccupied = $this->isRoomOccupied($assignedRoom, $dt, $dt2);
-                if ($isRoomOccupied) {   // reset $assignedRoom to negative number if desired room was occupied.
-                    $assignedRoom = -2;
-                }
-            }
-        }
-        // check duplicate, in Appointment system should not allow same user book same timeslot.
-        $isDup = false;
-        for ($i=0; $i<2; $i++) {   // do twice, 1 for start_time, another for end_time.
-            $paramDate = $i == 0 ? $dt : $dt2;
-            $found = DB::table('customer_bookings')
-                ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
-                ->where('customer_bookings.customer_id', $user->id)
-                ->whereRaw('? between appointments.start_time and appointments.end_time', $paramDate)->first();
-            if (!empty($found)) {
-                $isDup = true;
-                break;
-            }
-        }
-        return [
-            'start_time' => $dt,
-            'end_time' => $dt2,
-            'room_id' => $assignedRoom,
-            'duplicated' => $isDup
-        ];
     }
 }

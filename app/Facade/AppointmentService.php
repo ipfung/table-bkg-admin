@@ -37,8 +37,20 @@ class AppointmentService
      * @param $endTime
      * @return bool true = occupied, false = not occupied.
      */
-    public function isTrainerOccupied($trainerId, $startTime, $endTime)
+    public function isTrainerOccupied($trainerId, $startTime, $endTime, $bookId = 0)
     {
+        // release the booked timeslot.
+        if ($bookId > 0) {
+            $chkDup = DB::table('customer_bookings')
+                ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+                ->where('customer_bookings.id', $bookId)
+                ->where('appointments.start_time', '<', $endTime)
+                ->where('appointments.end_time', '>', $startTime)
+                ->first();
+            if (!empty($chkDup)) {
+                return false;
+            }
+        }
         $chkDup = Appointment::where('user_id', $trainerId)
             ->whereIn('status', ['approved', 'pending'])
             // ref: https://stackoverflow.com/questions/6571538/checking-a-table-for-time-overlap
