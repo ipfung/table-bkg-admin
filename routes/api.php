@@ -17,6 +17,13 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', 'Api\AuthController@login');
 Route::post('/logout', 'Api\AuthController@logout');
 
+Route::get('/lemonade', function () {
+    $values = [
+        'name' => config('app.name')
+    ];
+    return json_encode($values);
+});
+
 Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/menu', 'Api\MenuController@index');
 
