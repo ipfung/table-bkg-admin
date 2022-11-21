@@ -18,7 +18,6 @@ use App\Models\Timeslot;
 use App\Models\TrainerTimeslot;
 use App\Models\TrainerWorkdateTimeslot;
 use App\Models\User;
-use Carbon\CarbonImmutable;
 use DateTime;
 use DateTimeZone;
 use Illuminate\Http\Request;
@@ -306,87 +305,11 @@ class AppointmentController extends Controller
      * @return array
      */
     public function getPackageDates(Request $request) {
-        $locationId = 1;
-        // use Date and WeekNo to find the timeslot.
-        $d1 = Carbon::createFromFormat('Y-m-d', $request->start_date);
-        $quantity = $request->quantity;
-        $dow_list = $request->dow;   // array day of week.
-
-        // loop once to find the closest dow from start_date.
-        $d2 = Carbon::createFromFormat('Y-m-d', $request->start_date);
-        $first_dow = null;
-        if (sizeof($dow_list) > 1) {
-            sort($dow_list);
-            while ($first_dow == null) {
-                foreach ($dow_list as $dow) {
-                    // the start_date is not the first element of dow_list.
-                    if ($d2->is(Timeslot::WEEKS[$dow])) {
-                        $first_dow = $dow;
-                        break;
-                    }
-                }
-                if ($first_dow == null) {
-                    $d2->addDay();
-                }
-            }
-            // set d1 = d2.
-            $d1 = $d2;
-            // reorder array
-            $newdow_list = [];
-            $start_dow_list = [];
-            foreach ($dow_list as $dow) {
-                if ($dow == $first_dow || sizeof($newdow_list) > 0) {
-                    array_push($newdow_list, $dow);
-                    if (sizeof($newdow_list) == sizeof($dow_list)) {
-                        break;
-                    }
-                } else {
-                    array_push($start_dow_list, $dow);
-                }
-            }
-            $dow_list = array_merge($newdow_list, $start_dow_list);
-//echo 'd2==' . $d2->format('Y-m-d') . ', newdow_list=' . json_encode($dow_list) . ', first_dow=' . $first_dow;
+        $trainerId = 0;
+        if ($request->has('trainer_id') && $request->trainer_id > 0) {
+            $trainerId = $request->trainer_id;
         }
-
-        $i = 0;
-        $data = [];
-        $holidays = [];
-        while ($i < $quantity) {
-            $j = 0;    // to compare if no date can be obtained from $dow_list.
-            foreach ($dow_list as $dow) {
-                $d1 = $d1->is(Timeslot::WEEKS[$dow]) ? $d1 : $d1->next(Timeslot::WEEKS[$dow]);
-                // check date is public holiday for the office?
-                $daysoff = Holiday::where('location_id', $locationId)->whereRaw('(? between start_date and end_date)', $d1->format('Y-m-d'))->first();
-                if (!empty($daysoff)) {
-                    // is dayoff, add one day and go to next dow.
-                    $holidays[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
-                    $d1->addDay();
-                    continue;
-                }
-                // check date is working day.
-                if ($request->has('trainer_id') && $request->trainer_id > 0) {
-                    $trainerId = $request->trainer_id;
-                    $dayOfWeek_timeslots = TrainerTimeslot::where('location_id', $locationId)
-                        ->where('trainer_id', $trainerId);
-                } else {
-                    $dayOfWeek_timeslots = Timeslot::where('location_id', $locationId);
-                }
-                $workingDay = $dayOfWeek_timeslots->where('day_idx', $dow)
-                    ->orderBy('day_idx', 'asc')
-                    ->orderBy('from_time', 'asc')
-                    ->first();
-                if (empty($workingDay)) {
-                    $j++;
-                    // dow is not a working day, go to next dow without date increment.
-                    continue;
-                }
-                $data[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
-                $d1->addDay();
-                $i++;
-                if ($i == $quantity) break;
-            }
-        }
-        return compact('data', 'holidays');
+        return $this->appointmentService->getLessonDates($request->start_date, $request->quantity, $request->dow, $trainerId);
     }
 
     public function store(Request $request)
