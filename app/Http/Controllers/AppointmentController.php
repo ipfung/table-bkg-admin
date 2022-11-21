@@ -223,7 +223,7 @@ class AppointmentController extends Controller
                     $dateTimeEpoch = $start_date + $slot["time"];
 //echo "<br />dateTimeEpoch0000=" . $dateTimeEpoch;
                     $dt = (new DateTime("@$dateTimeEpoch"))->format('Y-m-d H:i:s');
-                    $endTime = $dateTimeEpoch + ($noOfSession * $sessionMinute);
+                    $endTime = $dateTimeEpoch + ($noOfSession * $sessionDurationEpoch);
                     $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
 //echo "<br />startTime0=" . $dt . ', en0=' . $dt2;
                     $allRoomOccupied = true;
