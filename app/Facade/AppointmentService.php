@@ -48,7 +48,7 @@ class AppointmentService
                 ->where('appointments.end_time', '>', $startTime)
                 ->first();
             if (!empty($chkDup)) {
-                return false;
+                return $chkDup;
             }
         }
         $chkDup = Appointment::where('user_id', $trainerId)
@@ -58,8 +58,8 @@ class AppointmentService
             ->where('end_time', '>', $startTime)
             // TODO check lesson quota.
 //            ->whereRaw('(? between start_time1 and end_time OR ? between start_time and end_time)', [$startTime, $endTime])
-            ->get();
-        return count($chkDup) > 0;
+            ->first();
+        return empty($chkDup) ? false : $chkDup;
     }
 
     /**

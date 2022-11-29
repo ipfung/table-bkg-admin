@@ -127,6 +127,7 @@ class AppointmentController extends Controller
         $sessionToBeBooked = ($noOfSession * $sessionDurationEpoch);   // client selected session * each session, in epoch.
         // 2-dimension array per week_number.
         $dayOfWeek_timeslots = [];
+        $trainer = null;
         if (config("app.jws.settings.timeslots") == 'trainer_date') {
             if ($request->has('trainer_id'))
                 $trainerId = $request->trainer_id;
@@ -216,6 +217,7 @@ class AppointmentController extends Controller
                 $isDayOff = true;
                 $freeslots = [];
             } else {
+                $bufferSlots = [];
                 // TODO check if it's special day/holiday of Trainer.
                 // get freeslot from week_number freeslot.
                 $freeslots = $freeTimesolts[$d->dayOfWeekIso];    // it contains 'time', 'price'.
@@ -231,7 +233,31 @@ class AppointmentController extends Controller
 //echo "<br />startTime0=" . $dt . ', en0=' . $dt2;
                     $allRoomOccupied = true;
                     if ($trainerId > 0) {   // use trainer to check occupation.
-                        if (!$this->appointmentService->isTrainerOccupied($trainerId, $dt, $dt2, $booking ? $booking->id : -1)) {   // false = not occupied.
+                        $booked = $this->appointmentService->isTrainerOccupied($trainerId, $dt, $dt2, $booking ? $booking->id : -1);
+                        if ($booked) {   // false = not occupied, else return $bookedAppointment.
+                            // set buffer time
+                            if (!$trainer) {
+                                $trainer = User::find($trainerId);  // get buffer time.
+                            }
+                            if ($trainer->settings) {
+                                $buffer = 0;
+                                $settings = json_decode($trainer->settings);
+                                if (isset($settings->buffer_time)) {
+                                    $buffer = $settings->buffer_time * Service::$EPOCH;
+                                    if ($buffer > 0) {
+                                        $bufferSlot1 = strtotime($booked->start_time) - $buffer;  // start - buffer time
+                                        $bufferSlot2 = strtotime($booked->end_time) + $buffer;  // end + buffer time
+                                        if (!in_array($bufferSlot1, $bufferSlots)) {
+                                            $bufferSlots[] = $bufferSlot1;
+                                        }
+                                        if (!in_array($bufferSlot2, $bufferSlots)) {
+                                            $bufferSlots[] = $bufferSlot2;
+                                        }
+//                                        echo 'bufferSlots=' . json_encode($bufferSlots);// , '->to:' . $bufferSlot . ', ' . (new DateTime("@$bufferSlot"))->format('Y-m-d H:i:s');
+                                    }
+                                }
+                            }
+                        } else {
                             $allRoomOccupied = false;
                         }
                     } else {
@@ -250,6 +276,25 @@ class AppointmentController extends Controller
                 }
                 $freeslots = array_values($freeslots);   // ref: https://stackoverflow.com/questions/369602/deleting-an-element-from-an-array-in-php
             }
+            // apply buffer time.
+            if (sizeof($bufferSlots) > 0) {
+                foreach ($freeslots as $index => $slot) {
+                    $dateTimeEpoch = $start_date + $slot["time"];
+                    $dt = (new DateTime("@$dateTimeEpoch"))->format('Y-m-d H:i:s');
+                    $endTime = $dateTimeEpoch + ($noOfSession * $sessionDurationEpoch);
+                    $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
+//echo "<br />startTime000=" . $dt . ', en0=' . $dt2;
+                    foreach ($bufferSlots as &$bufferTime) {
+                        if ($bufferTime > $dateTimeEpoch && $bufferTime < $endTime) {
+//echo 'bufferTime111=' . (new DateTime("@$bufferTime"))->format('Y-m-d H:i:s') . ', ' . $dt . ', ' . $dt2 . '!!';
+                            unset($freeslots[$index]);
+                            break;
+                        }
+                    }
+                }
+                $freeslots = array_values($freeslots);   // ref: https://stackoverflow.com/questions/369602/deleting-an-element-from-an-array-in-php
+            }
+
             // TODO remove time that is less than selected sessions.
             // the date & its availability.
             $dateFreeslots[] = ['date' => $d->format(BaseController::$dateFormat), 'freeslots' => $freeslots, 'dayoff' => $isDayOff];
