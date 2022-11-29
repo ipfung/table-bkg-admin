@@ -91,7 +91,7 @@ class AppointmentController extends Controller
         $price = $service->price;
         if ($request->has('customer_id')) {    // custom appointment(means it's not from appointment wizard)
             $customerId = $request->customer_id;
-            $customer = User::find($customerId)->first();  // get price.
+            $customer = User::find($customerId);  // get price.
             if ($service->price < 0)
                 $price = $customer->role->default_price;
         } else {
