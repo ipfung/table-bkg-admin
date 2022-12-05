@@ -53,9 +53,13 @@ class HolidayController extends BaseController
         $request->validate([
             'name' => 'required',
             'start_date' => 'required|date',
-            'end_date' => 'required|date',
+//            'end_date' => 'required|date',
         ]);
         $holiday = new Holiday($request->all());
+        if (!$request->has('end_date')) {
+            // end_date = start_date if not provided.
+            $holiday->end_date = $holiday->start_date;
+        }
         $holiday->save();
         return $this->sendResponse($holiday, 'Create successfully.');
     }
