@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
 {
-    private static $EPOCH = 60;
+    public static $EPOCH = 60;
     protected $appends = [
         'sessions'
     ];
