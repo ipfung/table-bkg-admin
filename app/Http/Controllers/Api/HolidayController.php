@@ -109,7 +109,7 @@ class HolidayController extends BaseController
     public function destroy($id)
     {
         $holiday = Holiday::find($id);
-        if (!empty($order)) {
+        if (!empty($holiday)) {
             $holiday->delete();
 
             return response()->json(['success'=>true]);
