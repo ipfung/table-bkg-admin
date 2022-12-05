@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Appointment;
+use App\Models\CustomerBooking;
 use App\Models\User;
 use App\Models\UserDevice;
 use App\Models\UserTeammate;
@@ -215,24 +217,28 @@ class UserController extends BaseController
         return compact('success', 'saveTrainer');
     }
 
-//    /**
-//     * Remove the specified resource from storage.
-//     *
-//     * @param  int  $id
-//     * @return \Illuminate\Http\Response
-//     */
-//    public function destroy($id)
-//    {
-//        $order = Order::where('student_id','=',$id)->first();
-//        if (empty($order)) {
-//            User::where('id', $id)->delete();
-//
-//            return response()->json(['success'=>true]);
-//        } else {
-//            return response()->json(['success'=>false, 'message' => 'User cannot be deleted because it is used in Order.']);
-//        }
-//    }
-//
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id)
+    {
+        $order = CustomerBooking::where('customer_id', $id)->first();
+        if (empty($order)) {
+            $appointment = Appointment::where('user_id', $id)->first();
+            if (empty($appointment)) {
+                User::where('id', $id)->delete();
+                return response()->json(['success'=>true]);
+            } else {
+                return response()->json(['success' => false, 'error' => 'User cannot be deleted because found user in Appointment.']);
+            }
+        } else {
+            return response()->json(['success'=>false, 'error' => 'User cannot be deleted because found user in Booking.']);
+        }
+    }
+
 //    public function generatStudentQr($id) {
 //        $user = Student::with('info')->find($id);
 //        $str = $user->id . '::' . $user->info->card_no;
