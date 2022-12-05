@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Api\BaseController;
+use App\Services\UserDeviceService;
 use App\Facade\AppointmentService;
-use App\Mail\AppointmentApproved;
+use App\Facade\PlaceholderService;
 use App\Mail\PackageApproved;
 use App\Models\Appointment;
 use App\Models\CustomerBooking;
@@ -425,12 +426,33 @@ class AppointmentController extends Controller
             return ['success' => false, 'error' => 'Found duplicate appointment.'];
         }
 
+        $appointmentStatus = $saveAsPending ? 'pending' : 'approved';
+        // use trainer_id as appointment user, if the appointment is trainer-student relationship.
+        $userId = $user->id;
+        if ($request->has('trainerId')) {
+            if ($request->trainerId > 0) {
+                $userId = $request->trainerId;
+            }
+        }
+
         // start DB transaction.
         DB::beginTransaction();
 
-        $appointmentStatus = $saveAsPending ? 'pending' : 'approved';
-        // save appointment, it is 1st appointment if it is package.
-        $savedAppointment = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $sendNotify, 0);
+        $appointment = new Appointment;
+        $appointment->start_time = $appointmentDates['start_time'];
+        $appointment->end_time = $appointmentDates['end_time'];
+        $appointment->room_id = $appointmentDates['room_id'];
+        if ($request->has('package_id')) {
+            // get existing package appointment.
+            $appointment->package_id = $request->package_id;
+        }
+        $appointment->user_id = $userId;
+        $appointment->service_id = $request->serviceId;
+//        $appointment->lesson_space
+        $appointment->notify_parties = $sendNotify;
+        $appointment->internal_remark = $request->internal_remark;
+        $appointment->status = $appointmentStatus;     // get defaults from settings.
+        $savedAppointment = $this->appointmentService->saveAppointment($appointment);
         $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user);
         $savedAppointment->customer_booking_id = $customerBooking->id;
         $results[] = $savedAppointment;
@@ -447,7 +469,23 @@ class AppointmentController extends Controller
                     DB::rollBack();
                     return ['success' => false, 'error' => 'Found duplicate appointment.'];
                 }
-                $savedAppointment2 = $this->saveAppointment($request, $appointmentDates, $user, $appointmentStatus, $sendNotify, $savedAppointment->id);
+                // starts from 2nd appoint, save with parent_id.
+                $appointment = new Appointment;
+                $appointment->start_time = $appointmentDates['start_time'];
+                $appointment->end_time = $appointmentDates['end_time'];
+                $appointment->room_id = $appointmentDates['room_id'];
+                if ($request->has('package_id')) {
+                    // get existing package appointment.
+                    $appointment->package_id = $request->package_id;
+                }
+                $appointment->user_id = $userId;
+                $appointment->service_id = $request->serviceId;
+//        $appointment->lesson_space
+                $appointment->notify_parties = $sendNotify;
+                $appointment->parent_id = $savedAppointment->id;
+                $appointment->internal_remark = $request->internal_remark;
+                $appointment->status = $appointmentStatus;     // get defaults from settings.
+                $savedAppointment2 = $this->appointmentService->saveAppointment($appointment);
                 $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user);
                 $savedAppointment2->customer_booking_id = $customerBooking2->id;
                 $results[] = $savedAppointment2;
@@ -513,8 +551,9 @@ class AppointmentController extends Controller
 
         DB::commit();
 
-        // send email.
+        // send notifications.
         if ($sendNotify) {
+            $placeholderService = new PlaceholderService();
             if ($isPackage) {
                 $resOrder = Order::find($order->id);
                 Mail::to($user->email)
@@ -522,9 +561,25 @@ class AppointmentController extends Controller
                     ->send(new PackageApproved($resOrder->load('details', 'customer')));
             } else {
                 $resCustomerBooking = CustomerBooking::find($customerBooking->id);
-                Mail::to($resCustomerBooking->customer->email)
-                    ->bcc(config('mail.from.address'))
-                    ->send(new AppointmentApproved($resCustomerBooking));
+                $payload = [
+                    'title' => 'Appointment Approved',
+                    'body' => '' . $order->order_number . '.',
+                    'notification_template' => 'customer_appointment_approval',
+                    'placeholders' => $placeholderService->getAppointmentData($resCustomerBooking),
+                    // extra params.
+                    'data' => [
+                        'page' => 'appointment',
+                        'customer_name' => $resCustomerBooking->customer->name,
+                        'booking_id' => $resCustomerBooking->id,
+                        'appointment_date' => $resCustomerBooking->appointment->start_time
+                    ]
+                ];
+                $responseCode = UserDeviceService::sendToCustomer($resCustomerBooking->customer, 'appointment_approved', $payload, Auth::user()->id);
+                if ($responseCode == -1) {    // no push devices found. email only.
+                    return ['success' => true, 'pushed' => false];
+                } else if ($responseCode == 200) {    // email and push ok.
+                    return ['success' => true, 'pushed' => true];
+                }
             }
         }
 
@@ -533,44 +588,6 @@ class AppointmentController extends Controller
             return $results;
         }
         return redirect()->route('orders.index');
-    }
-
-    private function saveAppointment(Request $request, $appointmentDates, User $user, string $appointmentStatus, bool $sendNotify, $parentId) {
-        // use trainer_id as appointment user, if the appointment is trainer-student relationship.
-        $userId = $user->id;
-        if ($request->has('trainerId')) {
-            if ($request->trainerId > 0) {
-                $userId = $request->trainerId;
-            }
-        }
-
-        $appointment = new Appointment;
-        $appointment->start_time = $appointmentDates['start_time'];
-        $appointment->end_time = $appointmentDates['end_time'];
-        $appointment->room_id = $appointmentDates['room_id'];
-        if ($request->has('package_id')) {
-            // get existing package appointment.
-            $appointment->package_id = $request->package_id;
-            $packageApt = Appointment::where('start_time', $appointment->start_time)
-                ->where('end_time', $appointment->end_time)
-                ->where('room_id', $appointment->room_id)
-                ->where('package_id', $appointment->package_id)
-                ->first();
-            if (!empty($packageApt)) {
-                return $packageApt;
-            }
-        }
-        $appointment->user_id = $userId;
-        $appointment->service_id = $request->serviceId;
-        $appointment->package_id = $request->package_id;
-//        $appointment->lesson_space
-        $appointment->notify_parties = $sendNotify;
-        $appointment->internal_remark = $request->internal_remark;
-        $appointment->status = $appointmentStatus;     // get defaults from settings.
-        $appointment->parent_id = $parentId;
-        $appointment->save();
-
-        return $appointment;
     }
 
     private function saveCustomerBooking(Request $request, Appointment $appointment, User $user) {

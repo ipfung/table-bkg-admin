@@ -170,6 +170,8 @@ class PaymentController extends BaseController
             $payload = [
                 'title' => 'Payment Reminder',
                 'body' => 'You have an unpaid invoice ' . $order->order_number . '.',
+//                'click_action' => 'FCM_PLUGIN_ACTIVITY',
+                'placeholder' => null,
                 // extra params.
                 'data' => [
                     'page' => 'finance',
@@ -178,7 +180,7 @@ class PaymentController extends BaseController
                     'order_number' => $order->order_number
                 ]
             ];
-            $responseCode = UserDeviceService::sendToCustomer($order->customer_id, $payload, Auth::user()->id);
+            $responseCode = UserDeviceService::sendToCustomer($order->customer, 'payment_reminder', $payload, Auth::user()->id);
             if ($responseCode == -1) {    // no push devices found. email only.
                 return ['success' => true, 'pushed' => false];
             } else if ($responseCode == 200) {    // email and push ok.
