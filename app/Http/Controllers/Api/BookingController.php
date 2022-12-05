@@ -117,46 +117,62 @@ class BookingController extends BaseController
         $booking = CustomerBooking::find($id);
 //        echo 'booking=' . json_encode($booking);
         // only allow user itself to checkin.
-        if ($user->id == $booking->customer_id) {
-            if (empty($booking->checkin)) {
+        if (empty($booking->checkin)) {
+            if ($user->id != $booking->customer_id) {
+                if ($this->isSuperLevel($user)) {
+                } else if ($this->isExternalCoachLevel($user)) {
+                    // check if = appointment's owner.
+                    if ($user->id != $booking->appointment->user_id) {
+                        $results = ['success' => false, 'error' => 'You cannot checkin for others class.'];
+                        goto output;    // break
+                    }
+                } else {
+                    // other user level.
+                    $results = ['success' => false, 'error' => 'You cannot checkin for others.'];
+                    goto output;    // break
+                }
+            }
+            if (config("app.jws.settings.finance")) {
                 // check payment status.
                 $osAmount = $this->paidAmount($id) - $booking->price;
                 if ($osAmount < 0) {
                     $results = ['success' => false, 'error' => 'Please pay the outstanding amount HK$' . abs($osAmount)];
                     goto output;    // break
                 }
+            }
 
-                $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-1 hour');   // 1 hour before appointment start time.
-                $booking_end_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time);
-                $now = $this->getCurrentDateTime();
+            $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-1 hour');   // 1 hour before appointment start time.
+            $booking_end_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time);
+            $now = $this->getCurrentDateTime();
 //echo 'can_checkin_time=' . $can_checkin_time->format('Y-m-d H:i:s');
 //echo ', booking_end_time=' . $booking_end_time->format('Y-m-d H:i:s');
 //echo ', now=' . $now->format('Y-m-d H:i:s');
-                if ($now > $can_checkin_time && $now < $booking_end_time) {
-                    $booking->checkin = $now->format('Y-m-d H:i:s');
-                    $booking->save();
-                    // inform parties concerned(e.g. parent APP & email).
-                    $payload = [
-                        'title' => 'Check in',
-                        'body' => 'You have just checked-in the class.',
-                        // extra params.
-                        'data' => [
-                            'page' => 'none',
-                            'customer_name' => $booking->customer->name,
-                            'time' => $booking->checkin,
-                            'id' => $booking->id
-                        ]
-                    ];
-                    $responseCode = UserDeviceService::sendToCustomer($booking->customer_id, $payload, $user->id);
-                    $results = ['success' => true, 'checkin' => $booking->checkin, 'pushed' => (200 == $responseCode)];
-                } else if ($now < $can_checkin_time) {
-                    $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.'];
-                } else if ($now > $booking_end_time) {
-                    $results = ['success' => false, 'error' => 'Your appointment is ended already. No checkin can be done.'];
-                }
+            if ($now > $can_checkin_time && $now < $booking_end_time) {
+                $booking->checkin = $now->format('Y-m-d H:i:s');
+                $booking->checkin_by = $user->id;
+                $booking->save();
+                // inform parties concerned(e.g. parent APP & email).
+                $payload = [
+                    'title' => 'Check in',
+                    'body' => $user->name . ' has checked-in the class at ' . $booking->checkin . '.',
+                    'placeholder' => null,
+                    // extra params.
+                    'data' => [
+                        'page' => 'none',
+                        'customer_name' => $booking->customer->name,
+                        'time' => $booking->checkin,
+                        'id' => $booking->id
+                    ]
+                ];
+                $responseCode = UserDeviceService::sendToCustomer($booking->customer, 'check_in', $payload, $user->id);
+                $results = ['success' => true, 'checkin' => $booking->checkin, 'pushed' => (200 == $responseCode)];
+            } else if ($now < $can_checkin_time) {
+                $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.'];
+            } else if ($now > $booking_end_time) {
+                $results = ['success' => false, 'error' => 'Your appointment is ended already. No checkin can be done.'];
             }
         } else {
-            $results = ['success' => false, 'error' => 'You cannot checkin for others.'];
+            $results = ['success' => false, 'error' => "The appointment has been checked-in already at " . $booking->check_in];
         }
 
         output:
