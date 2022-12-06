@@ -7,6 +7,7 @@ use App\Mail\AppointmentCanceled;
 use App\Models\CustomerBooking;
 use App\Services\UserDeviceService;
 use DateTime;
+use DateTimeZone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
