@@ -117,6 +117,7 @@ class BookingController extends BaseController
         $booking = CustomerBooking::find($id);
 //        echo 'booking=' . json_encode($booking);
         // only allow user itself to checkin.
+        $now = $this->getCurrentDateTime();
         if (empty($booking->checkin)) {
             if ($user->id != $booking->customer_id) {
                 if ($this->isSuperLevel($user)) {
@@ -143,7 +144,6 @@ class BookingController extends BaseController
 
             $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-1 hour');   // 1 hour before appointment start time.
             $booking_end_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time);
-            $now = $this->getCurrentDateTime();
 //echo 'can_checkin_time=' . $can_checkin_time->format('Y-m-d H:i:s');
 //echo ', booking_end_time=' . $booking_end_time->format('Y-m-d H:i:s');
 //echo ', now=' . $now->format('Y-m-d H:i:s');
@@ -167,12 +167,12 @@ class BookingController extends BaseController
                 $responseCode = UserDeviceService::sendToCustomer($booking->customer, 'check_in', $payload, $user->id);
                 $results = ['success' => true, 'checkin' => $booking->checkin, 'pushed' => (200 == $responseCode)];
             } else if ($now < $can_checkin_time) {
-                $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.'];
+                $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.', 'params' => ['can_checkin' => $can_checkin_time, 'now' => $now]];
             } else if ($now > $booking_end_time) {
-                $results = ['success' => false, 'error' => 'Your appointment is ended already. No checkin can be done.'];
+                $results = ['success' => false, 'error' => 'Your appointment is ended already. No checkin can be done.', 'params' => ['end_time' => $booking_end_time, 'now' => $now]];
             }
         } else {
-            $results = ['success' => false, 'error' => "The appointment has been checked-in already at " . $booking->check_in];
+            $results = ['success' => false, 'error' => "The appointment has been checked-in already at ", 'params' => ['checked' => $booking->check_in, 'now' => $now]];
         }
 
         output:
@@ -257,7 +257,7 @@ class BookingController extends BaseController
     }
 
     /**
-     * cancel booking.
+     * cancel booking by customer.
      *
      * @param Request $request
      * @param $id
@@ -281,7 +281,7 @@ class BookingController extends BaseController
                         $booking->appointment->save();
                         $booking->revision_counter += 1;
                         $booking->save();
-                        $results = ['success' => true, 'status' => 'canceled'];
+                        $results = ['success' => true, 'status' => $booking->appointment->status];
                         // send mail if notify option enabled.
                         if ($booking->appointment->status == 'canceled') {   // FIXME check option.
                             Mail::to($user->email)
