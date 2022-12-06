@@ -32,6 +32,7 @@ class AuthController extends Controller
             $success['email'] =  $user->email;
             $success['avatar'] =  $user->avatar;
             $success['color'] =  $user->role->color_name;
+            $success['appointment_btn'] =  config("app.jws.settings.appointment_button");
 
             return $success;
         }

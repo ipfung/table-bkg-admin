@@ -243,6 +243,7 @@ return [
             'required_room' => env('LEMONADE_REQUIRED_ROOM'),
             'finance' => env('LEMONADE_FINANCE'),
             'packages' => env('LEMONADE_PACKAGES'),
+            'appointment_button' => env('LEMONADE_APPOINTMENT_BUTTON', true),
             'timeslots' => env('LEMONADE_TIMESLOTS'),
             'trainer_multiple_student' => env('LEMONADE_TRAINER_MULTI_STUDENT'),
         ],
