@@ -56,6 +56,11 @@ class UserController extends BaseController
                 $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['member', 'user']);
         }
 
+        if ($request->has('q')) {
+            if ($request->q != '')
+                $users->whereRaw('(upper(name) LIKE upper(?) or upper(mobile_no) LIKE upper(?) or upper(email) LIKE upper(?) or upper(second_name) LIKE upper(?))', [$request->q . '%', $request->q . '%', $request->q . '%', $request->q . '%']);
+        }
+
         if ($request->has('role_id')) {
             if ($request->role_id > 0)
                 $users->where('role_id', $request->role_id);
