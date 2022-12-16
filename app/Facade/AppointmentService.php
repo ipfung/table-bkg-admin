@@ -47,8 +47,8 @@ class AppointmentService
                 ->where('appointments.start_time', '<', $endTime)
                 ->where('appointments.end_time', '>', $startTime)
                 ->first();
-            if (!empty($chkDup)) {
-                return $chkDup;
+            if (!empty($chkDup)) {   // found, return false.
+                return false;        // false = can release
             }
         }
         $chkDup = Appointment::where('user_id', $trainerId)
