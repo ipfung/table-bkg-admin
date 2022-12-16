@@ -51,6 +51,7 @@ class DashboardController extends BaseController
         $noOfNewNotifications = $this->getNotificationCount($user);
         $role = $user->role->name;
         $reminingPackages = $this->getRemainingPackages($user);
+        $showFinance = config("app.jws.settings.finance");
         if ($request->expectsJson()) {
             return compact(
                 'showBookingCount',
@@ -70,6 +71,7 @@ class DashboardController extends BaseController
                 'showUpcomingAppointments',
                 'appointments',
                 'isTrainerUser',
+                'showFinance',
                 'reminingPackages'
 //                'time'
             );
