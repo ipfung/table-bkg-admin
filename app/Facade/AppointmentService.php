@@ -31,6 +31,15 @@ class AppointmentService
         return [$minDate, $maxDate];
     }
 
+    public function isModifyAppointment($startTime, $endTime, $bookId = 0)
+    {
+        return DB::table('customer_bookings')
+            ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+            ->where('customer_bookings.id', $bookId)
+            ->where('appointments.start_time', '<', $endTime)
+            ->where('appointments.end_time', '>', $startTime)
+            ->first();
+    }
     /**
      * @param $trainerId
      * @param $startTime
@@ -41,12 +50,7 @@ class AppointmentService
     {
         // release the booked timeslot.
         if ($bookId > 0) {
-            $chkDup = DB::table('customer_bookings')
-                ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
-                ->where('customer_bookings.id', $bookId)
-                ->where('appointments.start_time', '<', $endTime)
-                ->where('appointments.end_time', '>', $startTime)
-                ->first();
+            $chkDup = $this->isModifyAppointment($startTime, $endTime, $bookId);
             if (!empty($chkDup)) {   // found, return false.
                 return false;        // false = can release
             }

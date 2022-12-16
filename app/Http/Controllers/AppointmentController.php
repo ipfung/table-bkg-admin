@@ -634,8 +634,9 @@ class AppointmentController extends Controller
             // ok to change booking once.
             // get appointment dates.
             $appointmentDates = $this->appointmentService->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true, $booking->appointment->package_id);
+            $isModify = $this->appointmentService->isModifyAppointment($appointmentDates['start_time'], $appointmentDates['end_time'], $id);
             $isDup = $appointmentDates['duplicated'];   // for customer!!
-            if ($isDup) {
+            if ($isDup && !$isModify) {
                 return ['success' => false, 'error' => 'Found duplicate appointment.'];
             }
             if ($booking->appointment->package_id > 0) {
