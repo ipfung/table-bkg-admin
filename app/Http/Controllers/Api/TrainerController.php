@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Facade\LicenseService;
 use App\Models\User;
 use App\Models\UserTeammate;
 use Illuminate\Http\Request;
@@ -95,7 +96,11 @@ class TrainerController extends BaseController
             'password' => 'required|min:8',
         ]);
         // license checking.
-//        $license_checker = $this->checkLicense($request->role_id);
+        $license_checker = new LicenseService;
+        $license_res = $license_checker->checkLicense($request->role_id);
+        if ($license_res['success'] == false) {
+            return $license_res;
+        }
 
         $data = new User($request->all());
         $data->password = Hash::make($request->password);
@@ -151,6 +156,14 @@ class TrainerController extends BaseController
             'password' => 'min:8',
         ]);
         $user = User::find($id);
+        if ($request->role_id != $user->role_id) {
+            // license checking.
+            $license_checker = new LicenseService;
+            $license_res = $license_checker->checkLicense($request->role_id, $id);
+            if ($license_res['success'] == false) {
+                return $license_res;
+            }
+        }
         // update user, we don't use fill here because avatar and roles shouldn't be updated.
         $user->mobile_no = $request->mobile_no;
         $user->name = $request->name;

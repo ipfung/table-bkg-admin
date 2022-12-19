@@ -247,6 +247,11 @@ return [
             'timeslots' => env('LEMONADE_TIMESLOTS'),
             'trainer_multiple_student' => env('LEMONADE_TRAINER_MULTI_STUDENT'),
         ],
+        'license' => [
+            'manager' => env('JWS_MANAGER_LICENSE'),
+            'tutor' => env('JWS_TUTOR_LICENSE'),
+            'student' => env('JWS_STUDENT_LICENSE'),
+        ],
         'fcm_server_key' => env('FCM_SERVER_KEY'),
     ]
 ];
