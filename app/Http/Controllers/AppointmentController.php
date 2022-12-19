@@ -403,6 +403,9 @@ class AppointmentController extends Controller
         } else {
             $sendNotify = true;   // always send
             $paymentMethod = 'electronic';
+            if (config("app.jws.settings.required_room")) {
+                $assignRandomRoom = false;
+            }
             // check if user is new, make appointment status to 'pending' instead.
             $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
             foreach ($bookedAppointments as $bookedAppointment) {
