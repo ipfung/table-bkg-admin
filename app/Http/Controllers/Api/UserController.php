@@ -277,6 +277,7 @@ class UserController extends BaseController
             'id' => $user->id,
             'mobile_no' => $user->mobile_no,
             'role_name' => $role->name,
+            'role_color_name' => $role->color_name,
             'room_name' => $room_name,
             'second_name' => $user->second_name,
             'service_name' => $service_name,
