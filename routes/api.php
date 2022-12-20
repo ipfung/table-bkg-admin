@@ -39,6 +39,9 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::put('/booking-reject/{id}', 'Api\BookingController@rejectBooking');
     Route::put('/booking-cancel/{id}', 'Api\BookingController@cancelBooking');
     Route::post('/booking-checkin/{id}', 'Api\BookingController@punchInBooking');
+    // user-profile
+    Route::get('/user', 'Api\UserController@getUserProfile');
+    Route::put('/user-password/{id}', 'Api\UserController@changePwd');
     // trainer-student actions
     Route::apiResource('/trainers', 'Api\TrainerController');
     Route::get('/availability-students/{id}', 'Api\TrainerController@getNotMyStudents');
@@ -70,8 +73,4 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/trainer-non-workdate/{trainer_id}', 'Api\TrainerWorkDateTimeslotController@getTrainerNonWorkDates');
     Route::apiResource('/rooms', 'Api\RoomController');
     Route::get('/locations', 'Api\LocationController@index');    //
-});
-
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
 });

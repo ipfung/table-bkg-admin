@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Appointment;
 use App\Models\CustomerBooking;
+use App\Models\Room;
+use App\Models\Service;
 use App\Models\User;
 use App\Models\UserDevice;
 use App\Models\UserTeammate;
@@ -242,6 +244,68 @@ class UserController extends BaseController
         } else {
             return response()->json(['success'=>false, 'error' => 'User cannot be deleted because found user in Booking.']);
         }
+    }
+
+    /**
+     * @param Request $request
+     * @return array
+     */
+    public function getUserProfile(Request $request) {
+//    return $request->user();
+        $user = $request->user();
+        $role = Role::find($user->role_id);
+        $service_name = '';
+        $room_name = '';
+        $trainer_name = '';
+        if ($user->service_id > 0) {
+            $service = Service::find($user->service_id);
+            $service_name = $service->name;
+        }
+        if ($user->settings) {
+            $settings = json_decode($user->settings);
+
+            if (!empty($settings->room)) {
+                $room = Room::find($settings->room);
+                $room_name = $room->name;
+            }
+            if (!empty($settings->trainer)) {
+                $trainer = User::find($settings->trainer);
+                $trainer_name = $trainer->name;
+            }
+        }
+        return [
+            'id' => $user->id,
+            'mobile_no' => $user->mobile_no,
+            'role_name' => $role->name,
+            'room_name' => $room_name,
+            'second_name' => $user->second_name,
+            'service_name' => $service_name,
+            'trainer_name' => $trainer_name,
+        ];
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function changePwd(Request $request, $id)
+    {
+        $request->validate([
+            'old_password' => 'required',
+            'password' => 'required|confirmed|min:8',
+        ]);
+        $user = User::find($id);
+        if (Hash::check($request->old_password, $user->password)) {
+            // update user password.
+            $user->password = Hash::make($request->password);
+            $user->save();
+
+            return ['success' => true];
+        }
+        return ['success' => false, 'error' => 'Old password not correct'];
     }
 
 //    public function generatStudentQr($id) {
