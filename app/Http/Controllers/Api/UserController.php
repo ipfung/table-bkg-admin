@@ -257,6 +257,7 @@ class UserController extends BaseController
         $service_name = '';
         $room_name = '';
         $trainer_name = '';
+        $settings = false;
         if ($user->service_id > 0) {
             $service = Service::find($user->service_id);
             $service_name = $service->name;
@@ -282,6 +283,8 @@ class UserController extends BaseController
             'second_name' => $user->second_name,
             'service_name' => $service_name,
             'trainer_name' => $trainer_name,
+            'notifications' => $settings && !empty($settings->notifications) ? $settings->notifications : [
+            ],
         ];
     }
 
@@ -307,6 +310,26 @@ class UserController extends BaseController
             return ['success' => true];
         }
         return ['success' => false, 'error' => 'Old password not correct'];
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function changeNotifications(Request $request, $id)
+    {
+        $request->validate([
+            'notifications' => 'required',
+        ]);
+        $user = User::find($id);
+        $settings = json_decode($user->settings);
+        $settings->notifications = $request->input('notifications');
+        $user->settings = json_encode($settings);
+        $user->save();
+        return ['success' => true];
     }
 
 //    public function generatStudentQr($id) {

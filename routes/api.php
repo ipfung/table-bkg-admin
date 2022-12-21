@@ -41,6 +41,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     // user-profile
     Route::get('/user', 'Api\UserController@getUserProfile');
     Route::put('/user-password/{id}', 'Api\UserController@changePwd');
+    Route::put('/user-notifications/{id}', 'Api\UserController@changeNotifications');
     // trainer-student actions
     Route::apiResource('/trainers', 'Api\TrainerController');
     Route::get('/availability-students/{id}', 'Api\TrainerController@getNotMyStudents');
