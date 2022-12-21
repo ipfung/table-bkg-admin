@@ -28,7 +28,6 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/menu', 'Api\MenuController@index');
 
     Route::get('/dashboard', 'Api\DashboardController@index');
-    Route::get('/services', 'Api\ServiceController@index');
     Route::get('/appointment', 'AppointmentController@index');
     Route::post('/appointment', 'AppointmentController@store');
     Route::post('/package-dates', 'AppointmentController@getPackageDates');
@@ -64,6 +63,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     // notifications
     Route::apiResource('/notifications', 'Api\NotificationController');
     // simple API
+    Route::apiResource('/services', 'Api\ServiceController');
     Route::apiResource('/timeslots', 'Api\TimeslotController');
     Route::apiResource('/packages', 'Api\PackageController');
     Route::apiResource('/daysoff', 'Api\HolidayController');

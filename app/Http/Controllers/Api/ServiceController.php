@@ -126,15 +126,21 @@ class ServiceController extends BaseController
         $request->validate([
             'name' => 'required',
             'description' => 'required',
-            'category_id' => 'required|integer',
+//            'category_id' => 'required|integer',
             'status' => 'required|integer',
+            'price' => 'numeric',
             'duration' => 'required',
+            'min_duration' => 'required',
+            'max_duration' => 'required',
         ]);
         $service = Service::find($id);
-        $service->category_id = $request->category_id;
+//        $service->category_id = $request->category_id;
         $service->name = $request->name;
         $service->description = $request->description;
+        $service->price = $request->price;
         $service->duration = $request->duration;
+        $service->min_duration = $request->min_duration;
+        $service->max_duration = $request->max_duration;
         $service->status = $request->status;
         $service->save();
 
