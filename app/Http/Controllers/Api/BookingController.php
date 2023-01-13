@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Mail\AppointmentApproved;
-use App\Mail\AppointmentCanceled;
+use App\Facade\AppointmentService;
 use App\Models\CustomerBooking;
 use App\Services\UserDeviceService;
 use DateTime;
@@ -16,13 +15,16 @@ use Illuminate\Support\Facades\Mail;
 
 class BookingController extends BaseController
 {
+    private $appointmentService;
+
     /**
      * Create a new controller instance.
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(AppointmentService $appointmentService)
     {
+        $this->appointmentService = $appointmentService;
     }
 
     /**
@@ -152,21 +154,28 @@ class BookingController extends BaseController
                 $booking->checkin = $now->format('Y-m-d H:i:s');
                 $booking->checkin_by = $user->id;
                 $booking->save();
-                // inform parties concerned(e.g. parent APP & email).
-                $payload = [
-                    'title' => 'Check in',
-                    'body' => $user->name . ' has checked-in the class at ' . $booking->checkin . '.',
-                    'placeholder' => null,
-                    // extra params.
-                    'data' => [
-                        'page' => 'none',
-                        'customer_name' => $booking->customer->name,
-                        'time' => $booking->checkin,
-                        'id' => $booking->id
-                    ]
-                ];
-                $responseCode = UserDeviceService::sendToCustomer($booking->customer, 'check_in', $payload, $user->id);
-                $results = ['success' => true, 'checkin' => $booking->checkin, 'pushed' => (200 == $responseCode)];
+//                // inform parties concerned(e.g. parent APP & email).
+//                $payload = [
+//                    'title' => 'Check in',
+//                    'body' => $user->name . ' has checked-in the class at ' . $booking->checkin . '.',
+//                    'template' => 'check_in',
+//                    'placeholder' => null,
+//                    // extra params.
+//                    'data' => [
+//                        'page' => 'none',
+//                        'customer_name' => $booking->customer->name,
+//                        'time' => $booking->checkin,
+//                        'id' => $booking->id
+//                    ]
+//                ];
+                $resp = $this->appointmentService->sendAppointmentNotifications('check_in', $booking, $user->id);
+                if ($resp == -1) {    // no notifications being sent.
+                    return ['success' => true, 'checkin' => $booking->checkin, 'notifications' => false];
+                } else {    // some notifications are sent.
+                    $resp['success'] = true;
+                    $resp['checkin'] =  $booking->checkin;
+                    return $resp;
+                }
             } else if ($now < $can_checkin_time) {
                 $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.', 'params' => ['can_checkin' => $can_checkin_time, 'now' => $now]];
             } else if ($now > $booking_end_time) {
@@ -192,7 +201,7 @@ class BookingController extends BaseController
      */
     public function rejectBooking(Request $request, $id) {
         $user = Auth::user();
-        // only allow user to cancel unpaid booking.
+        // only allow user to reject unpaid booking.
         if ($this->isExternalCoachLevel($user)) {
             $booking = CustomerBooking::find($id);
             if (!$this->isSuperLevel($user)) {
@@ -200,17 +209,19 @@ class BookingController extends BaseController
                     return ['success' => false, 'error' => 'You cannot reject appointment that is not belong to you.'];
                 }
             }
-            // ok to cancel booking once.
+            // ok to reject booking once.
             $booking->appointment->status = 'rejected';
             $booking->appointment->save();
             $booking->save();
-            $results = ['success' => true, 'status' => $booking->appointment->status];
             // send mail if notify option enabled.
-//                if ($booking->appointment->status == 'reject') {   // FIXME check option.
-//                    Mail::to($user->email)
-//                        ->bcc(config('mail.from.address'))
-//                        ->send(new AppointmentRejected($booking));
-//                }
+            $resp = $this->appointmentService->sendAppointmentNotifications('appointment_rejected', $booking, $user->id);
+            if ($resp == -1) {    // no notifications being sent.
+                return ['success' => true, 'status' => $booking->appointment->status, 'notifications' => false];
+            } else {    // some notifications are sent.
+                $resp['success'] = true;
+                $resp['status'] =  $booking->appointment->status;
+                return $resp;
+            }
         } else {
             $results = ['success' => false, 'error' => 'You cannot reject appointment.'];
         }
@@ -237,17 +248,18 @@ class BookingController extends BaseController
                         return ['success' => false, 'error' => 'You cannot approve appointment that is not belong to you.'];
                     }
                 }
-                // ok to cancel booking once.
+                // ok to approve booking once.
                 $booking->appointment->status = 'approved';
                 $booking->appointment->save();
                 $booking->save();
-                $results = ['success' => true, 'status' => $booking->appointment->status];
-                // send mail if notify option enabled.
-//                if ($booking->appointment->status == 'approved') {   // FIXME check option.
-//                    Mail::to($user->email)
-//                        ->bcc(config('mail.from.address'))
-//                        ->send(new AppointmentApproved($booking));
-//                }
+                $resp = $this->appointmentService->sendAppointmentNotifications('appointment_approved', $booking, $user->id);
+                if ($resp == -1) {    // no notifications being sent.
+                    return ['success' => true, 'status' => $booking->appointment->status, 'notifications' => false];
+                } else {    // some notifications are sent.
+                    $resp['success'] = true;
+                    $resp['status'] = $booking->appointment->status;
+                    return $resp;
+                }
             }
         } else {
             $results = ['success' => false, 'error' => 'You cannot approve appointment.'];
@@ -285,9 +297,14 @@ class BookingController extends BaseController
                         $results = ['success' => true, 'status' => $booking->appointment->status];
                         // send mail if notify option enabled.
                         if ($booking->appointment->status == 'canceled') {   // FIXME check option.
-                            Mail::to($user->email)
-                                ->bcc(config('mail.from.address'))
-                                ->send(new AppointmentCanceled($booking));
+                            $resp = $this->appointmentService->sendAppointmentNotifications('appointment_canceled', $booking, $user->id);
+                            if ($resp == -1) {    // no notifications being sent.
+                                return ['success' => true, 'checkin' => $booking->checkin, 'notifications' => false];
+                            } else {    // some notifications are sent.
+                                $resp['success'] = true;
+                                $resp['checkin'] =  $booking->checkin;
+                                return $resp;
+                            }
                         }
                     } else {
                         $results = ['success' => false, 'error' => 'You have been modified several times.', 'params' => $booking->revision_counter];

@@ -33,18 +33,26 @@ class PlaceholderService
             'appointment_id'         => !empty($appointment['id']) ? $appointment['id'] : '',
             'appointment_status'     => $appointment['status'],
             'appointment_notes'      => !empty($appointment['internalNotes']) ? $appointment['internalNotes'] : '',
-            'appointment_date'       => $start_date->format(BaseController::$dateFormat),
-            'appointment_date_time'  => $start_date->format(BaseController::$dateTimeFormat),
-            'appointment_start_time' => $start_date->format(BaseController::$timeFormat),
+            'appointment_date'       => $start_date->format(BaseController::$dateFormat),       // yyyy-MM-dd
+            'appointment_date_time'  => $start_date->format(BaseController::$dateTimeFormat),   // 24-hour format
+            'appointment_start_time' => $start_date->format(BaseController::$timeFormat),       // 12-hour format with am/pm
             'appointment_end_time'   => $end_date->format(BaseController::$timeFormat),
+            'company_name'   => $appointment->room->location->company->name,
+            'service_name'   => $appointment->service->name,
+            'room_name'   => $appointment->room->name,
+            'location_name'   => $appointment->room->location->name,
+            'location_address'   => $appointment->room->location->name,
+            'customer_checkin'   => $customerBooking->checkin,
+            'customer_checkout'   => $customerBooking->checkout,
+            'customer_take_leave_time'   => $customerBooking->take_leave_at,
             'customer_name'   => $customerBooking->customer->name,
             'customer_second_name'   => $customerBooking->customer->second_name,
             'customer_mobile'   => $customerBooking->customer->mobile_no,
             'customer_email'   => $customerBooking->customer->email,
-            'trainer_name'   => $appointment->trainer ? $appointment->trainer->name : '',
-            'trainer_second_name'   => $appointment->trainer ? $appointment->trainer->second_name : '',
-            'trainer_mobile'   => $appointment->trainer ? $appointment->trainer->mobile_no : '',
-            'trainer_email'   => $appointment->trainer ? $appointment->trainer->email : '',
+            'trainer_name'   => $appointment->user ? $appointment->user->name : '',
+            'trainer_second_name'   => $appointment->user ? $appointment->user->second_name : '',
+            'trainer_mobile'   => $appointment->user ? $appointment->user->mobile_no : '',
+            'trainer_email'   => $appointment->user ? $appointment->user->email : '',
 //            'lesson_space_url'       => $lessonSpaceLink,
 //            'zoom_host_url'          => $zoomStartUrl && $type === 'email' ?
 //                '<a href="' . $zoomStartUrl . '">' . BackendStrings::getCommonStrings()['zoom_click_to_start'] . '</a>'
@@ -59,5 +67,25 @@ class PlaceholderService
     public function getPackageData(Order $order) {
 
         return $order;
+    }
+
+    /**
+     * @param string $text
+     * @param array  $data
+     *
+     * @return mixed
+     */
+    public function applyPlaceholders($text, $data)
+    {
+        unset($data['icsFiles']);
+
+        $placeholders = array_map(
+            function ($placeholder) {
+                return "%{$placeholder}%";
+            },
+            array_keys($data)
+        );
+
+        return str_replace($placeholders, array_values($data), $text);
     }
 }

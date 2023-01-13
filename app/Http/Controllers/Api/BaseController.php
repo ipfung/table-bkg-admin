@@ -6,14 +6,13 @@ namespace App\Http\Controllers\Api;
 
 use DateTime;
 use DateTimeZone;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller as Controller;
 
 
 class BaseController extends Controller
 {
-    public static $timeFormat = 'h:i';
-    public static $dateTimeFormat = 'Y-m-d h:i:s';
+    public static $timeFormat = 'h:iA';
+    public static $dateTimeFormat = 'Y-m-d H:i:s';
     public static $dateFormat = 'Y-m-d';
 
     protected function getCurrentDateTime() {

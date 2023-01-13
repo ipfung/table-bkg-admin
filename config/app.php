@@ -246,6 +246,8 @@ return [
             'appointment_button' => env('LEMONADE_APPOINTMENT_BUTTON', true),
             'timeslots' => env('LEMONADE_TIMESLOTS'),
             'trainer_multiple_student' => env('LEMONADE_TRAINER_MULTI_STUDENT'),
+            'whatsapp_notifications' => env('LEMONADE_WHATSAPP_NOTIFICATIONS'),
+            'whatsapp_promotions' => env('LEMONADE_WHATSAPP_PROMOTIONS'),
         ],
         'license' => [
             'manager' => env('JWS_MANAGER_LICENSE'),
@@ -253,5 +255,11 @@ return [
             'student' => env('JWS_STUDENT_LICENSE'),
         ],
         'fcm_server_key' => env('FCM_SERVER_KEY'),
+        'whatsapp' => [
+            'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+            'access_token' => env('WHATSAPP_PERMANENT_ACCESS_TOKEN'),
+            'business_account_id' => env('WHATSAPP_BUSINESS_ACCOUNT_ID'),
+            'default_language' => env('WHATSAPP_DEFAULT_LANGUAGE'),
+        ]
     ]
 ];

@@ -7,6 +7,7 @@ use App\Models\Holiday;
 use App\Models\Room;
 use App\Models\Timeslot;
 use App\Models\TrainerTimeslot;
+use App\Services\NotificationsService;
 use Carbon\CarbonImmutable;
 use DateTime;
 use Illuminate\Support\Carbon;
@@ -248,5 +249,30 @@ class AppointmentService
             }
         }
         return compact('data', 'holidays');
+    }
+
+    public function sendAppointmentNotifications($tamplte_name, $booking, $userId) {
+        $placeholderService = new PlaceholderService();
+        $notificationService = new NotificationsService();
+        // send mail if notify option enabled.
+        $payload = [
+            'template' => $tamplte_name,
+            'placeholders' => $placeholderService->getAppointmentData($booking),
+            // extra params.
+            'data' => [
+                'page' => 'appointment',
+                'customer_name' => $booking->customer->name,
+                'appointment_id' => $booking->appointment->id,
+                'booking_id' => $booking->id,
+                'appointment_date' => $booking->appointment->start_time
+            ]
+        ];
+        $resp = $notificationService->sendToCustomer($booking->customer, $payload, $userId);
+        if ($booking->customer->id != $booking->appointment->user->id) {
+            $resp2 = $notificationService->sendToEmployee($booking->appointment->user, $payload, $userId);
+        } else {
+            // FIXME when will send to Center? or always BCC?
+        }
+        return $resp;
     }
 }

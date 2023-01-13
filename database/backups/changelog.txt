@@ -193,5 +193,22 @@ CREATE TABLE lemonade_notify_tpl AS SELECT name, type, entity, send_to, subject,
 update users set role_id=6 where role_id=2;
 update users set role_id=4 where role_id=5;
 
+-20221205, record whom checkin. [done 3]
 ALTER TABLE `customer_bookings` ADD `checkin_by` INT AFTER `checkout`;
 
+
+INSERT INTO `notification_templates`(`name`, `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at`) SELECT name, type, entity, sendTo, subject, content, whatsAppTemplate, '', now(), now() from 0xX06_amelia_notifications;
+delete FROM `notification_templates` WHERE type='sms';
+
+update notification_templates set content=replace(content, 'customer_full_name', 'customer_name');
+update notification_templates set content=replace(content, 'employee_full_name', 'trainer_name');
+update notification_templates set name=replace(name, 'provider', 'trainer');
+
+ALTER TABLE `notify_messages` CHANGE `body` `body` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
+
+--20221229
+ALTER TABLE `customer_bookings` ADD `checkin_by` INT UNSIGNED NULL AFTER `checkin`;
+ALTER TABLE `customer_bookings` ADD `take_leave_at` TIMESTAMP NULL AFTER `revision_counter`;
+ALTER TABLE `customer_bookings` ADD `take_leave_by` INT UNSIGNED NULL AFTER `take_leave_at`;
+
+INSERT INTO `notification_templates`(`name`, `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at`) SELECT `name`, `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at` FROM `notification_templates` WHERE id=1;

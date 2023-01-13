@@ -33,6 +33,9 @@ class PayloadNotification extends Mailable
     public function build()
     {
         return $this->view('mails.common.notification')
-            ->subject($this->payload['title']);
+            ->subject($this->payload['title'])
+            ->with([
+                'content' => $this->payload['body']
+            ]);
     }
 }

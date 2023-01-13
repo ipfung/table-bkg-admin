@@ -3,9 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Api\BaseController;
-use App\Services\UserDeviceService;
 use App\Facade\AppointmentService;
-use App\Facade\PlaceholderService;
 use App\Mail\PackageApproved;
 use App\Models\Appointment;
 use App\Models\CustomerBooking;
@@ -98,9 +96,6 @@ class AppointmentController extends Controller
         } else {
             if ($service->price < 0)
                 $price = $user->role->default_price;              // from Service record, FIXME different user has different price.
-        }
-        if ($price <= 0) {
-            $price = 999;
         }
         $sessionPrice = $price / $noOfSession;
         $sessionIntervalEpoch = $service->session_minute_epoch;
@@ -556,7 +551,6 @@ class AppointmentController extends Controller
 
         // send notifications.
         if ($sendNotify) {
-            $placeholderService = new PlaceholderService();
             if ($isPackage) {
                 $resOrder = Order::find($order->id);
                 Mail::to($user->email)
@@ -564,24 +558,30 @@ class AppointmentController extends Controller
                     ->send(new PackageApproved($resOrder->load('details', 'customer')));
             } else {
                 $resCustomerBooking = CustomerBooking::find($customerBooking->id);
-                $payload = [
-                    'title' => 'Appointment Approved',
-                    'body' => '' . $order->order_number . '.',
-                    'notification_template' => 'customer_appointment_approval',
-                    'placeholders' => $placeholderService->getAppointmentData($resCustomerBooking),
-                    // extra params.
-                    'data' => [
-                        'page' => 'appointment',
-                        'customer_name' => $resCustomerBooking->customer->name,
-                        'booking_id' => $resCustomerBooking->id,
-                        'appointment_date' => $resCustomerBooking->appointment->start_time
-                    ]
-                ];
-                $responseCode = UserDeviceService::sendToCustomer($resCustomerBooking->customer, 'appointment_approved', $payload, Auth::user()->id);
-                if ($responseCode == -1) {    // no push devices found. email only.
-                    return ['success' => true, 'pushed' => false];
-                } else if ($responseCode == 200) {    // email and push ok.
-                    return ['success' => true, 'pushed' => true];
+                $resp = $this->appointmentService->sendAppointmentNotifications('appointment_approved', $resCustomerBooking, Auth::user()->id);
+//                $payload = [
+//                    'template' => 'appointment_approved',
+//                    'placeholders' => $placeholderService->getAppointmentData($resCustomerBooking),
+//                    // extra params.
+//                    'data' => [
+//                        'page' => 'appointment',
+//                        'customer_name' => $resCustomerBooking->customer->name,
+//                        'order_number' => $order->order_number,
+//                        'booking_id' => $resCustomerBooking->id,
+//                        'appointment_date' => $resCustomerBooking->appointment->start_time
+//                    ]
+//                ];
+//                $resp = $notificationService->sendToCustomer($resCustomerBooking->customer, $payload, Auth::user()->id);
+//                if ($resCustomerBooking->customer->id != $resCustomerBooking->appointment->user->id) {
+//                    $resp2 = $this->appointmentService->sendToEmployee($resCustomerBooking->appointment->user, $payload, Auth::user()->id);
+//                }
+                if ($resp == -1) {    // no notifications being sent.
+                    return ['success' => true, 'order_id' => $order->id, 'notifications' => false];
+                } else {    // some notifications are sent.
+                    $resp['success'] = true;
+                    $resp['order_id'] = $order->id;
+//                    $resp['placeholders'] = $payload['placeholders'];
+                    return $resp;
                 }
             }
         }
