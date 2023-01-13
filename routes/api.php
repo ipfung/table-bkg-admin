@@ -38,6 +38,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::put('/booking-reject/{id}', 'Api\BookingController@rejectBooking');
     Route::put('/booking-cancel/{id}', 'Api\BookingController@cancelBooking');
     Route::post('/booking-checkin/{id}', 'Api\BookingController@punchInBooking');
+    Route::put('take-leave/{id}', 'Api\BookingController@takeLeave');
     // user-profile
     Route::get('/user', 'Api\UserController@getUserProfile');
     Route::put('/user-password/{id}', 'Api\UserController@changePwd');

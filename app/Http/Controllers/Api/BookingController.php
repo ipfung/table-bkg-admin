@@ -4,14 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Facade\AppointmentService;
 use App\Models\CustomerBooking;
-use App\Services\UserDeviceService;
+use App\Models\Leave;
 use DateTime;
 use DateTimeZone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 
 class BookingController extends BaseController
 {
@@ -317,6 +316,56 @@ class BookingController extends BaseController
             }
         } else {
             $results = ['success' => false, 'error' => 'You cannot reschedule for others.'];
+        }
+        if ($request->expectsJson()) {
+            return $results;
+        }
+
+    }
+
+    /**
+     * @param Request $request
+     * @param $id
+     * @return array|void
+     */
+    public function takeLeave(Request $request, $id) {
+        $user = Auth::user();
+        $booking = CustomerBooking::find($id);
+        // only allow user itself to take leave.
+        if ($user->id == $booking->customer_id || $this->isExternalCoachLevel($user)) {
+            if (empty($booking->checkin) && empty($booking->take_leave_at)) {
+                $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time);
+                $now = $this->getCurrentDateTime();
+                if ($now < $can_amend_time) {   // now is just before appointment start time.
+                    // ok to take leave
+                    if ($booking->revision_counter == 0) {
+                        $booking->take_leave_at = $now->format('Y-m-d H:i:s');
+                        $booking->take_leave_by = $user->id;
+                        DB::beginTransaction();
+                        $booking->save();
+                        $leave = new Leave;
+                        $leave->booking_id = $booking->id;
+                        $leave->take_leave_at = $booking->take_leave_at;
+                        $leave->flag = 1;
+                        $leave->created_by = $user->id;
+                        $leave->updated_by = $user->id;
+                        $leave->save();
+                        DB::commit();
+                        $resp = $this->appointmentService->sendAppointmentNotifications('appointment_leave', $booking, $user->id);
+                        if ($resp == -1) {    // no notifications being sent.
+                            return ['success' => true, 'take_leave_at' => $booking->take_leave_at, 'notifications' => false];
+                        } else {    // some notifications are sent.
+                            $resp['success'] = true;
+                            $resp['take_leave_at'] =  $booking->take_leave_at;
+                            return $resp;
+                        }
+                    }
+                } else {
+                    $results = ['success' => false, 'error' => 'You cannot take leave after appointment start time %.', 'params' => $booking->appointment->start_time];
+                }
+            }
+        } else {
+            $results = ['success' => false, 'error' => 'You cannot take leave for others.'];
         }
         if ($request->expectsJson()) {
             return $results;
