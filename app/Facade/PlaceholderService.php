@@ -64,6 +64,24 @@ class PlaceholderService
         ];
     }
 
+    public function getOrderData($order) {
+        return [
+            'order_id'         => $order->id,
+            'order_number'     => $order->order_number,
+            'order_status'     => $order->order_status,
+            'order_total'     => $order->order_total,
+            'payment_status'     => $order->payment_status,
+            'order_date'         => $order->order_date,       // yyyy-MM-dd
+            'company_name'   => $order->location->company->name,
+            'location_name'   => $order->location->name,
+            'location_address'   => $order->location->name,
+            'customer_name'   => $order->customer->name,
+            'customer_second_name'   => $order->customer->second_name,
+            'customer_mobile'   => $order->customer->mobile_no,
+            'customer_email'   => $order->customer->email,
+        ];
+    }
+
     public function getPackageData(Order $order) {
 
         return $order;

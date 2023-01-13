@@ -206,9 +206,35 @@ update notification_templates set name=replace(name, 'provider', 'trainer');
 
 ALTER TABLE `notify_messages` CHANGE `body` `body` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
 
---20221229
+--20221229 [done]
 ALTER TABLE `customer_bookings` ADD `checkin_by` INT UNSIGNED NULL AFTER `checkin`;
+
+-- [done: 20230113]
 ALTER TABLE `customer_bookings` ADD `take_leave_at` TIMESTAMP NULL AFTER `revision_counter`;
 ALTER TABLE `customer_bookings` ADD `take_leave_by` INT UNSIGNED NULL AFTER `take_leave_at`;
 
 INSERT INTO `notification_templates`(`name`, `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at`) SELECT `name`, `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at` FROM `notification_templates` WHERE id=1;
+
+--20230113, create leaves table. [done]
+CREATE TABLE `leaves` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `take_leave_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `flag` smallint(6) NOT NULL DEFAULT '1',
+  `created_by` int(11) NOT NULL,
+  `updated_by` int(11) NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `leaves`
+  ADD PRIMARY KEY (`id`);
+
+ALTER TABLE `leaves`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
+COMMIT;
+
+INSERT INTO `notification_templates`(`name`, `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at`) SELECT 'customer_payment_reminder', `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at` FROM `notification_templates` WHERE id=1;
+
+--20230113, add location_id for multiple companies.
+ALTER TABLE `orders` ADD `location_id` INT UNSIGNED NOT NULL DEFAULT '1' AFTER `id`;

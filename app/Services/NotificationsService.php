@@ -38,7 +38,7 @@ class NotificationsService
         if ($settings && !empty($settings->notifications)) {
             $log_body = [];
             $results = [];
-            if ($settings->notifications->email) {
+            if (!empty($settings->notifications->email) && $settings->notifications->email) {
                 $template = NotificationTemplate::where('name', $payload['notification_template'])->where('type', 'email')->first();
                 if (!empty($template)) {
                     $subject = $placeholderService->applyPlaceholders($template->subject, $payload['placeholders']);
@@ -51,25 +51,11 @@ class NotificationsService
                         ->send(new PayloadNotification($email_content));
                     $log_body['email'] = $email_content;
                     $results['email'] = true;
-                    if ($settings->notifications->whatsapp) {
-                        if (strlen($recipient->mobile_no) == 8 && config("app.jws.settings.whatsapp_notifications")) {
-                            $whatsAppService = new WhatsAppService;
-                            $mobile_no = '852' . $recipient->mobile_no;
-                            $apiResponse = $whatsAppService->sendText($mobile_no, $subject);
-                            if (!empty($apiResponse['messages'])) {
-                                $log_body['whatsapp'] = ['mobile_no' => $mobile_no, 'text' => $subject];
-                                $results['whatsapp'] = true;
-                            } else if ($apiResponse['error']) {
-                                $results['whatsapp'] = false;
-                                $log_body['whatsapp_error'] = $apiResponse;
-                            }
-                        }
-                    }
                 }
             }
 
             // whatsapp notification.
-            if ($settings->notifications->whatsapp) {
+            if (!empty($settings->notifications->whatsapp) && $settings->notifications->whatsapp) {
                 if (strlen($recipient->mobile_no) == 8 && config("app.jws.settings.whatsapp_notifications")) {
                     $template = NotificationTemplate::where('name', $payload['notification_template'])->where('type', 'whatsapp')->first();
 //echo 'whatsapp lang=' . $defaultLanguage . ' template=' . json_encode($template);

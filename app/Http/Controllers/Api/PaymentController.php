@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Facade\OrderService;
 use App\Models\Order;
-use App\Models\User;
-use App\Services\UserDeviceService;
+use App\Models\OrderDetail;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends BaseController
 {
@@ -16,12 +18,13 @@ class PaymentController extends BaseController
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(OrderService $orderService)
     {
         $canAccess = config("app.jws.settings.finance");
         if (!$canAccess) {
             abort(404);
         }
+        $this->orderService = $orderService;
     }
 
     /**
@@ -167,27 +170,15 @@ class PaymentController extends BaseController
     public function sendBillReminder($id) {
         $order = Order::find($id);
         if ($order->payment_status != 'paid') {
-            $payload = [
-                'title' => 'Payment Reminder',
-                'body' => 'You have an unpaid invoice ' . $order->order_number . '.',
-//                'click_action' => 'FCM_PLUGIN_ACTIVITY',
-                'placeholder' => null,
-                // extra params.
-                'data' => [
-                    'page' => 'finance',
-                    'customer_name' => $order->customer->name,
-                    'order_id' => $order->id,
-                    'order_number' => $order->order_number
-                ]
-            ];
-            $responseCode = UserDeviceService::sendToCustomer($order->customer, 'payment_reminder', $payload, Auth::user()->id);
-            if ($responseCode == -1) {    // no push devices found. email only.
-                return ['success' => true, 'pushed' => false];
-            } else if ($responseCode == 200) {    // email and push ok.
-                return ['success' => true, 'pushed' => true];
+            $resp = $this->orderService->sendPaymentNotifications('payment_reminder', $order, Auth::user()->id);
+            if ($resp == -1) {    // no notifications being sent.
+                return ['success' => true, 'order_id' => $order->id, 'notifications' => false];
+            } else {    // some notifications are sent.
+                $resp['success'] = true;
+                $resp['order_id'] = $order->id;
+//                    $resp['placeholders'] = $payload['placeholders'];
+                return $resp;
             }
-            // FIXME something wrong.
-            return ['success' => false, 'reason' => false];
         }
     }
 }

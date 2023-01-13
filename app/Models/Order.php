@@ -34,6 +34,11 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
+    }
+
     public function trainer()
     {
         return $this->belongsTo(User::class);
