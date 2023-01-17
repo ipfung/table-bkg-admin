@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use TCG\Voyager\Models\Role;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class UserController extends BaseController
 {
@@ -332,13 +333,17 @@ class UserController extends BaseController
         return ['success' => true];
     }
 
-//    public function generatStudentQr($id) {
-//        $user = Student::with('info')->find($id);
-//        $str = $user->id . '::' . $user->info->card_no;
-//        $result['content'] = base64_encode(QrCode::size(200)->generate($str));
-//        $result['format'] = 'svg';
-//        return $this->sendResponse($result, "Student QR code generated.");
-//    }
+    /**
+     * @param $id
+     * @return \Illuminate\Http\Response
+     */
+    public function generatStudentQr($id) {
+        $user = User::find($id);
+        $str = $user->id . '::' . $user->email . '::' . $user->mobile_no;
+        $result['content'] = base64_encode(QrCode::size(200)->generate($str));
+        $result['format'] = 'svg';
+        return $this->sendResponse($result, "Student QR code generated.");
+    }
 
     /**
      * get total number of new student for today/this week/this month.

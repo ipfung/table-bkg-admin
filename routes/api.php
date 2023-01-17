@@ -57,6 +57,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/get-roles', 'Api\RoleController@getRoles');
     Route::get('/roles', 'Api\RoleController@index');
     Route::apiResource('users', 'Api\UserController');
+    Route::get('/student-qr/{id}', 'Api\UserController@generatStudentQr');
     Route::put('/ban-user/{id}', 'Api\UserController@banUser');
     Route::put('/active-user/{id}', 'Api\UserController@activeUser');
     Route::post('/register-push', 'Api\UserController@registerPush');
