@@ -339,7 +339,8 @@ class UserController extends BaseController
      */
     public function generatStudentQr($id) {
         $user = User::find($id);
-        $str = $user->id . '::' . $user->email . '::' . $user->mobile_no;
+        $separator = '::';
+        $str = base64_encode($user->id . $separator . $user->created_at . $separator . $user->email . $separator . $user->mobile_no);
         $result['content'] = base64_encode(QrCode::size(200)->generate($str));
         $result['format'] = 'svg';
         return $this->sendResponse($result, "Student QR code generated.");
