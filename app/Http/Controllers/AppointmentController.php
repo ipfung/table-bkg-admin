@@ -603,7 +603,11 @@ class AppointmentController extends Controller
         $customerBooking = new CustomerBooking;
         $customerBooking->appointment_id = $appointment->id;
         $customerBooking->customer_id = $user->id;
-        $customerBooking->price = $isPackage ? $request->order_total : $request->price;
+        $price = $request->order_total;
+        if (!$isPackage && !$request->has('order_total')) {
+            $price = $request->price;
+        }
+        $customerBooking->price = $price;
         $customerBooking->info = json_decode($request->personalInformation);    // if any.
         $customerBooking->revised_appointment_id = $appointment->id;
         $customerBooking->revision_counter = 0;
