@@ -99,6 +99,7 @@ class UserController extends BaseController
             $data = $users->with('role')->paginate()->toArray();
             $data['editable'] = $editable;   // append to paginate()
             $data['newable'] = $newable;
+            $data['student_qr'] = config('app.jws.settings.student_qr');
             $data['multi_student'] = config('app.jws.settings.trainer_multiple_student');
             $data['requiredRoom'] = config("app.jws.settings.required_room");
             $data['requiredTrainer'] = config("app.jws.settings.required_trainer");
