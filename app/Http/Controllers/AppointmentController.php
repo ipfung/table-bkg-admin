@@ -381,6 +381,9 @@ class AppointmentController extends Controller
                 $sendNotify = $request->notify_parties;
             $paymentMethod = 'onsite';
             $paymentGatway = 'cash';
+            if ($request->has('paymentGateway')) {
+                $paymentGatway = $request->paymentGateway;
+            }
             $request->validate([
                 'customerId' => 'required|integer',
             ]);
@@ -451,10 +454,11 @@ class AppointmentController extends Controller
         $appointment->internal_remark = $request->internal_remark;
         $appointment->status = $appointmentStatus;     // get defaults from settings.
         $savedAppointment = $this->appointmentService->saveAppointment($appointment);
-        $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user);
+        $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user, $isPackage);
         $savedAppointment->customer_booking_id = $customerBooking->id;
         $results[] = $savedAppointment;
 
+        $amount = $request->order_total;
         // Packages handling.
         if ($isPackage) {
             $dates = $request->lesson_dates;
@@ -484,16 +488,18 @@ class AppointmentController extends Controller
                 $appointment->internal_remark = $request->internal_remark;
                 $appointment->status = $appointmentStatus;     // get defaults from settings.
                 $savedAppointment2 = $this->appointmentService->saveAppointment($appointment);
-                $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user);
+                $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user, $isPackage);
                 $savedAppointment2->customer_booking_id = $customerBooking2->id;
                 $results[] = $savedAppointment2;
             }
-            $type_of_apt = 'package';
-            $amount = $request->package_amount;
+            $order_type = 'package';
             $entity = 'package';
         } else {
-            $type_of_apt = 'booking';
-            $amount = $request->price;
+            $order_type = 'booking';
+            if (!$request->has('order_total')) {
+                // order_total normally provided from internal system.
+                $amount = $request->price;
+            }
         }
 
         $order = new Order;
@@ -507,7 +513,7 @@ class AppointmentController extends Controller
         $order->customer_id = $customerBooking->customer_id;
         $order->user_id = Auth::user()->id;
         $order->paid_amount = $appointmentStatus == 'approved' ? $order->order_total : 0;
-        $order->payment_status = $appointmentStatus == 'approved' ? 'paid' : 'pending';       // FIXME get payment status from gateway response.
+        $order->payment_status = $request->paymentStatus;       // FIXME get payment status from gateway response.
         $order->order_status = $appointmentStatus == 'approved' ? 'confirmed' : 'pending';
         $recurring = $request->input('recurring');
         $order->recurring = json_encode($recurring);
@@ -527,7 +533,7 @@ class AppointmentController extends Controller
         foreach ($results as $result) {
             $orderDetail = new OrderDetail;
             $orderDetail->order_id = $order->id;
-            $orderDetail->order_type = $type_of_apt;
+            $orderDetail->order_type = $order_type;
             $orderDetail->booking_id = $result->customer_booking_id;
             $orderDetail->order_description = json_encode($result);
             $orderDetail->original_price = $request->price;
@@ -593,11 +599,11 @@ class AppointmentController extends Controller
         return redirect()->route('orders.index');
     }
 
-    private function saveCustomerBooking(Request $request, Appointment $appointment, User $user) {
+    private function saveCustomerBooking(Request $request, Appointment $appointment, User $user, $isPackage) {
         $customerBooking = new CustomerBooking;
         $customerBooking->appointment_id = $appointment->id;
         $customerBooking->customer_id = $user->id;
-        $customerBooking->price = $request->price;
+        $customerBooking->price = $isPackage ? $request->order_total : $request->price;
         $customerBooking->info = json_decode($request->personalInformation);    // if any.
         $customerBooking->revised_appointment_id = $appointment->id;
         $customerBooking->revision_counter = 0;

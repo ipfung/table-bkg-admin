@@ -35,7 +35,7 @@ class PaymentController extends BaseController
     public function index(Request $request)
     {
         $user = Auth::user();
-        $withRelationship = ['customer.role', 'details', 'payments'];
+        $withRelationship = ['customer.role', 'details', 'payment'];
 
         $fromDate = Carbon::today()->format("Y-m-d");
         if ($request->has('from_date')) {
@@ -85,26 +85,62 @@ class PaymentController extends BaseController
     }
 
     /**
-     * Store both new or update of student list of trainer.
+     * should be created from Appointment.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
     public function store(Request $request)
     {
-        $user = Auth::user();
-        $request->validate([
-            'id' => 'required|integer',
-            'status' => 'required',
-        ]);
-        $teammates = $request->teammates;
-        if ($request->counter == count($teammates)) {
-            //
-            $result = ["success" => true];
-        } else {
-            $result = ["success" => false, "error" => "Payment issue."];
-        }
-        return $result;
+//        $user = Auth::user();
+//        $request->validate([
+//            'order_total' => 'required',
+//            'order_status' => 'required',
+//            'payment_status' => 'required',
+//        ]);
+//
+//        DB::beginTransaction();
+//        $order = new Order;
+//        $order->order_number = uniqid();
+//        $order->order_date = Carbon::today()->format('Y-m-d');
+//        if ($request->has('discount')) {
+//            if ($request->discount > 0)
+//                $order->discount = $request->discount;
+//        }
+//        $order->customer_id = $request->customer_id;
+//        $order->user_id = $user->id;
+//        $order->order_total = $request->order_total;
+//        $order->paid_amount = $request->order_total;
+//        $order->payment_status = $request->payment_status;
+//        $order->order_status = $request->order_status;
+//        if ($request->has('recurring')) {
+//            $recurring = $request->input('recurring');
+//            $order->recurring = json_encode($recurring);
+//        }
+//        $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
+//        $order->save();
+//
+//        $orderDetail = new OrderDetail;
+//        $orderDetail->order_id = $order->id;
+//        $orderDetail->order_type = $request->order_type;
+//        $orderDetail->original_price = $order->order_total;
+//        $orderDetail->discounted_price = $order->order_total;
+//        $orderDetail->save();
+//
+//        $payment = new Payment;
+//        $payment->order_id = $order->id;
+//        $payment->amount = $order->order_total;
+//        $payment->payment_date_time = (new DateTime())->format('Y-m-d H:i:s');
+//        $payment->status = $order->payment_status;
+//        $payment->payment_method = 'onsite';
+//        $payment->gateway = 'cash';
+////        $payment->parent_id = ;
+//        $payment->entity = 'commission';
+//        $payment->save();
+//
+//        DB::commit();
+//        $result = ["success" => true, "data" => $order];
+//        return $result;
     }
 
     /**
@@ -128,12 +164,13 @@ class PaymentController extends BaseController
     {
         $request->validate([
             'amount' => 'required',
-            'status' => 'required',
+            'gateway' => 'required',
         ]);
         $payment = Payment::find($id);
         $payment->amount = $request->amount;
-        $payment->status = $request->status;
-        DB::beginTransaction();;
+        $payment->gateway = $request->gateway;
+        $payment->status = ($payment->amount > 0) ? 'paid' : 'pending';
+        DB::beginTransaction();
         $payment->save();
         $paymentStatus = $this->updatePaymentStatusByOrderId($payment->order_id);
         DB::commit();
@@ -142,23 +179,36 @@ class PaymentController extends BaseController
         return compact('success', 'paymentStatus');
     }
 
+    /**
+     * update orders table payment_status and order_status.
+     * @param $order_id
+     * @return string
+     */
     private function updatePaymentStatusByOrderId($order_id) {
         $order = Order::find($order_id);
         $payment = Payment::where('order_id', $order_id)
-            ->where('status', 'paid')
-            ->selectRaw(DB::raw('sum(amount) as total_paid'))
+//            ->where('status', 'paid')
+//            ->selectRaw(DB::raw('sum(amount) as total_paid'))
             ->first();
-        if (!empty($payment)) {
+        if ($payment) {
             $order_amount = $order->order_total - $order->discount;;
-            $order->paid_amount = $payment->total_paid;
-            if ($payment->total_paid >= $order_amount) {
-                $order->payment_status = 'paid';
-            } else if (($order_amount - $payment->total_paid) > 0) {
-                $order->payment_status = 'partially';
+            if ($payment->status == 'paid') {
+                $order->paid_amount = $payment->amount;
             }
-            // change the order status as well.
-            if ($order->order_status != 'confirmed') {
-                $order->order_status = 'confirmed';
+            if ($order->paid_amount == 0) {
+                $order->payment_status = 'pending';
+            } if ($order->paid_amount >= $order_amount) {
+                $order->payment_status = 'paid';
+                // change the order status as well.
+                if ($order->order_status != 'confirmed') {
+                    $order->order_status = 'confirmed';
+                }
+            } else if ($order->paid_amount > 0 && ($order_amount - $order->paid_amount) > 0) {
+                $order->payment_status = 'partially';
+                // change the order status as well.
+                if ($order->order_status != 'confirmed') {
+                    $order->order_status = 'confirmed';
+                }
             }
         } else {
             $order->payment_status = 'pending';

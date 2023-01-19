@@ -53,4 +53,13 @@ class Order extends Model
     {
         return $this->hasMany('App\Models\Payment' );
     }
+
+    /**
+     * 20230118 one-to-one will be easier to manage.
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function payment()
+    {
+        return $this->hasOne('App\Models\Payment' );
+    }
 }
