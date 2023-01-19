@@ -26,7 +26,7 @@ class TrainerController extends BaseController
             ->whereIn('role_id', function($query){   // ref: https://stackoverflow.com/questions/16815551/how-to-do-this-in-laravel-subquery-where-in
                 $query->select('id')
                     ->from(with(new Role)->getTable())
-                    ->whereIn('name', ['manager', 'internal_coach', 'external_coach']);// who will be trainers.
+                    ->whereIn('name', [User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF, User::$MANAGER]);// who will be trainers.
             });
 
         $editable = false;

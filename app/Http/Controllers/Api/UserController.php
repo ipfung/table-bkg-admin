@@ -35,15 +35,15 @@ class UserController extends BaseController
         $newable = false;
         // only can see self if user is not in above level.
         if (!$this->isSuperLevel($user)) {
-            if ($user->role->name == 'internal_coach') {
-                $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?, ?))', ['internal_coach', 'external_coach', 'member', 'user']);
+            if ($user->role->name == User::$INTERNAL_STAFF) {
+                $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?, ?))', [User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF, User::$MEMBER, User::$USER]);
             } else {
                 $users->where('id', $user->id);
             }
         } else {
             // TODO manager cannot see admin.
-            if ($user->role->name == 'manager') {
-                $users->whereRaw('role_id in (select id from roles where name<>?)', ['admin']);
+            if ($user->role->name == User::$MANAGER) {
+                $users->whereRaw('role_id in (select id from roles where name<>?)', [User::$ADMIN]);
             }
             $editable = true;
             $newable = true;
@@ -54,9 +54,9 @@ class UserController extends BaseController
 //                $users->whereRaw('role_id in (select id from roles where name=?)', ['admin']);
             }
             if ($request->role == 'Trainer')
-                $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?))', ['internal_coach', 'external_coach', 'manager']);
+                $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?))', [User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF, User::$MANAGER]);
             if ($request->role == 'Student')
-                $users->whereRaw('role_id in (select id from roles where name in (?, ?))', ['member', 'user']);
+                $users->whereRaw('role_id in (select id from roles where name in (?, ?))', [User::$MEMBER, User::$USER]);
         }
 
         if ($request->has('q')) {

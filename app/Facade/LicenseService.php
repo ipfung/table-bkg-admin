@@ -17,16 +17,16 @@ class LicenseService
         $name = $role->name;
         $roles = [];
         $role_name = '';
-        if ($name == 'internal_coach' || $name == 'external_coach') {
-            $roles = ['internal_coach', 'external_coach'];
+        if ($name == User::$INTERNAL_STAFF || $name == User::$EXTERNAL_STAFF) {
+            $roles = [User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF];
             $role_name = 'tutor';
-        } else if ($name == 'member' || $name == 'user') {
-            $roles = ['member', 'user'];
+        } else if ($name == User::$MEMBER || $name == User::$USER) {
+            $roles = [User::$MEMBER, User::$USER];
             $role_name = 'student';
-        } else if ($name == 'manager') {
-            $roles = ['manager'];
+        } else if ($name == User::$MANAGER) {
+            $roles = [User::$MANAGER];
             $role_name = 'manager';
-        } else if ($name == 'admin') {
+        } else if ($name == User::$ADMIN) {
         }
         $user = User::whereIn('role_id', function($query) use ($roles) {   // ref: https://stackoverflow.com/questions/16815551/how-to-do-this-in-laravel-subquery-where-in
             $query->select('id')

@@ -13,6 +13,13 @@ class User extends \TCG\Voyager\Models\User
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    public static $ADMIN = 'admin';
+    public static $MANAGER = 'manager';
+    public static $INTERNAL_STAFF = 'internal_coach';
+    public static $EXTERNAL_STAFF = 'external_coach';
+    public static $MEMBER = 'member';
+    public static $USER = 'user';
+
     /**
      * The attributes that are mass assignable.
      *

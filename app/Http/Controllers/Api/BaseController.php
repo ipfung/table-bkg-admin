@@ -4,6 +4,7 @@
 namespace App\Http\Controllers\Api;
 
 
+use App\Models\User;
 use DateTime;
 use DateTimeZone;
 use App\Http\Controllers\Controller as Controller;
@@ -22,17 +23,17 @@ class BaseController extends Controller
     }
 
     protected function isSuperLevel($user) {
-        $super_levels = ['manager', 'admin'];
+        $super_levels = [User::$ADMIN, User::$MANAGER];
         return in_array($user->role->name, $super_levels);
     }
 
     protected function isInternalCoachLevel($user) {
-        $super_levels = ['manager', 'admin', 'internal_coach'];
+        $super_levels = [User::$INTERNAL_STAFF, User::$ADMIN, User::$MANAGER];
         return in_array($user->role->name, $super_levels);
     }
 
     protected function isExternalCoachLevel($user) {
-        $super_levels = ['manager', 'admin', 'internal_coach', 'external_coach'];
+        $super_levels = [User::$EXTERNAL_STAFF, User::$INTERNAL_STAFF, User::$ADMIN, User::$MANAGER];
         return in_array($user->role->name, $super_levels);
     }
 

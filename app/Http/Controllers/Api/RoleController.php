@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,7 @@ class RoleController extends BaseController
         DB::enableQueryLog(); // Enable query log
         $roles = Role::orderByRaw('FIELD(name, "user", "member", "external_coach", "internal_coach", "manager")');
         if ($this->isSuperLevel($user)) {
-            $roles->whereIn('name', ['manager', 'internal_coach', 'external_coach', 'member', 'user']);
+            $roles->whereIn('name', [User::$MANAGER, User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF, User::$MEMBER, User::$USER]);
         } else {
             $roles->where('name', $user->role->name);
         }
@@ -50,9 +51,9 @@ class RoleController extends BaseController
         DB::enableQueryLog(); // Enable query log
         $roles = Role::orderByRaw('FIELD(name, "user", "member", "external_coach", "internal_coach", "manager")');
         if ($request->type == 'coach')
-            $roles->whereIn('name', ['manager', 'internal_coach', 'external_coach']);
+            $roles->whereIn('name', [User::$MANAGER, User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF]);
         else {
-            $roles->whereIn('name', ['member', 'user']);
+            $roles->whereIn('name', [User::$MEMBER, User::$USER]);
         }
 
         // always return JSON type for calendar.
