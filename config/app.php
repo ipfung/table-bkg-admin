@@ -245,6 +245,8 @@ return [
             'finance' => env('LEMONADE_FINANCE'),
             'packages' => env('LEMONADE_PACKAGES'),
             'appointment_button' => env('LEMONADE_APPOINTMENT_BUTTON', true),
+            'checkin_before_minute' => env('LEMONADE_ALLOW_CHECKIN_BEFORE_MINUTE'),
+            'checkin_after_minute' => env('LEMONADE_ALLOW_CHECKIN_AFTER_MINUTE'),
             'timeslots' => env('LEMONADE_TIMESLOTS'),
             'trainer_multiple_student' => env('LEMONADE_TRAINER_MULTI_STUDENT'),
             'whatsapp_notifications' => env('LEMONADE_WHATSAPP_NOTIFICATIONS'),
