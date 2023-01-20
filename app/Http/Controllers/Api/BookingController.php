@@ -59,6 +59,12 @@ class BookingController extends BaseController
             ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate )
             ->orderBy('appointments.start_time', 'asc')
             ->orderBy('rooms.name', 'asc');
+        if ($request->has('customerId')) {
+            $bookings->where('customer_id', $request->customerId);
+        }
+        if ($request->has('trainerId')) {
+            $bookings->where('user_id', $request->trainerId);
+        }
         if ($request->has('ownerId')) {
             $ownerId = $request->ownerId;
             $bookings->where(function ($query) use ($ownerId){
@@ -98,10 +104,13 @@ class BookingController extends BaseController
 
         if ($request->expectsJson()) {
             $results['success'] = true;
+            $results['manager'] = $this->isSuperLevel($user);
             $results['requiredTrainer'] = config("app.jws.settings.required_trainer");
             $results['supportPackages'] = config("app.jws.settings.packages");
             $results['supportFinance'] = config("app.jws.settings.finance");
             $results['timeslotSetting'] = config("app.jws.settings.timeslots");
+            $results['checkInBeforeMinute'] = config("app.jws.settings.checkin_before_minute");
+            $results['checkInAfterMinute'] = config("app.jws.settings.checkin_after_minute");
             $results['data'] = $bookings->get();
             return $results;
         }
@@ -119,11 +128,11 @@ class BookingController extends BaseController
         $booking = CustomerBooking::find($id);
 //        echo 'booking=' . json_encode($booking);
         // only allow user itself to checkin.
-        $now = $this->getCurrentDateTime();
         if (empty($booking->checkin)) {
             if ($user->id != $booking->customer_id) {
-                if ($this->isSuperLevel($user)) {
-                } else if ($this->isExternalCoachLevel($user)) {
+                if ($this->isSuperLevel($user)) {   // it is necessary to do isSuperLevel() here.
+                    // can checkin anytime.
+                } else if ($this->isExternalCoachLevel($user)) {  // included Internal Coach.
                     // check if = appointment's owner.
                     if ($user->id != $booking->appointment->user_id) {
                         $results = ['success' => false, 'error' => 'You cannot checkin for others class.'];
@@ -144,12 +153,28 @@ class BookingController extends BaseController
                 }
             }
 
-            $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time, new DateTimeZone(config("app.jws.local_timezone")))->modify('-1 hour');   // 1 hour before appointment start time.
-            $booking_end_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time, new DateTimeZone(config("app.jws.local_timezone")));
+            $now = $this->getCurrentDateTime();
 //echo 'can_checkin_time=' . $can_checkin_time->format('Y-m-d H:i:s');
 //echo ', booking_end_time=' . $booking_end_time->format('Y-m-d H:i:s');
 //echo ', now=' . $now->format('Y-m-d H:i:s');
-            if ($now > $can_checkin_time && $now < $booking_end_time) {
+            $canCheckIn = false;
+            if ($this->isSuperLevel($user)) {
+                // can checkin anytime.
+                $canCheckIn = true;
+            } else {
+                $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time, new DateTimeZone(config("app.jws.local_timezone")))->modify('-' . config("app.jws.settings.checkin_before_minute") . 'minute');   // minute before appointment start time.
+                $booking_end_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->end_time, new DateTimeZone(config("app.jws.local_timezone")))->modify(config("app.jws.settings.checkin_after_minute") . 'minute');
+                if ($now > $can_checkin_time && $now < $booking_end_time) {
+                    $canCheckIn = true;
+                } else if ($now < $can_checkin_time) {
+                    $results = ['success' => false, 'error' => 'You can checkin within before your appointment start time.', 'params' => ['can_checkin' => $can_checkin_time, 'end_time' => $booking_end_time, 'now' => $now]];
+                    goto output;    // break
+                } else if ($now > $booking_end_time) {
+                    $results = ['success' => false, 'error' => 'Your appointment is ended already, no checkin can be done.', 'params' => ['end_time' => $booking_end_time, 'now' => $now]];
+                    goto output;    // break
+                }
+            }
+            if ($canCheckIn) {
                 $booking->checkin = $now->format('Y-m-d H:i:s');
                 $booking->checkin_by = $user->id;
                 $booking->save();
@@ -175,13 +200,9 @@ class BookingController extends BaseController
                     $resp['checkin'] =  $booking->checkin;
                     return $resp;
                 }
-            } else if ($now < $can_checkin_time) {
-                $results = ['success' => false, 'error' => 'You can checkin within 60 minute before your appointment start time.', 'params' => ['can_checkin' => $can_checkin_time, 'now' => $now]];
-            } else if ($now > $booking_end_time) {
-                $results = ['success' => false, 'error' => 'Your appointment is ended already. No checkin can be done.', 'params' => ['end_time' => $booking_end_time, 'now' => $now]];
             }
         } else {
-            $results = ['success' => false, 'error' => "The appointment has been checked-in already at ", 'params' => ['checked' => $booking->check_in, 'now' => $now]];
+            $results = ['success' => false, 'error' => "The appointment has been checked-in already at.", 'params' => ['checked' => $booking->check_in, 'now' => $now]];
         }
 
         output:
