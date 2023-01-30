@@ -411,6 +411,15 @@ class AppointmentController extends Controller
                     $saveAsPending = false;
                 }
             }
+            if ($user->role->max_book > 0) {
+                // check user's booking
+                $counter = $this->appointmentService->getAppointmentCount($user);
+                if ($counter >= $user->role->max_book) {
+                    // exceed no. of booking, throw error.
+                    $results = ['success' => false, 'error' => 'You have reached the maximum number of booking.', 'param' => $counter];
+                    return $results;
+                }
+            }
         }
         // get appointment dates.
         $appointmentDates = $this->appointmentService->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);

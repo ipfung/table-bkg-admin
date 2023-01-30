@@ -240,6 +240,10 @@ INSERT INTO `notification_templates`(`name`, `type`, `entity`, `send_to`, `subje
 ALTER TABLE `orders` ADD `location_id` INT UNSIGNED NOT NULL DEFAULT '1' AFTER `id`;
 
 
---20230118
+--20230118 [done: victory, bravokids]
 ALTER TABLE `notify_messages` CHANGE `body` `body` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
 ALTER TABLE `orders` CHANGE `payment_status` `payment_status` VARCHAR(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending';
+
+
+--20230130, the max no. of booking.
+ALTER TABLE `roles` ADD `max_book` SMALLINT NOT NULL DEFAULT '1' AFTER `book_days_in_adv`;

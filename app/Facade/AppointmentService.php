@@ -85,6 +85,24 @@ class AppointmentService
         return count($chkDup) > 0;
     }
 
+    /**
+     * Get the number of booking that the customer has booked.
+     *
+     * @param $customer The customer
+     * @return int
+     */
+    public function getAppointmentCount($customer) {
+        $now = (new DateTime())->format('Y-m-d H:i:s');
+        $bookings = DB::table('customer_bookings')
+            ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+            ->where('customer_bookings.customer_id', $customer->id)
+            ->where('appointments.start_time', '>', $now)->count();
+        if (empty($bookings)) {
+            return 0;
+        }
+        return $bookings;
+    }
+
     public function getAppointmentDates($user, $date, $time, $noOfSession, $sessionInterval, $room_id, $assignRandomRoom, $package_id) {
         // get min & max dates by user
         $dates = $this->getDates($user);
