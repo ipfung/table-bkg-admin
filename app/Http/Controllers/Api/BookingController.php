@@ -50,8 +50,9 @@ class BookingController extends BaseController
                 DB::raw("(select a.name from users a, roles b where a.id=appointments.user_id and a.role_id=b.id and b.name in ('manager', 'internal_coach', 'external_coach')) as user_name, appointments.user_id as trainer_id"),
                 DB::raw('(select roles.color_name from users, roles where users.id=customer_bookings.customer_id and users.role_id=roles.id) as role_color_name'),
                 DB::raw('(select name from users where id=customer_bookings.customer_id) as customer_name'),
-                DB::raw('(select name from packages where id=appointments.package_id) as package_name'),
+                DB::raw('(select name from packages where id=appointments.package_id) as package_name, package_id'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
+                DB::raw('(select order_id from order_details where order_details.booking_id=customer_bookings.id) as order_id'),
                 DB::raw('(select payments.amount from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_amount'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
                 'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name', 'rooms.color')
@@ -104,7 +105,7 @@ class BookingController extends BaseController
 
         if ($request->expectsJson()) {
             $results['success'] = true;
-            $results['manager'] = $this->isSuperLevel($user);
+            $results['manager'] = $this->isInternalCoachLevel($user);
             $results['requiredTrainer'] = config("app.jws.settings.required_trainer");
             $results['supportPackages'] = config("app.jws.settings.packages");
             $results['supportFinance'] = config("app.jws.settings.finance");

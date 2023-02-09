@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Facade\OrderService;
 use App\Http\Controllers\Api\BaseController;
 use App\Facade\AppointmentService;
-use App\Mail\PackageApproved;
 use App\Models\Appointment;
 use App\Models\CustomerBooking;
 use App\Models\Order;
 use App\Models\OrderDetail;
+use App\Models\Package;
 use App\Models\Payment;
 use App\Models\Room;
 use App\Models\Service;
@@ -23,7 +24,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 
 class AppointmentController extends Controller
 {
@@ -371,6 +371,8 @@ class AppointmentController extends Controller
         $assignRandomRoom = true;   // can get from Company settings.
         $saveAsPending = true;
         $isPackage = false;
+        $packageId = 0;
+        $package = null;
         $appointmentDate = $request->date;
         $paymentGatway = $request->paymentMethod;
         $entity = 'appointment';
@@ -394,6 +396,10 @@ class AppointmentController extends Controller
             if ($request->has('is_package')) {
                 $isPackage = $request->is_package;
                 $appointmentDate = $request->lesson_dates[0];
+                if ($isPackage) {
+                    $packageId = $request->package_id;
+                    $package = Package::find($packageId);
+                }
             }
             if ($request->has('status')) {
                 $saveAsPending = ($request->status == 'pending');
@@ -422,7 +428,7 @@ class AppointmentController extends Controller
             }
         }
         // get appointment dates.
-        $appointmentDates = $this->appointmentService->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);
+        $appointmentDates = $this->appointmentService->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $packageId);
 
         $assignedRoom = $appointmentDates['room_id'];
         $results = [];
@@ -452,9 +458,9 @@ class AppointmentController extends Controller
         $appointment->start_time = $appointmentDates['start_time'];
         $appointment->end_time = $appointmentDates['end_time'];
         $appointment->room_id = $appointmentDates['room_id'];
-        if ($request->has('package_id')) {
+        if ($isPackage && $request->has('package_id')) {
             // get existing package appointment.
-            $appointment->package_id = $request->package_id;
+            $appointment->package_id = $packageId;
         }
         $appointment->user_id = $userId;
         $appointment->service_id = $request->serviceId;
@@ -474,7 +480,7 @@ class AppointmentController extends Controller
             $pkg_count = count($dates);
             for ($i=1; $i<$pkg_count; $i++) {
                 // pass 1st appointment's id as parent_id as ref.
-                $appointmentDates = $this->appointmentService->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $request->package_id);
+                $appointmentDates = $this->appointmentService->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $packageId);
                 $isDup = $appointmentDates['duplicated'];   // for customer!!
                 if ($isDup) {
                     DB::rollBack();
@@ -485,9 +491,9 @@ class AppointmentController extends Controller
                 $appointment->start_time = $appointmentDates['start_time'];
                 $appointment->end_time = $appointmentDates['end_time'];
                 $appointment->room_id = $appointmentDates['room_id'];
-                if ($request->has('package_id')) {
+                if ($isPackage && $request->has('package_id')) {
                     // get existing package appointment.
-                    $appointment->package_id = $request->package_id;
+                    $appointment->package_id = $packageId;
                 }
                 $appointment->user_id = $userId;
                 $appointment->service_id = $request->serviceId;
@@ -532,14 +538,19 @@ class AppointmentController extends Controller
             if ($request->commission > 0 && $request->has('trainerId')) {
                 $order->trainer_id = $request->trainerId;
                 $order->commission = $request->commission;
-                if ($isPackage) {
-                    $order->commission = $request->package_commission;
-                }
             }
         }
         $order->save();
 
+        $previousPkgId = -1;
         foreach ($results as $result) {
+            // get more objects for invoice printing.
+            $result->room = Room::find($result->room_id);
+            $result->service = Service::find($result->service_id);
+            if ($result->package_id && $result->package_id != $previousPkgId) {
+                $result->package = $package;
+                $previousPkgId = $result->package_id;
+            }
             $orderDetail = new OrderDetail;
             $orderDetail->order_id = $order->id;
             $orderDetail->order_type = $order_type;
@@ -567,10 +578,10 @@ class AppointmentController extends Controller
         // send notifications.
         if ($sendNotify) {
             if ($isPackage) {
+                $orderService = new OrderService();
                 $resOrder = Order::find($order->id);
-                Mail::to($user->email)
-                    ->bcc(config('mail.from.address'))
-                    ->send(new PackageApproved($resOrder->load('details', 'customer')));
+                $resOrder->package = $package;
+                $resp = $orderService->sendOrderNotifications('package_approved', $resOrder, Auth::user()->id);
             } else {
                 $resCustomerBooking = CustomerBooking::find($customerBooking->id);
                 $resp = $this->appointmentService->sendAppointmentNotifications('appointment_approved', $resCustomerBooking, Auth::user()->id);
@@ -590,19 +601,20 @@ class AppointmentController extends Controller
 //                if ($resCustomerBooking->customer->id != $resCustomerBooking->appointment->user->id) {
 //                    $resp2 = $this->appointmentService->sendToEmployee($resCustomerBooking->appointment->user, $payload, Auth::user()->id);
 //                }
-                if ($resp == -1) {    // no notifications being sent.
-                    return ['success' => true, 'order_id' => $order->id, 'notifications' => false];
-                } else {    // some notifications are sent.
-                    $resp['success'] = true;
-                    $resp['order_id'] = $order->id;
+            }
+            if ($resp == -1) {    // no notifications being sent.
+                return ['success' => true, 'order_id' => $order->id, 'package' => $isPackage, 'notifications' => false];
+            } else {    // some notifications are sent.
+                $resp['success'] = true;
+                $resp['order_id'] = $order->id;
+                $resp['package'] = $isPackage;
 //                    $resp['placeholders'] = $payload['placeholders'];
-                    return $resp;
-                }
+                return $resp;
             }
         }
 
         if ($request->expectsJson()) {
-            $results = ['success' => true, 'order_id' => $order->id];
+            $results = ['success' => true, 'order_id' => $order->id, 'package' => $isPackage];
             return $results;
         }
         return redirect()->route('orders.index');

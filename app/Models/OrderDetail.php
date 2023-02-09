@@ -7,6 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class OrderDetail extends Model
 {
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+//    protected $casts = [
+//        'order_description' => 'array',   // this causes order_description saved as \"start_time\": \"2023-12-31 09:00:00\"
+//    ];
 
     public function getDescriptionAttribute() {
         // string to json.
@@ -16,6 +24,11 @@ class OrderDetail extends Model
     public function order()
     {
         return $this->belongsTo('App\Models\Order');
+    }
+
+    public function booking()
+    {
+        return $this->hasOne(CustomerBooking::class, 'id', 'booking_id');
     }
 //
 //    public function payments()

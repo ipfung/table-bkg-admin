@@ -64,7 +64,41 @@ class PlaceholderService
         ];
     }
 
-    public function getOrderData($order) {
+    public function getOrderData($order, $type = 'email') {
+        if ($order->package) {
+            $liStartTag = $type === 'email' ? '<li>' : '';
+            $liEndTag = $type === 'email' ? '</li>' : ($type === 'whatsapp' ? '; ' : PHP_EOL);
+            $ulStartTag = $type === 'email' ? '<ul>' : '';
+            $ulEndTag = $type === 'email' ? '</ul>' : '';
+
+            $lesson_dates = [];
+            $lesson_date_times = [];
+            foreach ($order->details as $detail) {
+                $description = json_decode($detail->order_description);
+                $startDateTime = DateTime::createFromFormat('Y-m-d H:i:s', $description->start_time);
+                $endDateTime = DateTime::createFromFormat('Y-m-d H:i:s', $description->end_time);
+
+                $startDateString = $startDateTime->format(BaseController::$dateFormat);
+                $endDateString   = $endDateTime->format(BaseController::$dateFormat);
+
+                $startDateTimeString = $startDateTime->format(BaseController::$dateTimeFormat);
+                $endDateTimeString   = $endDateTime->format(BaseController::$dateTimeFormat);
+
+                $packageStartTime = $startDateTime->format(BaseController::$timeFormat);
+                $packageEndTime   = $endDateTime->format(BaseController::$timeFormat);
+
+                $dateString = $startDateString === $endDateString ?
+                    $startDateString :
+                    $startDateString . ' - ' . $endDateString;
+                $dateTimeString = $startDateString === $endDateString ?
+                    $startDateString . ' (' . $packageStartTime . ' - ' . $packageEndTime . ')' :
+                    $startDateString . ' - ' . $endDateString . ' (' . $packageStartTime . ' - ' . $packageEndTime . ')';
+
+                $lesson_dates[]     = "$liStartTag{$dateString}$liEndTag";
+                $lesson_date_times[]     = "$liStartTag{$dateTimeString}$liEndTag";
+
+            }
+        }
         return [
             'order_id'         => $order->id,
             'order_number'     => $order->order_number,
@@ -79,6 +113,9 @@ class PlaceholderService
             'customer_second_name'   => $order->customer->second_name,
             'customer_mobile'   => $order->customer->mobile_no,
             'customer_email'   => $order->customer->email,
+            'package_name'     => $order->package ? $order->package->name : '',
+            'lesson_period_dates'     => $ulStartTag . implode('', $lesson_dates) . $ulEndTag,
+            'lesson_period_date_time'   => $ulStartTag . implode('', $lesson_date_times) . $ulEndTag,
         ];
     }
 

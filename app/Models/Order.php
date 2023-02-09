@@ -25,7 +25,7 @@ class Order extends Model
      */
     public function getDueAmountAttribute()
     {
-        $amt = $this->order_total - $this->paid_amount;
+        $amt = $this->order_total - $this->discount - $this->paid_amount;
         return $amt;
     }
 

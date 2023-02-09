@@ -6,7 +6,7 @@ use App\Services\NotificationsService;
 
 class OrderService
 {
-    public function sendPaymentNotifications($tamplte_name, $order, $userId) {
+    public function sendOrderNotifications($tamplte_name, $order, $userId) {
         $placeholderService = new PlaceholderService();
         $notificationService = new NotificationsService();
         // send mail if notify option enabled.
