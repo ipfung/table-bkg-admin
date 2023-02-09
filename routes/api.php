@@ -52,7 +52,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/finance', 'Api\PaymentController@index');
     Route::put('/payment-reminder/{id}', 'Api\PaymentController@sendBillReminder');
     Route::put('/payment/{id}', 'Api\PaymentController@update');
-    Route::get('/invoice/{id}', 'API\PaymentController@showInvoice');
+    Route::get('/invoice/{id}', 'Api\PaymentController@showInvoice');
     Route::apiResource('order-commission', 'Api\OrderCommissionController');
     // all user actions
     Route::get('/get-roles', 'Api\RoleController@getRoles');
