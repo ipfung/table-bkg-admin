@@ -23,12 +23,29 @@ class DashboardController extends BaseController
         $isSuperUser = $this->isSuperLevel($user);
         $isTrainerUser = $this->isExternalCoachLevel($user);
 
-        $futureApt = new Appointment;
-        $futureApt->start_time = $this->getCurrentDateTime();
+        // this month.
+        $cur_start = (new Carbon('first day of this month'));
+        $cur_end = (new Carbon('last day of this month'));
+
+
         // general
         $showBookingCount = $isSuperUser;
-        $totalBooking = $this->getTotalBookingCount(null, $user, $isSuperUser);
-        $totalFutureBooking = $this->getTotalBookingCount($futureApt, $user, $isSuperUser);
+        $appointment = new Appointment;
+        $appointment->end_time = $this->getCurrentDateTime();
+        $appointment->status = 'approved';
+        $todayApprovedBooking = $this->getTotalBookingCount($appointment, $user, $isSuperUser);
+
+        $appointment->status = 'pending';
+        $todayPendingBooking = $this->getTotalBookingCount($appointment, $user, $isSuperUser);
+
+        // current month appointments.
+        $appointment->start_time = $cur_start;
+        $appointment->end_time = $cur_end;
+        $appointment->status = 'approved';
+        $totalBooking = $this->getTotalBookingCount($appointment, $user, $isSuperUser);
+
+        $appointment->status = 'pending';
+        $totalFutureBooking = $this->getTotalBookingCount($appointment, $user, $isSuperUser);
         //
         $showCustomerCount = $isSuperUser;
         $totalCustomer = $isSuperUser ? $this->getCustomerCount() : -1;
@@ -43,10 +60,14 @@ class DashboardController extends BaseController
         $appointments = $this->getCustomerBookings($user, $isSuperUser);
         //
         $showPayment = $isSuperUser;
-        $totalSales = $this->getPaymentAmount(null, $user, $isSuperUser)->total_sales;
         $orderSearch = new Order;
+        $orderSearch->order_date = $this->getCurrentDateTime();
+        $totalSalesToday = $this->getPaymentAmount($orderSearch, $user, $isSuperUser, 0)->total_sales;
+        if (empty($totalSalesToday)) $totalSalesToday = 0;
         $orderSearch->payment_status = 'pending';
-        $totalUnpaid = $this->getPaymentAmount($orderSearch, $user, $isSuperUser)->total_paid;
+        $totalUnpaidToday = $this->getPaymentAmount($orderSearch, $user, $isSuperUser, 0)->total_paid;
+        if (empty($totalUnpaidToday)) $totalUnpaidToday = 0;
+
         //
         $noOfNewNotifications = $this->getNotificationCount($user);
         $role = $user->role->name;
@@ -55,6 +76,8 @@ class DashboardController extends BaseController
         if ($request->expectsJson()) {
             return compact(
                 'showBookingCount',
+                'todayApprovedBooking',
+                'todayPendingBooking',
                 'totalBooking',
                 'totalFutureBooking',
                 'showCustomerCount',
@@ -62,8 +85,8 @@ class DashboardController extends BaseController
                 'totalCustomerLastWeek',
                 'showPayment',
                 'role',
-                'totalSales',
-                'totalUnpaid',
+                'totalSalesToday',
+                'totalUnpaidToday',
                 'showSalesChart',
                 'currentWeekSales',
                 'lastWeekSales',
@@ -87,18 +110,27 @@ class DashboardController extends BaseController
             $booking->where('customer_id', $user->id);
         }
         if ($appointment) {
-            if ($appointment->start_time) {
-                $booking->where('appointments.start_time', '>', $appointment->start_time);
+            if ($appointment->start_time && $appointment->end_time) {  // between
+                $booking->whereRaw('date(appointments.start_time) between ? and ?', [$appointment->start_time->format(BaseController::$dateFormat), $appointment->end_time->format(BaseController::$dateFormat)]);
+            }
+            else if ($appointment->end_time) {   // equal to
+                $booking->whereRaw('date(appointments.start_time)=?', $appointment->end_time->format(BaseController::$dateFormat));
+            }
+            else if ($appointment->start_time) {  // greater than
+                $booking->whereRaw('date(appointments.start_time)>?', $appointment->start_time->format(BaseController::$dateFormat));
+            }
+            if ($appointment->status) {
+                $booking->where('appointments.status', $appointment->status);
             }
         }
         return $booking->count();
     }
 
-    private function getPaymentAmount($orderSearch, $user, bool $superUser) {
+    private function getPaymentAmount($orderSearch, $user, bool $superUser, $day) {
         $orders = DB::table('orders')
             ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
             ->select(DB::raw('SUM(order_total-discount) as total_sales, SUM(payments.amount) as total_paid'))
-            ->where('order_date', '>', $this->getCurrentDateTime()->modify('-30 days')->format(BaseController::$dateTimeFormat))
+            ->whereBetween('order_date', [$orderSearch->order_date->format(BaseController::$dateFormat), $orderSearch->order_date->modify($day . ' days')->format(BaseController::$dateFormat)])
             ->whereIn('order_status',  ['confirmed', 'pending']);
         if (!$superUser) {
             $orders->where('customer_id', $user->id);
