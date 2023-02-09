@@ -220,7 +220,7 @@ class PaymentController extends BaseController
     public function sendBillReminder($id) {
         $order = Order::find($id);
         if ($order->payment_status != 'paid') {
-            $resp = $this->orderService->sendPaymentNotifications('payment_reminder', $order, Auth::user()->id);
+            $resp = $this->orderService->sendOrderNotifications('payment_reminder', $order, Auth::user()->id);
             if ($resp == -1) {    // no notifications being sent.
                 return ['success' => true, 'order_id' => $order->id, 'notifications' => false];
             } else {    // some notifications are sent.
@@ -230,5 +230,16 @@ class PaymentController extends BaseController
                 return $resp;
             }
         }
+    }
+
+    public function showInvoice(Request $request, $id)
+    {
+        $order = Order::find($id);
+        $data = [
+            'order' => $order
+        ];
+        return view('orders.invoice', $data);
+        // $pdf = PDF::loadView('student.orders.receipt', $data);
+        // return $pdf->stream();
     }
 }
