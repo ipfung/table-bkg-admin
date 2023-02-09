@@ -209,7 +209,7 @@
                                     <tr>
                                         <td class="charge-detail" nowrap="nowrap">枱號 Table No.</td>
                                         <td class="td_colon">：</td>
-                                        <td>{{ $item->order_description['room_id'] }}</td>
+                                        <td>{{ $item->description->room->name }}</td>
                                     </tr>
                                     {{--                                <tr>--}}
                                     {{--                                    <td class="charge-detail" nowrap="nowrap" valign="top">上課日期 Class Dates</td>--}}
