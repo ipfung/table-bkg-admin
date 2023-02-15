@@ -28,7 +28,7 @@
         }
 
         .a4 {
-            height:29.7cm;
+            /*height:29.7cm;*/
             position:relative;
             overflow:hidden;
             margin:10px;
