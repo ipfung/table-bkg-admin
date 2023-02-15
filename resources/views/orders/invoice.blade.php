@@ -335,6 +335,16 @@
                         <b>{{ strtoupper($order->payment_status) }}</b>
                     </td>
                 </tr>
+                <tr>
+                    <td colspan="4" class="charge-caption amount">付款方法 Payment Method:</td>
+                    <td class="charge-detail">
+                        @if ($order->payment_status == 'paid')
+                            <b>{{ strtoupper($order->payment->gateway) }}</b>
+                        @else
+                            <b>不適用</b>
+                        @endif
+                    </td>
+                </tr>
                 </tbody>
             </table>
         </div>
