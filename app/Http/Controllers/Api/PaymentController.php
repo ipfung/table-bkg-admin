@@ -52,7 +52,10 @@ class PaymentController extends BaseController
 //            ->whereBetween('order_date', [$fromDate, $toDate]);
 
         if ($request->has('payment_status')) {
-            if (!empty($request->payment_status))
+            if ($request->payment_status == 'unpaid') {
+                $payments->whereIn('payment_status', ['pending', 'partially']);
+            }
+            else if (!empty($request->payment_status))
                 $payments->where('payment_status', $request->payment_status);
         }
         if ($request->has('order_type')) {
