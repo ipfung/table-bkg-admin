@@ -125,7 +125,7 @@ class UserController extends BaseController
             'name' => 'required|max:255',    // first name
             'email' => 'required|max:255|unique:users',   //|email
             'role_id' => 'required|exists:roles,id',   //roles
-            'mobile_no' => 'required',
+            'mobile_no' => 'required|max:8|unique:users',
             'password' => 'required|min:8',
         ]);
         if (config("app.jws.settings.required_trainer")) {

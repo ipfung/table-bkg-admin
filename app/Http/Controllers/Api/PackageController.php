@@ -73,7 +73,7 @@ class PackageController extends BaseController
     {
         // validate
         $request->validate([
-            'name' => 'required|max:255',
+            'name' => 'required|max:255|unique:packages',
             'description' => 'required',
             'no_of_session' => 'required|integer',
             'service_id' => 'required|integer',
@@ -165,7 +165,7 @@ class PackageController extends BaseController
     public function update(Request $request, $id)
     {
         $request->validate([
-            'name' => 'required|max:255',
+            'name' => 'required|max:255|unique:packages',
             'description' => 'required',
             'no_of_session' => 'required|integer',
             'service_id' => 'required|integer',
@@ -193,22 +193,22 @@ class PackageController extends BaseController
         return $this->sendResponse($package, 'Updated successfully.');
     }
 
-//    /**
-//     * Remove the specified resource from storage.
-//     *
-//     * @param  int  $id
-//     * @return \Illuminate\Http\Response
-//     */
-//    public function destroy($id)
-//    {
-//        $order = Order::where('student_id','=',$id)->first();
-//        if (empty($order)) {
-//            User::where('id', $id)->delete();
-//
-//            return response()->json(['success'=>true]);
-//        } else {
-//            return response()->json(['success'=>false, 'message' => 'User cannot be deleted because it is used in Order.']);
-//        }
-//    }
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id)
+    {
+        $appointment = Appointment::where('package_id','=',$id)->first();
+        if (empty($appointment)) {
+            Package::where('id', $id)->delete();
+
+            return response()->json(['success'=>true]);
+        } else {
+            return response()->json(['success'=>false, 'error' => 'Package cannot be deleted because it is used in appointment.']);
+        }
+    }
 
 }

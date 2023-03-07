@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Appointment;
 use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -57,7 +58,7 @@ class RoomController extends BaseController
     {
         // validate
         $request->validate([
-            'name' => 'required|max:255',    // room name
+            'name' => 'required|max:255|unique:rooms',    // room name
             'location_id' => 'required'
         ]);
         $room = new Room($request->all());
@@ -98,7 +99,7 @@ class RoomController extends BaseController
     public function update(Request $request, $id)
     {
         $request->validate([
-            'name' => 'required|max:255',    // room name
+            'name' => 'required|max:255|unique:rooms',    // room name
             'location_id' => 'required'
         ]);
         $room = Room::find($id);
@@ -111,22 +112,22 @@ class RoomController extends BaseController
         return $this->sendResponse($room, 'Updated successfully.');
     }
 
-//    /**
-//     * Remove the specified resource from storage.
-//     *
-//     * @param  int  $id
-//     * @return \Illuminate\Http\Response
-//     */
-//    public function destroy($id)
-//    {
-//        $order = Order::where('student_id','=',$id)->first();
-//        if (empty($order)) {
-//            User::where('id', $id)->delete();
-//
-//            return response()->json(['success'=>true]);
-//        } else {
-//            return response()->json(['success'=>false, 'message' => 'User cannot be deleted because it is used in Order.']);
-//        }
-//    }
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id)
+    {
+        $appointment = Appointment::where('room_id','=',$id)->first();
+        if (empty($appointment)) {
+            Room::where('id', $id)->delete();
+
+            return response()->json(['success'=>true]);
+        } else {
+            return response()->json(['success'=>false, 'error' => 'Room cannot be deleted because it is used in appointment.']);
+        }
+    }
 
 }
