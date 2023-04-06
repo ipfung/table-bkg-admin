@@ -56,10 +56,15 @@ class BookingController extends BaseController
                 DB::raw('(select payments.amount from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_amount'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
                 'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name', 'rooms.color')
-            ->whereRaw('CAST(appointments.start_time AS DATE)>=?', $fromDate )
-            ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate )
             ->orderBy('appointments.start_time', 'asc')
             ->orderBy('rooms.name', 'asc');
+        if ($request->has('appointmentId')) {
+            $bookings->where('appointment_id', $request->appointmentId);
+        } else {
+            $bookings->whereRaw('CAST(appointments.start_time AS DATE)>=?', $fromDate )
+                ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate );
+
+        }
         if ($request->has('customerId')) {
             $bookings->where('customer_id', $request->customerId);
         }
@@ -121,7 +126,55 @@ class BookingController extends BaseController
 
     /**
      * @param Request $request
-     * @param $id
+     * @param $id appointment id.
+     * @return array|void
+     */
+    public function punchInCourse(Request $request, $id) {
+        $user = Auth::user();
+        $results = [];
+        // only allow user itself to checkin.
+        if ($this->isExternalCoachLevel($user)) {  // included Internal Coach.
+            if ($request->has('data')) {
+                $arr = $request->input('data');
+//                $arr = json_decode($request->input('data'));
+                $now = $this->getCurrentDateTime();
+                foreach ($arr as $value) {
+                    $booking = CustomerBooking::where('appointment_id', $id)
+                        ->where('id', $value['booking_id'])
+                        ->first();
+                    $can_checkin_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time, new DateTimeZone(config("app.jws.local_timezone")))->modify('-' . config("app.jws.settings.checkin_before_minute") . 'minute');   // minute before appointment start time.
+                    if ($now < $can_checkin_time) {
+                        $results = ['success' => false, 'error' => 'You cannot checkin before your appointment start time.', 'params' => ['can_checkin' => $can_checkin_time, 'now' => $now]];
+                        break;
+                    }
+                    $booking->attendance = $value['attendance'];
+                    $booking->attendance_remark = $value['remark'] ?: null;
+                    $booking->checkin = $now->format('Y-m-d H:i:s');
+                    $booking->checkin_by = $user->id;
+                    $booking->save();
+                    // send notification during save may cause performance issue
+                    $resp = $this->appointmentService->sendAppointmentNotifications('check_in', $booking, $user->id);
+                    if ($resp == -1) {    // no notifications being sent.
+                        $results[] = ['booking_id' => $value['booking_id'], 'notifications' => false];
+                    } else {    // some notifications are sent.
+                        $results[] = ['booking_id' => $value['booking_id'], 'notifications' => true];
+                    }
+                }
+            }
+
+//echo 'can_checkin_time=' . $can_checkin_time->format('Y-m-d H:i:s');
+//echo ', booking_end_time=' . $booking_end_time->format('Y-m-d H:i:s');
+//echo ', now=' . $now->format('Y-m-d H:i:s');
+        }
+
+        if ($request->expectsJson()) {
+            return $results;
+        }
+    }
+
+    /**
+     * @param Request $request
+     * @param $id customer booking id
      * @return array|void
      */
     public function punchInBooking(Request $request, $id) {
@@ -178,6 +231,7 @@ class BookingController extends BaseController
             if ($canCheckIn) {
                 $booking->checkin = $now->format('Y-m-d H:i:s');
                 $booking->checkin_by = $user->id;
+                $booking->attendance = 'attend';
                 $booking->save();
 //                // inform parties concerned(e.g. parent APP & email).
 //                $payload = [
@@ -363,6 +417,7 @@ class BookingController extends BaseController
                     if ($booking->revision_counter == 0) {
                         $booking->take_leave_at = $now->format('Y-m-d H:i:s');
                         $booking->take_leave_by = $user->id;
+                        $booking->attendance = 'take_leave';
                         DB::beginTransaction();
                         $booking->save();
                         $leave = new Leave;

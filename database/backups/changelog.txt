@@ -236,7 +236,7 @@ COMMIT;
 
 INSERT INTO `notification_templates`(`name`, `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at`) SELECT 'customer_payment_reminder', `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at` FROM `notification_templates` WHERE id=1;
 
---20230113, add location_id for multiple companies.
+--20230113, add location_id for multiple companies. [done: bravodb, ]
 ALTER TABLE `orders` ADD `location_id` INT UNSIGNED NOT NULL DEFAULT '1' AFTER `id`;
 
 
@@ -247,3 +247,15 @@ ALTER TABLE `orders` CHANGE `payment_status` `payment_status` VARCHAR(10) CHARAC
 
 --20230130, the max no. of booking.
 ALTER TABLE `roles` ADD `max_book` SMALLINT NOT NULL DEFAULT '1' AFTER `book_days_in_adv`;
+ALTER TABLE `notification_templates` ADD `status` VARCHAR(10) NOT NULL DEFAULT 'visible' AFTER `content`;
+
+truncate appointments;
+truncate customer_bookings;
+truncate orders;
+truncate order_details;
+truncate payments;
+
+
+--20230403
+ALTER TABLE `customer_bookings` ADD `attendance` VARCHAR(10) NULL AFTER `checkin_by`;
+ALTER TABLE `customer_bookings` ADD `attendance_remark` VARCHAR(250) NULL AFTER `attendance`;
