@@ -259,3 +259,6 @@ truncate payments;
 --20230403
 ALTER TABLE `customer_bookings` ADD `attendance` VARCHAR(10) NULL AFTER `checkin_by`;
 ALTER TABLE `customer_bookings` ADD `attendance_remark` VARCHAR(250) NULL AFTER `attendance`;
+
+--20230408
+ALTER TABLE `payments` ADD `gateway_response` JSON NOT NULL AFTER `gateway`;

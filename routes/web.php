@@ -19,6 +19,10 @@ Route::get('/', function () {
 
 Route::get('/appointment', 'AppointmentController@index');
 
+Route::get('/checkout/{orderNum}', 'PaymentGatewayController@paymentPage');
+Route::post('/checkout/feedback', 'PaymentGatewayController@returnPage');
+Route::post('/checkout/notify', 'PaymentGatewayController@notifyPage');
+
 Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
 });

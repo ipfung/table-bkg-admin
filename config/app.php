@@ -252,6 +252,14 @@ return [
             'whatsapp_notifications' => env('LEMONADE_WHATSAPP_NOTIFICATIONS'),
             'whatsapp_promotions' => env('LEMONADE_WHATSAPP_PROMOTIONS'),
         ],
+        'mpay' => [
+            'version' => env('MPAY_VERSION'),
+            'merchant_id' => env('MPAY_MERCHANT_ID'),
+            'terminal_id' => env('MPAY_TERMINAL_ID'),
+            'currency' => env('MPAY_CURR'),
+            'secure_key' => env('MPAY_SECURE_KEY'),
+            'payment_url' => env('MPAY_PAYMENT_URL'),
+        ],
         'license' => [
             'manager' => env('JWS_MANAGER_LICENSE'),
             'tutor' => env('JWS_TUTOR_LICENSE'),

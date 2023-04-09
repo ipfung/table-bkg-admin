@@ -517,6 +517,8 @@ class AppointmentController extends Controller
             }
         }
 
+        $paymentStatus = $request->paymentStatus;
+
         $order = new Order;
         $order->order_number = uniqid();
         $order->order_date = Carbon::today()->format(BaseController::$dateFormat);
@@ -528,7 +530,7 @@ class AppointmentController extends Controller
         $order->customer_id = $customerBooking->customer_id;
         $order->user_id = Auth::user()->id;
         $order->paid_amount = $appointmentStatus == 'approved' ? $order->order_total : 0;
-        $order->payment_status = $request->paymentStatus;       // FIXME get payment status from gateway response.
+        $order->payment_status = $paymentStatus;
         $order->order_status = $appointmentStatus == 'approved' ? 'confirmed' : 'pending';
         $recurring = $request->input('recurring');
         $order->recurring = json_encode($recurring);
@@ -603,10 +605,12 @@ class AppointmentController extends Controller
 //                }
             }
             if ($resp == -1) {    // no notifications being sent.
-                return ['success' => true, 'order_id' => $order->id, 'package' => $isPackage, 'notifications' => false];
+                return ['success' => true, 'order_id' => $order->id, 'order_num' => $order->order_number, 'pay_status' => $paymentStatus, 'package' => $isPackage, 'notifications' => false];
             } else {    // some notifications are sent.
                 $resp['success'] = true;
                 $resp['order_id'] = $order->id;
+                $resp['order_num'] = $order->order_number;
+                $resp['pay_status'] = $paymentStatus;
                 $resp['package'] = $isPackage;
 //                    $resp['placeholders'] = $payload['placeholders'];
                 return $resp;
