@@ -63,7 +63,7 @@ class PaymentGatewayController extends Controller
             'amt' => $order->total_amount,
             'depositamt' => "",
             'currency' => config('app.jws.mpay.currency'),
-            'paymethod' => 41,   // FIXME
+            'paymethod' => 0,   // FIXME
             'accounttype' => "",
             'customizeddata' => $order->order_number . ':' . $order->customer_id . ':' . $order->id,
             'locale' => 'zh_TW',    //supports en_US, zh_TW, zh_CN
@@ -105,58 +105,64 @@ class PaymentGatewayController extends Controller
     public function returnPage(Request $request)
     {
         $hashvalid = "NotCheck";
-        $merchantid = $request->merchantid;
-        $storeid = $request->storeid;
-        $merchant_tid = $request->merchant_tid;
-        $ordernum = $request->ordernum;
-        $cardnum = $request->cardnum;
-        $ref = $request->ref;
-        $amt = $request->amt;
-        $depositamt = $request->depositamt;
-        $currency = $request->currency;
-        $rspcode = $request->rspcode;
-        $customizeddata = $request->customizeddata;
-        $authcode = $request->authcode;
-        $fi_post_dt = $request->fi_post_dt;
-        $sysdatetime = $request->sysdatetime;
-        $settledate = $request->settledate;
-        $paymethod = $request->paymethod;
-        $accounttype = $request->accounttype;
-        $tokenid = $request->tokenid;
+        $response = [
+            'merchantid' => $request->merchantid,
+            'storeid' => $request->storeid,
+            'merchant_tid' => $request->merchant_tid,
+            'ordernum' => $request->ordernum,
+            'cardnum' => $request->cardnum,
+            'ref' => $request->ref,
+            'amt' => $request->amt,
+            'depositamt' => $request->depositamt,
+            'currency' => $request->currency,
+            'rspcode' => $request->rspcode,
+            'customizeddata' => $request->customizeddata,
+            'authcode' => $request->authcode,
+            'fi_post_dt' => $request->fi_post_dt,
+            'sysdatetime' => $request->sysdatetime,
+            'settledate' => $request->settledate,
+            'paymethod' => $request->paymethod,
+            'accounttype' => $request->accounttype,
+            'tokenid' => $request->tokenid,
+        ];
         $salt = $request->salt;
         $hash = $request->hash;
         $securekey = config('app.jws.mpay.secure_key');
 
         $merchantClient = new MerchantClient();
 
-        $responseMessage = $securekey.";".$accounttype.$amt.$authcode.$cardnum.$currency
-            .$customizeddata.$depositamt.$fi_post_dt.$merchant_tid.$merchantid
-            .$ordernum.$paymethod.$ref.$rspcode.$settledate
-            .$storeid.$sysdatetime.$tokenid.";".$salt;
+        $responseMessage = $securekey.";".$response['accounttype'].$response['amt'].$response['authcode'].$response['cardnum'].$response['currency']
+            .$response['customizeddata'].$response['depositamt'].$response['fi_post_dt'].$response['merchant_tid'].$response['merchantid']
+            .$response['ordernum'].$response['paymethod'].$response['ref'].$response['rspcode'].$response['settledate']
+            .$response['storeid'].$response['sysdatetime'].$response['tokenid'].";".$salt;
         $hashvalue = $merchantClient->genHashValue($responseMessage);
         if (strcasecmp($hash, $hashvalue) == 0) {
             //Hash valid
-            // update order & payment status.
-            $order = Order::where('order_number', $ordernum);
-            if ($order->payment_status == 'pending') {
-                $d1 = Carbon::createFromFormat("YmdHis", $sysdatetime);
-                if ($amt >= $order->total_amount)
-                    $order->payment_status = 'paid';
-                else if ($order->total_amount > $amt)
-                    $order->payment_status = 'partially';
-                else $order->payment_status = 'pending';
-                $order->save();
+            if (100 == $response['rspcode']) {
+                // update order & payment status.
+                $order = Order::where('order_number', $response['ordernum']);
+                if ($order->payment_status == 'pending') {
+                    $d1 = Carbon::createFromFormat("YmdHis", $response['sysdatetime']);
+                    if ($response['amt'] >= $order->total_amount)
+                        $order->payment_status = 'paid';
+                    else if ($order->total_amount > $response['amt'])
+                        $order->payment_status = 'partially';
+                    else $order->payment_status = 'pending';
+                    $order->save();
 
-                // update payment as well.
-                $order->payment->status = 'paid';
-                $order->payment->payment_method = 'electronic';
-                $order->payment->amount = $amt;
-                $order->payment->payment_date_time = $d1->format('Y-m-d H:i:s');
-                $order->payment->gateway = $this->getGateway($paymethod);
-                $order->payment->save();
+                    // update payment as well.
+                    $order->payment->status = 'paid';
+                    $order->payment->payment_method = 'electronic';
+                    $order->payment->amount = $response['amt'];
+                    $order->payment->payment_date_time = $d1->format('Y-m-d H:i:s');
+                    $order->payment->gateway = $this->getGateway($response['paymethod']);
+                    $order->payment->gateway_response = $response;
+                    $order->payment->save();
+                }
             }
         } else {
             $hashvalid = "False";
+            echo 'Issue with payment.';
         }
     }
 
