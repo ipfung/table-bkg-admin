@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use App\mPay\inc\MerchantClient;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 
 class PaymentGatewayController extends Controller
@@ -148,6 +149,7 @@ class PaymentGatewayController extends Controller
                 // update order & payment status.
                 $order = Order::where('order_number', $ary[0])->first();
                 if ($order->payment_status == 'pending') {
+                    DB::beginTransaction();
                     $d1 = Carbon::createFromFormat("YmdHis", $response['sysdatetime']);
                     if ($response['amt'] >= $order->total_amount) {
                         $order->payment_status = 'paid';
@@ -160,6 +162,14 @@ class PaymentGatewayController extends Controller
                     }
                     $order->save();
 
+                    // update appointment if it's not a package.
+                    foreach ($order->details as $item) {
+                        if ($item->booking->appointment->user_id == $order->customer_id) {
+                            $item->booking->appointment->status = 'approved';
+                            $item->booking->appointment->save();
+                        }
+                    }
+
                     // update payment as well.
                     $order->payment->status = 'paid';
                     $order->payment->payment_method = 'electronic';
@@ -168,6 +178,8 @@ class PaymentGatewayController extends Controller
                     $order->payment->gateway = $this->getGateway($response['paymethod']);
                     $order->payment->gateway_response = $response;
                     $order->payment->save();
+
+                    DB::commit();
 
                     return Redirect::to(config('app.client_url') . '/#/appointment-list');
                 }
