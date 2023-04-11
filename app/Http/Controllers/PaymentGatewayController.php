@@ -146,14 +146,18 @@ class PaymentGatewayController extends Controller
                 $customer_id = $ary[1];
                 $order_id = $ary[2];
                 // update order & payment status.
-                $order = Order::where('order_number', $ary[0]);
+                $order = Order::where('order_number', $ary[0])->first();
                 if ($order->payment_status == 'pending') {
                     $d1 = Carbon::createFromFormat("YmdHis", $response['sysdatetime']);
-                    if ($response['amt'] >= $order->total_amount)
+                    if ($response['amt'] >= $order->total_amount) {
                         $order->payment_status = 'paid';
-                    else if ($order->total_amount > $response['amt'])
+                        $order->order_status = 'confirmed';
+                    } else if ($order->total_amount > $response['amt']) {
                         $order->payment_status = 'partially';
-                    else $order->payment_status = 'pending';
+                        $order->order_status = 'confirmed';
+                    } else {
+                        $order->payment_status = 'pending';
+                    }
                     $order->save();
 
                     // update payment as well.
