@@ -59,7 +59,7 @@ class PaymentGatewayController extends Controller
             'storeid' => "1",
             'merchant_tid' => config('app.jws.mpay.terminal_id'),
             'datetime' => $datetime,
-            'ordernum' => $datetime . '-' . $order->customer_id . '-' . $order->id,//$order->order_number,
+            'ordernum' => $order->order_number,//$datetime . '-' . $order->customer_id . '-' . $order->id,
             'amt' => $order->total_amount,
             'depositamt' => "",
             'currency' => config('app.jws.mpay.currency'),
@@ -106,27 +106,27 @@ class PaymentGatewayController extends Controller
     {
         $hashvalid = "NotCheck";
         $response = [
-            'merchantid' => $request->merchantid,
-            'storeid' => $request->storeid,
-            'merchant_tid' => $request->merchant_tid,
-            'ordernum' => $request->ordernum,
-            'cardnum' => $request->cardnum,
-            'ref' => $request->ref,
-            'amt' => $request->amt,
-            'depositamt' => $request->depositamt,
-            'currency' => $request->currency,
-            'rspcode' => $request->rspcode,
-            'customizeddata' => $request->customizeddata,
-            'authcode' => $request->authcode,
-            'fi_post_dt' => $request->fi_post_dt,
-            'sysdatetime' => $request->sysdatetime,
-            'settledate' => $request->settledate,
-            'paymethod' => $request->paymethod,
-            'accounttype' => $request->accounttype,
-            'tokenid' => $request->tokenid,
+            'merchantid' => $request->post('merchantid'),
+            'storeid' => $request->post('storeid'),
+            'merchant_tid' => $request->post('merchant_tid'),
+            'ordernum' => $request->post('ordernum'),
+            'cardnum' => $request->post('cardnum'),
+            'ref' => $request->post('ref'),
+            'amt' => $request->post('amt'),
+            'depositamt' => $request->post('depositamt'),
+            'currency' => $request->post('currency'),
+            'rspcode' => $request->post('rspcode'),
+            'customizeddata' => $request->post('customizeddata'),
+            'authcode' => $request->post('authcode'),
+            'fi_post_dt' => $request->post('fi_post_dt'),
+            'sysdatetime' => $request->post('sysdatetime'),
+            'settledate' => $request->post('settledate'),
+            'paymethod' => $request->post('paymethod'),
+            'accounttype' => $request->post('accounttype'),
+            'tokenid' => $request->post('tokenid'),
         ];
-        $salt = $request->salt;
-        $hash = $request->hash;
+        $salt = $request->post('salt');
+        $hash = $request->post('hash');
         $securekey = config('app.jws.mpay.secure_key');
 
         $merchantClient = new MerchantClient();
@@ -158,6 +158,8 @@ class PaymentGatewayController extends Controller
                     $order->payment->gateway = $this->getGateway($response['paymethod']);
                     $order->payment->gateway_response = $response;
                     $order->payment->save();
+
+                    return Redirect::to(config('client_url') . '/appointment');
                 }
             }
         } else {
