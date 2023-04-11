@@ -165,10 +165,10 @@ class PaymentGatewayController extends Controller
                     $order->payment->gateway_response = $response;
                     $order->payment->save();
 
-                    return Redirect::to(config('client_url') . '/appointment-list');
+                    return Redirect::to(config('app.client_url') . '/appointment-list');
                 }
             }
-            return Redirect::to(config('client_url') . '/finance');
+            return Redirect::to(config('app.client_url') . '/finance');
         } else {
             $hashvalid = "False";
             echo 'Issue with payment.';
