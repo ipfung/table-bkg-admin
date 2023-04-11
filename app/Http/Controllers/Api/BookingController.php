@@ -53,6 +53,7 @@ class BookingController extends BaseController
                 DB::raw('(select name from packages where id=appointments.package_id) as package_name, package_id'),
                 DB::raw('CAST(appointments.start_time AS DATE) as appointment_date'),
                 DB::raw('(select order_id from order_details where order_details.booking_id=customer_bookings.id) as order_id'),
+                DB::raw('(select order_number from order_details, orders where order_details.booking_id=customer_bookings.id and order_details.order_id=orders.id) as order_num'),
                 DB::raw('(select payments.amount from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_amount'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
                 'appointments.start_time', 'appointments.end_time', 'appointments.status', 'appointments.room_id', 'rooms.name', 'rooms.color')
