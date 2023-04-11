@@ -52,14 +52,14 @@ class PaymentGatewayController extends Controller
         $currenturl = config('app.url').$_SERVER['REQUEST_URI'];
         $baseurl = substr($currenturl, 0, strrpos($currenturl, "/")+1);
 
-        $datetime = date("YmdHis", time()) ;
+        $datetime = date("YmdHis", time());
         $data = [
             'version' => '5.0',
             'merchantid' => config('app.jws.mpay.merchant_id'),
             'storeid' => "1",
             'merchant_tid' => config('app.jws.mpay.terminal_id'),
             'datetime' => $datetime,
-            'ordernum' => $order->order_number,//$datetime . '-' . $order->customer_id . '-' . $order->id,
+            'ordernum' => $datetime . '-' . $order->customer_id . '-' . $order->id,//$order->order_number,
             'amt' => $order->total_amount,
             'depositamt' => "",
             'currency' => config('app.jws.mpay.currency'),
@@ -139,8 +139,11 @@ class PaymentGatewayController extends Controller
         if (strcasecmp($hash, $hashvalue) == 0) {
             //Hash valid
             if (100 == $response['rspcode']) {
+                $ary = explode(':', $response['customizeddata']);
+                $customer_id = $ary[1];
+                $order_id = $ary[2];
                 // update order & payment status.
-                $order = Order::where('order_number', $response['ordernum']);
+                $order = Order::where('order_number', $ary[0]);
                 if ($order->payment_status == 'pending') {
                     $d1 = Carbon::createFromFormat("YmdHis", $response['sysdatetime']);
                     if ($response['amt'] >= $order->total_amount)
@@ -159,9 +162,10 @@ class PaymentGatewayController extends Controller
                     $order->payment->gateway_response = $response;
                     $order->payment->save();
 
-                    return Redirect::to(config('client_url') . '/appointment');
+                    return Redirect::to(config('client_url') . '/appointment-list');
                 }
             }
+            return Redirect::to(config('client_url') . '/finance');
         } else {
             $hashvalid = "False";
             echo 'Issue with payment.';
