@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use App\mPay\inc\MerchantClient;
+use Illuminate\Support\Facades\Redirect;
 
 class PaymentGatewayController extends Controller
 {
@@ -99,6 +100,8 @@ class PaymentGatewayController extends Controller
 
     /**
      * mPay: The return URL of merchant which payment response pass back by customer’s browser redirection.
+     *
+     * 419 error. ref: https://www.educative.io/answers/what-is-the-419-page-expired-error-and-its-solution-in-laravel
      *
      * @return \Illuminate\Http\Response
      */
