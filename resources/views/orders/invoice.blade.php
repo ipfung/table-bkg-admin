@@ -166,7 +166,11 @@
             </table>
 
             <h2 class="inv-caption">
-                收　據　Receipt
+                @if ($uri == 'receipt')
+                    收　據　Receipt
+                @else
+                    發 票　Invoice
+                @endif
             </h2>
 
             <table width="100%" class="inv-header-table">

@@ -237,9 +237,11 @@ class PaymentController extends BaseController
 
     public function showInvoice(Request $request, $id)
     {
+        $uris = explode('/', $request->getRequestUri());
         $order = Order::find($id);
         $data = [
-            'order' => $order
+            'order' => $order,
+            'uri' => $uris[2]    // invoice or receipt, show diff title
         ];
         return view('orders.invoice', $data);
         // $pdf = PDF::loadView('student.orders.receipt', $data);
