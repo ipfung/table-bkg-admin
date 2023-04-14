@@ -46,13 +46,21 @@ class PackageController extends BaseController
         } else {
             $editable = true;
         }
+        if ($request->has('trainerId')) {
+            if ($request->trainerId > 0)
+                $packages->where('trainer_id', $request->trainerId);
+        }
+        if ($request->has('roomId')) {
+            if ($request->roomId > 0)
+                $packages->where('room_id', $request->roomId);
+        }
         if ($request->has('status')) {
             if ($request->status > 0)
                 $packages->where('status', $request->status);
         }
         if ($request->has('name')) {
             if ($request->name != '')
-                $packages->whereRaw('upper(name) LIKE upper(?)', [$request->name]);
+                $packages->whereRaw('upper(name) LIKE upper(?)', $request->name . '%');
         }
 
         if ($request->expectsJson()) {
