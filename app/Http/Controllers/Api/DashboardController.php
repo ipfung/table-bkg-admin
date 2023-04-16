@@ -73,6 +73,7 @@ class DashboardController extends BaseController
         $role = $user->role->name;
         $reminingPackages = $this->getRemainingPackages($user);
         $showFinance = config("app.jws.settings.finance");
+        $checkInBeforeMinute = config("app.jws.settings.checkin_before_minute");
         if ($request->expectsJson()) {
             return compact(
                 'showBookingCount',
@@ -95,6 +96,7 @@ class DashboardController extends BaseController
                 'appointments',
                 'isTrainerUser',
                 'showFinance',
+                'checkInBeforeMinute',
                 'reminingPackages'
 //                'time'
             );
