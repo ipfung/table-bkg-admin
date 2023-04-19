@@ -117,6 +117,7 @@ class BookingController extends BaseController
             $results['requiredTrainer'] = config("app.jws.settings.required_trainer");
             $results['supportPackages'] = config("app.jws.settings.packages");
             $results['supportFinance'] = config("app.jws.settings.finance");
+            $results['paymentGateway'] = (config("app.jws.settings.payment_gateway") != false);
             $results['timeslotSetting'] = config("app.jws.settings.timeslots");
             $results['checkInBeforeMinute'] = config("app.jws.settings.checkin_before_minute");
             $results['checkInAfterMinute'] = config("app.jws.settings.checkin_after_minute");

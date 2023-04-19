@@ -243,6 +243,7 @@ return [
             'required_room' => env('LEMONADE_REQUIRED_ROOM'),
             'student_qr' => env('LEMONADE_STUDENT_QR', false),
             'finance' => env('LEMONADE_FINANCE'),
+            'payment_gateway' => env('PAYMENT_GATEWAY_PROVIDER', false),
             'packages' => env('LEMONADE_PACKAGES'),
             'appointment_button' => env('LEMONADE_APPOINTMENT_BUTTON', true),
             'checkin_before_minute' => env('LEMONADE_ALLOW_CHECKIN_BEFORE_MINUTE'),
