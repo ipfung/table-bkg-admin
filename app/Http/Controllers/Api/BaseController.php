@@ -81,4 +81,23 @@ class BaseController extends Controller
 
         return response()->json($response, $code);
     }
+
+    /**
+     * return error response.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function sendPermissionDenied($errorMessages = [], $code = 403)
+    {
+        $response = [
+            'success' => false,
+            'message' => "Permission denied.",
+        ];
+
+        if(!empty($errorMessages)){
+            $response['data'] = $errorMessages;
+        }
+
+        return response()->json($response, $code);
+    }
 }

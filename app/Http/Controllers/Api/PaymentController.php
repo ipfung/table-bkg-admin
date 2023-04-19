@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Facade\OrderService;
+use App\Facade\PermissionService;
 use App\Models\Order;
 use App\Models\OrderDetail;
 use App\Models\Payment;
@@ -18,8 +19,9 @@ class PaymentController extends BaseController
      *
      * @return void
      */
-    public function __construct(OrderService $orderService)
+    public function __construct(PermissionService $permissionService, OrderService $orderService)
     {
+        parent::__construct($permissionService);
         $canAccess = config("app.jws.settings.finance");
         if (!$canAccess) {
             abort(404);

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Facade\AppointmentService;
+use App\Facade\PermissionService;
 use App\Models\Appointment;
 use App\Models\Package;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class PackageController extends BaseController
 {
@@ -18,8 +20,9 @@ class PackageController extends BaseController
      *
      * @return void
      */
-    public function __construct(AppointmentService $appointmentService)
+    public function __construct(PermissionService $permissionService, AppointmentService $appointmentService)
     {
+        parent::__construct($permissionService);
         $canAccess = config("app.jws.settings.packages");
         if (!$canAccess) {
             abort(404);
@@ -34,6 +37,10 @@ class PackageController extends BaseController
      */
     public function index(Request $request)
     {
+        if (!Gate::allows('packages')) {
+            return $this->sendPermissionDenied();
+        }
+
         $user = Auth::user();
         //
         DB::enableQueryLog(); // Enable query log
@@ -79,6 +86,10 @@ class PackageController extends BaseController
      */
     public function store(Request $request)
     {
+        if (!Gate::allows('packages')) {
+            return $this->sendPermissionDenied();
+        }
+
         // validate
         $request->validate([
             'name' => 'required|max:255|unique:packages',
@@ -158,6 +169,10 @@ class PackageController extends BaseController
      */
     public function show($id)
     {
+        if (!Gate::allows('packages')) {
+            return $this->sendPermissionDenied();
+        }
+
         //
         $package = Package::find($id);
         return $package;
@@ -172,6 +187,10 @@ class PackageController extends BaseController
      */
     public function update(Request $request, $id)
     {
+        if (!Gate::allows('packages')) {
+            return $this->sendPermissionDenied();
+        }
+
         $request->validate([
             'name' => 'required|max:255|unique:packages',
             'description' => 'required',
@@ -209,6 +228,10 @@ class PackageController extends BaseController
      */
     public function destroy($id)
     {
+        if (!Gate::allows('packages')) {
+            return $this->sendPermissionDenied();
+        }
+
         $appointment = Appointment::where('package_id','=',$id)->first();
         if (empty($appointment)) {
             Package::where('id', $id)->delete();

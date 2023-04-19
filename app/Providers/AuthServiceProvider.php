@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Facade\PermissionService;
+use App\Models\User;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -21,10 +23,16 @@ class AuthServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot()
+    public function boot(PermissionService $permissionService)
     {
         $this->registerPolicies();
 
         //
+        Gate::define('room', function (User $user) use ($permissionService) {
+            return $permissionService->isInternalCoachLevel($user);
+        });
+        Gate::define('packages', function (User $user) use ($permissionService) {
+            return $permissionService->isInternalCoachLevel($user);
+        });
     }
 }

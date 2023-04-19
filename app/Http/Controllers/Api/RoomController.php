@@ -7,6 +7,7 @@ use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class RoomController extends BaseController
 {
@@ -56,6 +57,11 @@ class RoomController extends BaseController
      */
     public function store(Request $request)
     {
+        if (!Gate::allows('room')) {
+            $this->sendPermissionDenied();
+            return;
+        }
+
         // validate
         $request->validate([
             'name' => 'required|max:255|unique:rooms',    // room name
@@ -98,6 +104,11 @@ class RoomController extends BaseController
      */
     public function update(Request $request, $id)
     {
+        if (!Gate::allows('room')) {
+            $this->sendPermissionDenied();
+            return;
+        }
+
         $request->validate([
             'name' => 'required|max:255|unique:rooms',    // room name
             'location_id' => 'required'
@@ -120,6 +131,11 @@ class RoomController extends BaseController
      */
     public function destroy($id)
     {
+        if (!Gate::allows('room')) {
+            $this->sendPermissionDenied();
+            return;
+        }
+
         $appointment = Appointment::where('room_id','=',$id)->first();
         if (empty($appointment)) {
             Room::where('id', $id)->delete();
