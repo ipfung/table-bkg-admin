@@ -4,7 +4,7 @@
 namespace App\Http\Controllers\Api;
 
 
-use App\Models\User;
+use App\Facade\PermissionService;
 use DateTime;
 use DateTimeZone;
 use App\Http\Controllers\Controller as Controller;
@@ -16,6 +16,15 @@ class BaseController extends Controller
     public static $dateTimeFormat = 'Y-m-d H:i:s';
     public static $dateFormat = 'Y-m-d';
 
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct(PermissionService $permissionService) {
+        $this->permissionService = $permissionService;
+    }
+
     protected function getCurrentDateTime() {
         $now = new DateTime();
         $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
@@ -23,18 +32,15 @@ class BaseController extends Controller
     }
 
     protected function isSuperLevel($user) {
-        $super_levels = [User::$ADMIN, User::$MANAGER];
-        return in_array($user->role->name, $super_levels);
+        return $this->permissionService->isSuperLevel($user);
     }
 
     protected function isInternalCoachLevel($user) {
-        $super_levels = [User::$INTERNAL_STAFF, User::$ADMIN, User::$MANAGER];
-        return in_array($user->role->name, $super_levels);
+        return $this->permissionService->isInternalCoachLevel($user);
     }
 
     protected function isExternalCoachLevel($user) {
-        $super_levels = [User::$EXTERNAL_STAFF, User::$INTERNAL_STAFF, User::$ADMIN, User::$MANAGER];
-        return in_array($user->role->name, $super_levels);
+        return $this->permissionService->isExternalCoachLevel($user);
     }
 
     /**
