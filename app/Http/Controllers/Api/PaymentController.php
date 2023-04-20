@@ -70,9 +70,13 @@ class PaymentController extends BaseController
             $payments->where('trainer_id', $request->trainer_id);
         }
         $showCustomer = false;
-        if ($this->isSuperLevel($user)) {
+        if ($this->isExternalCoachLevel($user)) {
             if ($request->has('customer_id')) {
                 $payments->where('customer_id', $request->customer_id);
+            }
+            // external coach gets their own customers only
+            if (!$this->isInternalCoachLevel($user)) {
+                $payments->where('trainer_id', $user->id);
             }
             $showCustomer = true;
         } else {
