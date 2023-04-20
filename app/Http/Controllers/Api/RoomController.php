@@ -18,8 +18,8 @@ class RoomController extends BaseController
      */
     public function index(Request $request)
     {
+        // room index page doesn't need to implement Gate(), it's ok to let customer to see room data.
         $user = Auth::user();
-        //
         DB::enableQueryLog(); // Enable query log
         $rooms = Room::orderBy('name', 'asc')
             ->select('rooms.*')
@@ -58,8 +58,7 @@ class RoomController extends BaseController
     public function store(Request $request)
     {
         if (!Gate::allows('room')) {
-            $this->sendPermissionDenied();
-            return;
+            return $this->sendPermissionDenied();
         }
 
         // validate
@@ -90,6 +89,9 @@ class RoomController extends BaseController
      */
     public function show($id)
     {
+        if (!Gate::allows('room')) {
+            return $this->sendPermissionDenied();
+        }
         //
         $room = Room::find($id);
         return $room;
@@ -105,8 +107,7 @@ class RoomController extends BaseController
     public function update(Request $request, $id)
     {
         if (!Gate::allows('room')) {
-            $this->sendPermissionDenied();
-            return;
+            return $this->sendPermissionDenied();
         }
 
         $request->validate([
@@ -132,8 +133,7 @@ class RoomController extends BaseController
     public function destroy($id)
     {
         if (!Gate::allows('room')) {
-            $this->sendPermissionDenied();
-            return;
+            return $this->sendPermissionDenied();
         }
 
         $appointment = Appointment::where('room_id','=',$id)->first();
