@@ -269,7 +269,7 @@ class PackageController extends BaseController
         // find next lesson dates
         $start_date = DateTime::createFromFormat('Y-m-d H:i:s', $lastApt->start_time);
         $nextDay = $start_date->modify('+1 day');
-        $dates = $this->appointmentService->getLessonDates($nextDay->format(BaseController::$dateFormat), $package->quantity, $recurring->repeat, $package->trainer_id, null);
+        $dates = $this->appointmentService->getLessonDates($nextDay->format(BaseController::$dateFormat), $package->quantity, $recurring->repeat, $package->trainer_id, $package->end_date);
         $startDates = [];
         foreach ($dates['data'] as $d) {
             $startDates[] = $d['date'];
