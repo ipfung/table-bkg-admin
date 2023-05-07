@@ -360,6 +360,29 @@ class AppointmentController extends Controller
         return $this->appointmentService->getLessonDates($request->start_date, $request->quantity, $request->dow, $trainerId, $endDate);
     }
 
+    /**
+     * Get package dates from Appointment table.
+     * because primeng only accepts 'disabledDates' for form Calendar component.
+     * @param Request $request
+     * @return array
+     */
+    public function getPackageDatesById(Request $request, $packageId) {
+        // get generated appointment dates.
+        $appointments = Appointment::orderBy('start_time', 'asc')
+            ->where('package_id', $packageId)->get();
+        $booking = CustomerBooking::find($request->bookId);
+        $data = [];
+        // check if lesson date already being appointed.
+        foreach ($appointments as $d) {
+            $dt = DateTime::createFromFormat(BaseController::$dateTimeFormat, $d->start_time);
+
+            $isUsed = $this->appointmentService->isCustomerInAppointment($d, $booking->customer_id);
+            $data[] = ["date" => $dt->format('Y-m-d'), "id" => $d->id, "used" => $isUsed];
+        }
+        $package = Package::find($packageId);
+        return compact('data', 'package');
+    }
+
     public function store(Request $request)
     {
         // get user's book days in advance.
@@ -707,6 +730,46 @@ class AppointmentController extends Controller
         } else {
             $results = ['success' => false, 'error' => 'You must reschedule before 48 hours of appointment start time.'];
         }
+        if ($request->expectsJson()) {
+            return $results;
+        }
+
+    }
+
+    /**
+     * @param Request $request contain appointment_id
+     * @param $id the booking id, not appointment id
+     * @return array|void
+     */
+    public function reschedulePackage(Request $request, $id) {
+        $user = Auth::user();
+        $booking = CustomerBooking::find($id);
+
+        if ($booking->appointment->package_id <= 0) {
+            return ['success' => false, 'error' => 'The lesson is not in a package, please contact administrator.'];
+        }
+
+        if (!empty($booking->checkin)) {
+            return ['success' => false, 'error' => 'You have checked-in the lesson.'];
+        }
+        if ($user->id == $booking->customer_id && $booking->revision_counter > 0) {
+            return ['success' => false, 'error' => 'You have been rescheduled the lesson several times.', 'params' => $booking->revision_counter];
+        }
+        if (!$this->permissionService->isInternalCoachLevel($user)) {
+            // only allow user itself to reschedule their own appointment(customer booking maybe pointed to package/course).
+            if ($this->permissionService->isExternalCoachLevel($user)
+                && $user->id != $booking->appointment->user_id) {
+                return ['success' => false, 'error' => 'You cannot reschedule lesson for other student.'];
+            }
+            else if ($user->id != $booking->customer_id) {
+                return ['success' => false, 'error' => 'You cannot reschedule lesson for others.'];
+            }
+        }
+        $booking->appointment_id = $request->appointment_id;
+        $booking->revision_counter += 1;
+        $booking->save();
+        $results = ['success' => true, 'reschedule_package' => true];
+        // TODO mail
         if ($request->expectsJson()) {
             return $results;
         }

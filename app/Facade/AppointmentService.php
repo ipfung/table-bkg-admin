@@ -3,6 +3,7 @@
 namespace App\Facade;
 
 use App\Models\Appointment;
+use App\Models\CustomerBooking;
 use App\Models\Holiday;
 use App\Models\Room;
 use App\Models\Timeslot;
@@ -292,6 +293,19 @@ class AppointmentService
             if ($stop) break;
         }
         return compact('data', 'holidays');
+    }
+
+    /**
+     * @param $appointment the appointment object
+     * @param $timeEpoch if startTime is DateTime object, it should be null.
+     * @return bool true = occupied, false = not occupied.
+     */
+    public function isCustomerInAppointment($appointment, $customerId)
+    {
+        $chkDup = CustomerBooking::where('appointment_id', $appointment->id)
+            ->where('customer_id', $customerId)
+            ->first();
+        return !empty($chkDup);   // empty = no record.
     }
 
     public function sendAppointmentNotifications($tamplte_name, $booking, $userId) {
