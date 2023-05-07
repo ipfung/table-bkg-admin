@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\Package;
 use App\Models\User;
 use Illuminate\Http\Request;
+use DateTime;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -70,6 +71,10 @@ class PackageController extends BaseController
             if ($request->name != '')
                 $packages->whereRaw('upper(name) LIKE upper(?)', $request->name . '%');
         }
+        if ($request->has('id')) {
+            if ($request->id > 0)
+                $packages->where('id', $request->id);
+        }
 
         if ($request->expectsJson()) {
             $data = $packages->with('service', 'room', 'trainer', 'appointments')->paginate()->toArray();
@@ -111,55 +116,61 @@ class PackageController extends BaseController
 
         // block the dates in appointments table.
         if ($package->start_date && $package->start_time) {
-            $trainer = User::find($package->trainer_id);
-
-            $appointmentStatus = 'approved';
-            // save appointment, it is 1st appointment if it is package.
-            $dates = $request->lesson_dates;
-            $pkg_count = count($dates);
-            $parentId = 0;
-
-            $results = [];
-            for ($i=0; $i<$pkg_count; $i++) {
-                // pass 1st appointment's id as parent_id as ref.
-                $appointmentDates = $this->appointmentService->getAppointmentDates($trainer, $dates[$i], $request->start_time, $request->no_of_session, $request->sessionInterval, $request->room_id, false, $package->id);
-                $assignedRoom = $appointmentDates['room_id'];
-                if ($assignedRoom <= 0) {
-                    DB::rollBack();
-                    // Room not available for appointment time, throw error.
-                    return ['success' => false, 'error' => 'Room is not available at selected time, please choose different time.', 'param' => $assignedRoom];
-                }
-                if ($this->appointmentService->isTrainerOccupied($package->trainer_id, $appointmentDates['start_time'], $appointmentDates['end_time'])) {   // false = not occupied.
-                    DB::rollBack();
-                    // Room not available for appointment time, throw error.
-                    return ['success' => false, 'error' => 'Trainer is not available at selected time, please choose different time.'];
-                }
-
-                $appointment = new Appointment;
-                $appointment->start_time = $appointmentDates['start_time'];
-                $appointment->end_time = $appointmentDates['end_time'];
-                $appointment->room_id = $appointmentDates['room_id'];
-                $appointment->package_id = $package->id;
-                $appointment->user_id = $trainer->id;
-                $appointment->service_id = $request->service_id;
-                $appointment->notify_parties = true;
-                $appointment->internal_remark = $request->internal_remark;
-                $appointment->status = $appointmentStatus;     // get defaults from settings.
-                if ($parentId > 0) {
-                    $appointment->parent_id = $parentId;
-                }
-
-                $savedAppointment = $this->appointmentService->saveAppointment($appointment, $appointmentDates);
-                if (0 == $i) {
-                    $parentId = $savedAppointment->id;
-                }
-                $results[] = $savedAppointment;
-            }
-
+            $this->createPackageAppointments($package, $request->lesson_dates, $request->sessionInterval);
         }
         DB::commit();
 
         return $this->sendResponse($package, 'Create successfully.');
+    }
+
+    private function createPackageAppointments($package, $dates, $sessionInterval) {
+        if ($package->trainer) {
+            $trainer = $package->trainer;
+        } else {
+            $trainer = User::find($package->trainer_id);
+        }
+
+        $appointmentStatus = 'approved';
+        // save appointment, it is 1st appointment if it is package.
+        $pkg_count = count($dates);
+        $parentId = 0;
+
+        $results = [];
+        for ($i=0; $i<$pkg_count; $i++) {
+            // pass 1st appointment's id as parent_id as ref.
+            $appointmentDates = $this->appointmentService->getAppointmentDates($trainer, $dates[$i], $package->start_time, $package->no_of_session, $sessionInterval, $package->room_id, false, $package->id);
+            $assignedRoom = $appointmentDates['room_id'];
+            if ($assignedRoom <= 0) {
+                DB::rollBack();
+                // Room not available for appointment time, throw error.
+                return ['success' => false, 'error' => 'Room is not available at selected time, please choose different time.', 'param' => $assignedRoom];
+            }
+            if ($this->appointmentService->isTrainerOccupied($package->trainer_id, $appointmentDates['start_time'], $appointmentDates['end_time'])) {   // false = not occupied.
+                DB::rollBack();
+                // Room not available for appointment time, throw error.
+                return ['success' => false, 'error' => 'Trainer is not available at selected time, please choose different time.'];
+            }
+
+            $appointment = new Appointment;
+            $appointment->start_time = $appointmentDates['start_time'];
+            $appointment->end_time = $appointmentDates['end_time'];
+            $appointment->room_id = $appointmentDates['room_id'];
+            $appointment->package_id = $package->id;
+            $appointment->user_id = $trainer->id;
+            $appointment->service_id = $package->service_id;
+            $appointment->notify_parties = true;
+            $appointment->status = $appointmentStatus;     // get defaults from settings.
+            if ($parentId > 0) {
+                $appointment->parent_id = $parentId;
+            }
+
+            $savedAppointment = $this->appointmentService->saveAppointment($appointment, $appointmentDates);
+            if (0 == $i) {
+                $parentId = $savedAppointment->id;
+            }
+            $results[] = $savedAppointment;
+        }
+        return $results;
     }
 
     /**
@@ -247,4 +258,27 @@ class PackageController extends BaseController
         }
     }
 
+    public function generateMoreLessons(Request $request, $packageId) {
+        $package = Package::find($packageId);
+        // repeat(days of week) is in recurring field.
+        $recurring = json_decode($package->recurring);
+        // get the last saved appointment.
+        $lastApt = Appointment::orderBy('start_time', 'desc')
+                ->where('package_id', $packageId)
+                ->first();
+        // find next lesson dates
+        $start_date = DateTime::createFromFormat('Y-m-d H:i:s', $lastApt->start_time);
+        $nextDay = $start_date->modify('+1 day');
+        $dates = $this->appointmentService->getLessonDates($nextDay->format(BaseController::$dateFormat), $package->quantity, $recurring->repeat, $package->trainer_id, null);
+        $startDates = [];
+        foreach ($dates['data'] as $d) {
+            $startDates[] = $d['date'];
+        }
+        // save package, validate will be done in the function.
+        $results = $this->createPackageAppointments($package, $startDates, $package->service->duration_epoch);
+        if (sizeof($results) > 0) {
+            return $dates;
+        }
+        return response()->json(['success'=>false, 'error' => 'Cannot generate more lessons.']);
+    }
 }

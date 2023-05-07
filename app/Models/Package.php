@@ -52,9 +52,4 @@ class Package extends Model
     {
         return $this->belongsTo(User::class);
     }
-
-    public function package_dates()
-    {
-        return $this->hasMany(PackageDate::class, 'package_id', 'id');
-    }
 }
