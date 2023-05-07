@@ -265,7 +265,7 @@ class AppointmentService
                     // dow is not a working day, go to next dow without date increment.
                     continue;
                 }
-                if ($d1->isAfter($endDate)) {   // don't provide more than end date.
+                if ($endDate && $d1->isAfter($endDate)) {   // don't provide more than end date.
                     $stop = true;
                     break;
                 }
