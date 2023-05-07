@@ -234,10 +234,11 @@ class AppointmentService
         }
 
         $i = 0;
+        $j = 0;
         $data = [];
         $holidays = [];
         $stop = false;
-        while ($i < $quantity) {
+        while (!$stop) {
             $j = 0;    // to compare if no date can be obtained from $dow_list.
             foreach ($dow_list as $dow) {
                 $d1 = $d1->is(Timeslot::WEEKS[$dow]) ? $d1 : $d1->next(Timeslot::WEEKS[$dow]);
@@ -250,10 +251,18 @@ class AppointmentService
                     continue;
                 }
                 // check date is working day.
-                if ($trainer_id > 0) {
+                $hasTrainerTimeslot = ($trainer_id > 0);
+                if ($hasTrainerTimeslot) {
                     $dayOfWeek_timeslots = TrainerTimeslot::where('location_id', $locationId)
                         ->where('trainer_id', $trainer_id);
-                } else {
+                    // if trainer has timeslot assigned.
+                    $trainerTs = $dayOfWeek_timeslots->first();
+                    if (empty($trainerTs)) {
+                        // no timeslot assigned, will use office timeslot.
+                        $hasTrainerTimeslot = false;
+                    }
+                }
+                if (!$hasTrainerTimeslot) {
                     $dayOfWeek_timeslots = Timeslot::where('location_id', $locationId);
                 }
                 $workingDay = $dayOfWeek_timeslots->where('day_idx', $dow)
@@ -263,16 +272,22 @@ class AppointmentService
                 if (empty($workingDay)) {
                     $j++;
                     // dow is not a working day, go to next dow without date increment.
+                    if (sizeof($dow_list) == 1) {
+                        $d1->addDay();   // add day if dow_list has 1 only.
+                    }
                     continue;
                 }
                 if ($endDate && $d1->isAfter($endDate)) {   // don't provide more than end date.
                     $stop = true;
                     break;
                 }
-                $data[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow, "ed2" => $d1->isAfter($endDate)];
+                $data[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
                 $d1->addDay();
                 $i++;
-                if ($i == $quantity) break;
+                if ($i == $quantity) {
+                    $stop = true;
+                    break;
+                }
             }
             if ($stop) break;
         }
