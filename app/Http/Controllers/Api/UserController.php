@@ -108,10 +108,6 @@ class UserController extends BaseController
         return view("users.list", $users);
     }
 
-    private function getRole($roleId) {
-        return Role::find($roleId);
-    }
-
     /**
      * Store a newly created resource in storage.
      *
@@ -188,6 +184,7 @@ class UserController extends BaseController
         $request->validate([
             'name' => 'required|max:255',    // first name
             'role_id' => 'required|exists:roles,id',   //roles
+            'mobile_no' => 'required|max:8|unique:users',
             'password' => 'min:8',
         ]);
         $user = User::find($id);
