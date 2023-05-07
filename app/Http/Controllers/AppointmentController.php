@@ -347,10 +347,15 @@ class AppointmentController extends Controller
      */
     public function getPackageDates(Request $request) {
         $trainerId = 0;
+        $endDate = null;
         if ($request->has('trainer_id') && $request->trainer_id > 0) {
             $trainerId = $request->trainer_id;
         }
-        return $this->appointmentService->getLessonDates($request->start_date, $request->quantity, $request->dow, $trainerId);
+        if ($request->has('package_id') && $request->package_id > 0) {
+            $packages = Package::find($request->package_id);
+            $endDate = $packages->end_date;
+        }
+        return $this->appointmentService->getLessonDates($request->start_date, $request->quantity, $request->dow, $trainerId, $endDate);
     }
 
     public function store(Request $request)

@@ -188,10 +188,14 @@ class AppointmentService
      * @param $trainer_id the trainer id.
      * @return array
      */
-    public function getLessonDates($start_date, $quantity, $dow_list, $trainer_id) {
+    public function getLessonDates($start_date, $quantity, $dow_list, $trainer_id, $end_date) {
         $locationId = 1;
         // use Date and WeekNo to find the timeslot.
         $d1 = Carbon::createFromFormat('Y-m-d', $start_date);
+        $endDate = null;
+        if ($end_date) {
+            $endDate = Carbon::createFromFormat('Y-m-d', $end_date);
+        }
 
         // loop once to find the closest dow from start_date.
         $d2 = Carbon::createFromFormat('Y-m-d', $start_date);
@@ -232,6 +236,7 @@ class AppointmentService
         $i = 0;
         $data = [];
         $holidays = [];
+        $stop = false;
         while ($i < $quantity) {
             $j = 0;    // to compare if no date can be obtained from $dow_list.
             foreach ($dow_list as $dow) {
@@ -260,11 +265,16 @@ class AppointmentService
                     // dow is not a working day, go to next dow without date increment.
                     continue;
                 }
-                $data[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow];
+                if ($d1->isAfter($endDate)) {   // don't provide more than end date.
+                    $stop = true;
+                    break;
+                }
+                $data[] = ["date" => $d1->format('Y-m-d'), "dow" => $dow, "ed2" => $d1->isAfter($endDate)];
                 $d1->addDay();
                 $i++;
                 if ($i == $quantity) break;
             }
+            if ($stop) break;
         }
         return compact('data', 'holidays');
     }
