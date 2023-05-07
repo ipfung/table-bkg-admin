@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class PackageController extends BaseController
 {
@@ -192,7 +193,11 @@ class PackageController extends BaseController
         }
 
         $request->validate([
-            'name' => 'required|max:255|unique:packages',
+            'name' => [
+                'required',
+                'max:255',
+                Rule::unique('packages')->ignore($id),
+            ],
             'description' => 'required',
             'no_of_session' => 'required|integer',
             'service_id' => 'required|integer',
