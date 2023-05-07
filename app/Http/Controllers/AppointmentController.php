@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Facade\OrderService;
+use App\Facade\PermissionService;
 use App\Http\Controllers\Api\BaseController;
 use App\Facade\AppointmentService;
 use App\Models\Appointment;
@@ -33,9 +34,10 @@ class AppointmentController extends Controller
      *
      * @return void
      */
-    public function __construct(AppointmentService $appointmentService)
+    public function __construct(AppointmentService $appointmentService, PermissionService $permissionService)
     {
         $this->appointmentService = $appointmentService;
+        $this->permissionService = $permissionService;
     }
 
     /**
@@ -648,7 +650,7 @@ class AppointmentController extends Controller
 
     /**
      * @param Request $request
-     * @param $id
+     * @param $id the booking id, not appointment id
      * @return array|void
      */
     public function reschedule(Request $request, $id) {
@@ -657,35 +659,42 @@ class AppointmentController extends Controller
 //        echo 'reschedule id222=' . json_encode($booking);
 //        echo 'reschedule id333=' . $booking->appointment->user_id;
 
-        // only allow user itself to reschedule their own appointment(customer booking maybe pointed to package/course).
-        if ($user->id != $booking->appointment->user_id) {
-            if ($booking->appointment->entity == 'appointment') {
-                return ['success' => false, 'error' => 'You cannot reschedule for others.'];
-            }
-        }
         if (!empty($booking->checkin)) {
             return ['success' => false, 'error' => 'You have checked-in.'];
         }
         if ($booking->revision_counter > 0) {
             return ['success' => false, 'error' => 'You have been rescheduled several times.', 'params' => $booking->revision_counter];
         }
+        // only allow user itself to reschedule their own appointment(customer booking maybe pointed to package/course).
+        if (!$this->permissionService->isInternalCoachLevel($user)) {
+            // only allow user itself to reschedule their own appointment(customer booking maybe pointed to package/course).
+            if ($this->permissionService->isExternalCoachLevel($user)
+                && $user->id != $booking->appointment->user_id) {
+                return ['success' => false, 'error' => 'You cannot reschedule lesson for other student.'];
+            }
+            else if ($user->id != $booking->appointment->user_id) {
+                if ($booking->appointment->entity == 'appointment') {
+                    return ['success' => false, 'error' => 'You cannot reschedule for others.'];
+                }
+            }
+        }
         // can amend 48 hours before appointment start time.
         $can_amend_time = DateTime::createFromFormat('Y-m-d H:i:s', $booking->appointment->start_time)->modify('-48 hours');
         $now = new DateTime();
         $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
         if ($now < $can_amend_time) {   // now is 48 hours before appointment start time.
-            // ok to change booking once.
-            // get appointment dates.
-            $appointmentDates = $this->appointmentService->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true, $booking->appointment->package_id);
-            $isModify = $this->appointmentService->isModifyAppointment($appointmentDates['start_time'], $appointmentDates['end_time'], $id);
-            $isDup = $appointmentDates['duplicated'];   // for customer!!
-            if ($isDup && !$isModify) {
-                return ['success' => false, 'error' => 'Found duplicate appointment.'];
-            }
             if ($booking->appointment->package_id > 0) {
                 // not allow to change package.
                 return ['success' => false, 'error' => 'You cannot reschedule appointment of package.'];
             } else {
+                // ok to change booking once.
+                // get appointment dates.
+                $appointmentDates = $this->appointmentService->getAppointmentDates($user, $request->date, $request->time, $request->noOfSession, $request->sessionInterval, $request->room_id, true, $booking->appointment->package_id);
+                $isModify = $this->appointmentService->isModifyAppointment($appointmentDates['start_time'], $appointmentDates['end_time'], $id);
+                $isDup = $appointmentDates['duplicated'];   // for customer!!
+                if ($isDup && !$isModify) {
+                    return ['success' => false, 'error' => 'Found duplicate appointment.'];
+                }
                 $booking->appointment->start_time = $appointmentDates['start_time'];
                 $booking->appointment->end_time = $appointmentDates['end_time'];
                 $booking->appointment->room_id = $appointmentDates['room_id'];
