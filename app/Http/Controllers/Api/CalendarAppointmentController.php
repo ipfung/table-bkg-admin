@@ -33,7 +33,8 @@ class CalendarAppointmentController extends BaseController
             ->join('rooms', 'appointments.room_id', '=', 'rooms.id')
             ->join('users', 'appointments.user_id', '=', 'users.id')
             ->join('roles', 'users.role_id', '=', 'roles.id')
-            ->select('appointments.id',
+            ->select('appointments.id', 'appointments.package_id',
+                DB::raw('(select count(*) from customer_bookings where appointment_id=appointments.id) as total_booked'),
                 DB::raw('roles.color_name as role_color_name'),
                 DB::raw("CASE WHEN roles.name <> 'user' THEN users.name ELSE 'user' END as title"),
                 DB::raw('rooms.color'),
@@ -82,7 +83,7 @@ class CalendarAppointmentController extends BaseController
         }
 
         // always return JSON type for calendar.
-        return $appointments->paginate(300);
+        return $appointments->with('package')->paginate(300);
     }
 
 }
