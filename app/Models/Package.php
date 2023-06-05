@@ -21,6 +21,7 @@ class Package extends Model
         'start_time',
         'start_date',
         'end_date',
+        'total_space',
         'recurring'
     ];
     protected $appends = [

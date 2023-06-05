@@ -101,6 +101,7 @@ class PackageController extends BaseController
             'name' => 'required|max:255|unique:packages',
             'description' => 'required',
             'no_of_session' => 'required|integer',
+            'total_space' => 'required|integer',
             'service_id' => 'required|integer',
             'quantity' => 'required|integer',
             'recurring' => 'required'
@@ -211,6 +212,7 @@ class PackageController extends BaseController
             ],
             'description' => 'required',
             'no_of_session' => 'required|integer',
+            'total_space' => 'required|integer',
             'service_id' => 'required|integer',
             'quantity' => 'required|integer',
             'recurring' => 'required'
@@ -225,6 +227,7 @@ class PackageController extends BaseController
         $package->discount = $request->discount;
         $package->status = $request->status;
         $package->quantity = $request->quantity;
+        $package->total_space = $request->total_space;
         $package->trainer_id = $request->trainer_id;
         $package->no_of_session = $request->no_of_session;
         $package->start_date = $request->start_date;

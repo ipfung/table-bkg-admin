@@ -236,16 +236,16 @@ COMMIT;
 
 INSERT INTO `notification_templates`(`name`, `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at`) SELECT 'customer_payment_reminder', `type`, `entity`, `send_to`, `subject`, `content`, `whatsapp_tpl`, `translations`, `created_at`, `updated_at` FROM `notification_templates` WHERE id=1;
 
---20230113, add location_id for multiple companies. [done: bravodb, ]
+--20230113, add location_id for multiple companies. [done: bravodb, 20230410 admin_aptdb]
 ALTER TABLE `orders` ADD `location_id` INT UNSIGNED NOT NULL DEFAULT '1' AFTER `id`;
 
 
---20230118 [done: victory, bravokids]
+--20230118 [done: victory, bravokids, 20230410 admin_aptdb]
 ALTER TABLE `notify_messages` CHANGE `body` `body` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
 ALTER TABLE `orders` CHANGE `payment_status` `payment_status` VARCHAR(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending';
 
 
---20230130, the max no. of booking.
+--20230130, the max no. of booking. [done 20230410 admin_aptdb]
 ALTER TABLE `roles` ADD `max_book` SMALLINT NOT NULL DEFAULT '1' AFTER `book_days_in_adv`;
 ALTER TABLE `notification_templates` ADD `status` VARCHAR(10) NOT NULL DEFAULT 'visible' AFTER `content`;
 
@@ -255,10 +255,27 @@ truncate orders;
 truncate order_details;
 truncate payments;
 
+truncate notify_messages;
+truncate packages;
+truncate trainer_timeslots;
+delete from users where id>4;
+truncate user_devices;
+truncate user_teammates;
 
---20230403
+
+--20230403 [done 20230410 admin_aptdb]
 ALTER TABLE `customer_bookings` ADD `attendance` VARCHAR(10) NULL AFTER `checkin_by`;
 ALTER TABLE `customer_bookings` ADD `attendance_remark` VARCHAR(250) NULL AFTER `attendance`;
 
---20230408
-ALTER TABLE `payments` ADD `gateway_response` JSON NOT NULL AFTER `gateway`;
+--20230408 [done 20230410 admin_aptdb]
+ALTER TABLE `payments` ADD `gateway_response` JSON NULL AFTER `gateway`;
+
+delete from order_details where created_at>'2023-04-11 00:15:00';
+delete from orders where created_at>'2023-04-11 00:15:00';
+delete from payments where created_at>'2023-04-11 00:15:00';
+delete from customer_bookings where created_at>'2023-04-11 00:15:00';
+delete from appointments where created_at>'2023-04-11 00:15:00';
+
+
+--20230605
+ALTER TABLE `packages` ADD `total_space` INT NULL AFTER `room_id`;
