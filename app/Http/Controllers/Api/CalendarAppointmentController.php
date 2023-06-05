@@ -36,8 +36,11 @@ class CalendarAppointmentController extends BaseController
             ->select('appointments.id', 'appointments.package_id',
                 DB::raw('(select count(*) from customer_bookings where appointment_id=appointments.id) as total_booked'),
                 DB::raw('roles.color_name as role_color_name'),
-                DB::raw("CASE WHEN roles.name <> 'user' THEN users.name ELSE 'user' END as title"),
+//                DB::raw("CASE WHEN roles.name <> 'user' THEN users.name ELSE 'user' END as title"),  // show 'user' as title
+                DB::raw("users.name as title"),    // client name as title.
+                DB::raw('appointments.id as appointment_id'),
                 DB::raw('rooms.color'),
+                DB::raw('rooms.name as room_name'),
                 DB::raw('appointments.start_time as start'),
                 DB::raw('appointments.end_time as end')
             )
