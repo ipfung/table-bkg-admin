@@ -30,6 +30,9 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/dashboard', 'Api\DashboardController@index');
     Route::get('/appointment', 'AppointmentController@index');
     Route::post('/appointment', 'AppointmentController@store');
+    Route::post('/package-lesson-date/{id}', 'Api\PackageController@createLessonDate');
+    Route::put('/package-lesson-date/{id}', 'Api\PackageController@updateLessonDate');
+    Route::delete('/package-lesson-date/{id}', 'Api\PackageController@deleteLessonDate');
     Route::post('/package-dates', 'AppointmentController@getPackageDates');
     Route::get('/package-timeslots', 'AppointmentController@getPackageTimeslots');
     Route::get('/gen-package-lessons/{id}', 'Api\PackageController@generateMoreLessons');

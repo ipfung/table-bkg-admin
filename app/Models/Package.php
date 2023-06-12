@@ -36,7 +36,7 @@ class Package extends Model
 
     public function appointments()
     {
-        return $this->hasMany(Appointment::class, 'package_id', 'id');
+        return $this->hasMany(Appointment::class, 'package_id', 'id')->orderBy('start_time');
     }
 
     public function room()

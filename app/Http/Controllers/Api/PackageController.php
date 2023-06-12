@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Facade\AppointmentService;
 use App\Facade\PermissionService;
 use App\Models\Appointment;
+use App\Models\CustomerBooking;
 use App\Models\Package;
 use App\Models\User;
 use Illuminate\Http\Request;
 use DateTime;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -77,7 +79,7 @@ class PackageController extends BaseController
         }
 
         if ($request->expectsJson()) {
-            $data = $packages->with('service', 'room', 'trainer', 'appointments')->paginate()->toArray();
+            $data = $packages->with('service', 'room', 'trainer', 'appointments.customerBookings')->paginate()->toArray();
             $data['editable'] = $editable;   // append to paginate()
             return $data;
         }
@@ -283,5 +285,77 @@ class PackageController extends BaseController
             return $dates;
         }
         return response()->json(['success'=>false, 'error' => 'Cannot generate more lessons.']);
+    }
+
+    public function createLessonDate(Request $request, $id) {
+        $request->validate([
+            'new_date' => 'required|date',
+            'sessionInterval' => 'required|integer',
+        ]);
+        $package = Package::find($id);
+        if (empty($package)) {
+            return response()->json(['success'=>false, 'error' => 'Package not found']);
+        }
+        $appointment = Appointment::where('package_id', $id)
+            ->whereRaw('date(start_time)=?', $request->new_date)->first();
+        if (!empty($appointment)) {
+            return response()->json(['success'=>false, 'error' => 'Date already existed', 'params' => $request->new_date]);
+        }
+        $results = $this->createPackageAppointments($package, [$request->new_date], $request->sessionInterval);
+        if (sizeof($results) > 0) {
+            return response()->json(['success'=>true]);
+        }
+        return response()->json(['success'=>false, 'error' => 'Cannot create custom lesson date.']);
+    }
+
+    public function updateLessonDate(Request $request, $id) {
+        $request->validate([
+            'old_date' => 'required|date',
+            'new_date' => 'required|date',
+            'sessionInterval' => 'required|integer',
+        ]);
+        $package = Package::find($id);
+        if (empty($package)) {
+            return response()->json(['success'=>false, 'error' => 'Package not found']);
+        }
+        $appointment = Appointment::where('package_id', $id)
+            ->whereRaw('date(start_time)=?', $request->new_date)->first();
+        if (!empty($appointment)) {
+            return response()->json(['success'=>false, 'error' => 'Date already existed', 'params' => $request->new_date]);
+        }
+        $appointment = Appointment::where('package_id', $id)
+            ->whereRaw('date(start_time)=?', $request->old_date)->first();
+        if (empty($appointment)) {
+            // no record found by old_date, error.
+            return response()->json(['success'=>false, 'error' => 'No record found by old date', 'params' => $request->old_date]);
+        }
+        $appointmentDate = new Carbon($request->new_date);
+        // ref: https://stackoverflow.com/questions/47086164/replace-date-with-another-date-but-keep-the-same-time-php
+        $start_date = DateTime::createFromFormat(BaseController::$dateTimeFormat, $appointment->start_time);
+        $start_date->setDate($appointmentDate->year, $appointmentDate->month, $appointmentDate->day);
+        $end_date = DateTime::createFromFormat(BaseController::$dateTimeFormat, $appointment->end_time);
+        $end_date->setDate($appointmentDate->year, $appointmentDate->month, $appointmentDate->day);
+        $appointment->start_time = $start_date->format(BaseController::$dateTimeFormat);
+        $appointment->end_time = $end_date->format(BaseController::$dateTimeFormat);
+        $appointment->save();
+        return response()->json(['success'=>true]);
+    }
+
+    public function deleteLessonDate(Request $request, $id) {
+        $request->validate([
+            'old_date' => 'required|date',
+        ]);
+        $appointment = Appointment::where('package_id', $id)
+            ->whereRaw('date(start_time)=?', $request->old_date)
+            ->first();
+        if (empty($appointment)) {
+            return response()->json(['success'=>false, 'error' => 'No such lesson date', 'params' => $request->old_date]);
+        }
+        $bookings = CustomerBooking::where('appointment_id', $appointment->id)->get();
+        if (sizeof($bookings) > 0) {
+            return response()->json(['success'=>false, 'error' => 'Found customer bookings', 'params' => $bookings]);
+        }
+        $appointment->delete();
+        return response()->json(['success'=>true]);
     }
 }
