@@ -20,7 +20,12 @@ class PaymentGatewayController extends Controller
         'alipayHK' => 35,
         'wechatpayHK' => 41,
         'pps' => 4,
-        'vm'  => 70
+        'vm'  => 70,
+        // mobile
+        'octopus' => 27,
+        'payme' => 51,
+        'alipayHK' => 36,
+        'wechatpayHK' => 42,
     ];
 
     /**
@@ -81,12 +86,10 @@ class PaymentGatewayController extends Controller
         $mpayPaymentURL = config('app.jws.mpay.payment_url');
         $securekey = config('app.jws.mpay.secure_key');
 
-//        $urlType = $request->urlType;
-//        if ($urlType=="UAT") {
-//            $mpayPaymentURL = "https://demo.mobiletech.com.hk/MPay/MerchantPay.jsp";
-//        } else if ($urlType=="UATM") {
-//            $mpayPaymentURL = "https://demo.mobiletech.com.hk/MPayMobi/MerchantPay.jsp";
-//        }
+        $urlType = $request->urlType;
+        if ($urlType=="app") {
+            $mpayPaymentURL = config('app.jws.mpay.mobile_payment_url');
+        }
 
 
         $requestMessage = $data['salt'].";".$data['accounttype'].$data['amt'].$data['currency'].$data['customizeddata'].$datetime
