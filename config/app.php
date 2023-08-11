@@ -260,6 +260,7 @@ return [
             'currency' => env('MPAY_CURR'),
             'secure_key' => env('MPAY_SECURE_KEY'),
             'payment_url' => env('MPAY_PAYMENT_URL'),
+            'mobile_payment_url' => env('MOBILE_MPAY_PAYMENT_URL'),
         ],
         'license' => [
             'manager' => env('JWS_MANAGER_LICENSE'),
