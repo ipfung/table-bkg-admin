@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Facade\OrderService;
 use App\Facade\PermissionService;
 use App\Models\Order;
-use App\Models\OrderDetail;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+
+use DateTime;
 
 class PaymentController extends BaseController
 {
@@ -154,13 +155,24 @@ class PaymentController extends BaseController
     }
 
     /**
-     * Display the trainer resource with his/her student list.
+     * Display the payment status.
      *
-     * @param  int  $id the trainer id
+     * @param  int  $id the payment id, NOT order id.
      * @return \Illuminate\Http\Response
      */
     public function show($id)
     {
+        $payment = Payment::find($id);
+        $user = Auth::user();
+        if ($payment->order->customer_id == $user->id || $this->isInternalCoachLevel($user)) {
+            $can_read_time = DateTime::createFromFormat(self::$dateTimeFormat, $payment->payment_date_time)->modify('2 minutes');
+            $now = $this->getCurrentDateTime();
+            if (strtotime($now->format(self::$dateTimeFormat)) < strtotime($can_read_time->format(self::$dateTimeFormat))) {
+                return $this->sendResponse($payment, strtotime($now->format(self::$dateTimeFormat)) . "==" . strtotime($can_read_time->format(self::$dateTimeFormat)));
+            }
+            return $this->sendError("Expired to read this.");
+        }
+        return $this->sendError("You don't have permission to read this.");
     }
 
     /**

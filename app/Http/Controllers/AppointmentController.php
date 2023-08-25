@@ -614,7 +614,8 @@ class AppointmentController extends Controller
                 $resOrder = Order::find($order->id);
                 $resOrder->package = $package;
                 $resp = $orderService->sendOrderNotifications('package_approved', $resOrder, Auth::user()->id);
-            } else {
+            } else if (config("app.jws.settings.payment_gateway") == false) {
+                // send if no payment gateway, otherwise notification should be sent after payment.
                 $resCustomerBooking = CustomerBooking::find($customerBooking->id);
                 $resp = $this->appointmentService->sendAppointmentNotifications('appointment_approved', $resCustomerBooking, Auth::user()->id);
 //                $payload = [

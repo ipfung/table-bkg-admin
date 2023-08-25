@@ -279,3 +279,10 @@ delete from appointments where created_at>'2023-04-11 00:15:00';
 
 --20230605
 ALTER TABLE `packages` ADD `total_space` INT NULL AFTER `room_id`;
+update packages set total_space=10 where total_space is null;   -- demo only.
+
+--20230825
+ALTER TABLE `payments` ADD `gateway_msg` VARCHAR(120) NULL AFTER `gateway`;
+
+
+

@@ -4,6 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Facade\OrderService;
 use App\Models\Order;
+use App\Helpers\Response\mPayResponse\AliPayHk;
+use App\Helpers\Response\mPayResponse\mPay;
+use App\Helpers\Response\mPayResponse\PayMe;
+use App\Helpers\Response\mPayResponse\WeChat;
+use DateTimeZone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -72,7 +77,7 @@ class PaymentGatewayController extends Controller
             'amt' => $order->total_amount,
             'depositamt' => "",
             'currency' => config('app.jws.mpay.currency'),
-            'paymethod' => 0,   // FIXME
+            'paymethod' => 0,   // FIXME select paymethod in our client side?
             'accounttype' => "",
             'customizeddata' => $order->order_number . ':' . $order->customer_id . ':' . $order->id,
             'locale' => 'zh_TW',    //supports en_US, zh_TW, zh_CN
@@ -149,14 +154,19 @@ class PaymentGatewayController extends Controller
             //Hash valid
             $ary = explode(':', $response['customizeddata']);
             $order = Order::where('order_number', $ary[0])->first();
-            DB::beginTransaction();
-            if (100 == $response['rspcode']) {
-                // 100 = Transaction successful.
+            //
+            $gw_paymentMethod = $this->getGateway($response['paymethod']);
+            $respCls = $this->getResponseClass($gw_paymentMethod);
+
+            $respCode = $response['rspcode'];
+            // 100 = Transaction successful.
+            if (100 == $respCode) {
+                $d1 = Carbon::createFromFormat("YmdHis", $response['sysdatetime']);
+                DB::beginTransaction();
                 $customer_id = $ary[1];
                 $order_id = $ary[2];
                 // update order & payment status.
                 if ($order->payment_status == 'pending') {
-                    $d1 = Carbon::createFromFormat("YmdHis", $response['sysdatetime']);
                     if ($response['amt'] >= $order->total_amount) {
                         $order->payment_status = 'paid';
                         $order->order_status = 'confirmed';
@@ -181,28 +191,33 @@ class PaymentGatewayController extends Controller
                     $order->payment->payment_method = 'electronic';
                     $order->payment->amount = $response['amt'];
                     $order->payment->payment_date_time = $d1->format('Y-m-d H:i:s');
-                    $order->payment->gateway = $this->getGateway($response['paymethod']);
+                    $order->payment->gateway_msg = $respCls->getResponseMessage($respCode);
+                    $order->payment->gateway = $gw_paymentMethod;
                     $order->payment->gateway_response = $response;
                     $order->payment->save();
 
                     DB::commit();
 
                     // send successful email to client.
-                    $resp = $this->orderService->sendOrderNotifications('order_approved', $order, Auth::user()->id);
+                    $resp = $this->orderService->sendOrderNotifications('payment_successful', $order, Auth::user()->id);
 
-                    // TODO redirect to a successful page where to show some "Succeed" message.
-
-                    return Redirect::to(config('app.client_url') . '/#/payment-successful');
+                    // redirect to a successful page where to show some "Succeed" message.
+                    return Redirect::to(config('app.client_url') . '/#/payment-successful/' . $order->payment->id);
                 }
             } else {
+                $d1 = Carbon::now();
+                if ($response['sysdatetime']) {
+                    $d1 = Carbon::createFromFormat("YmdHis", $response['sysdatetime'],);
+                }
+                $d1->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
+                $order->payment->payment_date_time = $d1->format('Y-m-d H:i:s');
                 $order->payment->gateway = $this->getGateway($response['paymethod']);
+                $order->payment->gateway_msg = $respCls->getResponseMessage($respCode);
                 $order->payment->gateway_response = $response;
                 $order->payment->save();
 
-                DB::commit();
-
                 // redirect to a failure page where to show some "Failed" message.
-                return Redirect::to(config('app.client_url') . '/#/payment-fail');
+                return Redirect::to(config('app.client_url') . '/#/payment-fail/' . $order->payment->id);
 
             }
             return Redirect::to(config('app.client_url') . '/#/finance');
@@ -267,4 +282,21 @@ class PaymentGatewayController extends Controller
         }
         return $number . ' n/a';
     }
+
+    private function getResponseClass(string $gw_paymentMethod)
+    {
+        switch ($gw_paymentMethod) {
+            case 'payme':
+            case 'payme_mob':
+                return new PayMe();
+            case 'alipayHK':
+            case 'alipayHK_mob':
+                return new AliPayHk();
+            case 'wechatpayHK':
+            case 'wechatpayHK_mob':
+                return new WeChat();
+        }
+        return new mPay();
+    }
+
 }
