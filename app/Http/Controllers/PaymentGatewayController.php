@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Redirect;
 
 class PaymentGatewayController extends Controller
 {
+    private $orderService;
     const paymentMethods = [
         'octopus' => 19,
         'payme' => 50,
@@ -22,10 +23,10 @@ class PaymentGatewayController extends Controller
         'pps' => 4,
         'vm'  => 70,
         // mobile
-        'octopus' => 27,
-        'payme' => 51,
-        'alipayHK' => 36,
-        'wechatpayHK' => 42,
+        'octopus_mob' => 27,
+        'payme_mob' => 51,
+        'alipayHK_mob' => 36,
+        'wechatpayHK_mob' => 42,
     ];
 
     /**
@@ -35,10 +36,11 @@ class PaymentGatewayController extends Controller
      */
     public function __construct(OrderService $orderService)
     {
-        $canAccess = config("app.jws.settings.finance");
+        $canAccess = config("app.jws.settings.finance") && config("app.jws.settings.payment_gateway");
         if (!$canAccess) {
             abort(404);
         }
+        $this->orderService = $orderService;
     }
 
     /**
@@ -145,14 +147,15 @@ class PaymentGatewayController extends Controller
         $hashvalue = $merchantClient->genHashValue($responseMessage);
         if (strcasecmp($hash, $hashvalue) == 0) {
             //Hash valid
+            $ary = explode(':', $response['customizeddata']);
+            $order = Order::where('order_number', $ary[0])->first();
+            DB::beginTransaction();
             if (100 == $response['rspcode']) {
-                $ary = explode(':', $response['customizeddata']);
+                // 100 = Transaction successful.
                 $customer_id = $ary[1];
                 $order_id = $ary[2];
                 // update order & payment status.
-                $order = Order::where('order_number', $ary[0])->first();
                 if ($order->payment_status == 'pending') {
-                    DB::beginTransaction();
                     $d1 = Carbon::createFromFormat("YmdHis", $response['sysdatetime']);
                     if ($response['amt'] >= $order->total_amount) {
                         $order->payment_status = 'paid';
@@ -184,8 +187,23 @@ class PaymentGatewayController extends Controller
 
                     DB::commit();
 
-                    return Redirect::to(config('app.client_url') . '/#/appointment-list');
+                    // send successful email to client.
+                    $resp = $this->orderService->sendOrderNotifications('order_approved', $order, Auth::user()->id);
+
+                    // TODO redirect to a successful page where to show some "Succeed" message.
+
+                    return Redirect::to(config('app.client_url') . '/#/payment-successful');
                 }
+            } else {
+                $order->payment->gateway = $this->getGateway($response['paymethod']);
+                $order->payment->gateway_response = $response;
+                $order->payment->save();
+
+                DB::commit();
+
+                // redirect to a failure page where to show some "Failed" message.
+                return Redirect::to(config('app.client_url') . '/#/payment-fail');
+
             }
             return Redirect::to(config('app.client_url') . '/#/finance');
         } else {
