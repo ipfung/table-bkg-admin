@@ -609,6 +609,7 @@ class AppointmentController extends Controller
 
         // send notifications.
         if ($sendNotify) {
+            $resp = -1;   // default value.
             if ($isPackage) {
                 $orderService = new OrderService();
                 $resOrder = Order::find($order->id);
