@@ -82,4 +82,10 @@ class User extends \TCG\Voyager\Models\User
     {
         return $this->belongsToMany(User::class, 'user_teammates', 'user_id', 'teammate_id');
     }
+
+    public function trainerRates()
+    {
+        return $this->hasMany(TrainerRate::class, 'student_id', 'user_id');
+    }
+
 }

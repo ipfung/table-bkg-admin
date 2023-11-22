@@ -86,4 +86,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/trainer-non-workdate/{trainer_id}', 'Api\TrainerWorkDateTimeslotController@getTrainerNonWorkDates');
     Route::apiResource('/rooms', 'Api\RoomController');
     Route::get('/locations', 'Api\LocationController@index');    //
+
+    Route::apiResource('/trainerrates', 'Api\TrainerRateController');
+    Route::get('/trainerrates-bystudentid/{user_id}', 'Api\TrainerRateController@listByStudentId');
 });
