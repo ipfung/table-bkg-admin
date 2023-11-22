@@ -91,11 +91,16 @@ class TrainerRateController extends BaseController
         ]);
         $trainerrate = TrainerRate::find($id);
         // update user, we don't use fill here because avatar and roles shouldn't be updated.
-        //$trainerrate->trainer = $request->trainer;
+        $trainerrate->trainer = $request->trainer;
         $trainerrate->rate_type = $request->rate_type;
         $trainerrate->trainer_commission = $request->trainer_commission;
-        $trainerrate->company_income = $request->company_income;
         $trainerrate->trainer_charge = $request->trainer_charge;
+        $company_income = 0;
+        if ($request->trainer_charge > 0 &&  $request->trainer_commission >=0) {
+            $company_income = $request->trainer_charge - $request->trainer_commission;
+        } 
+        $trainerrate->company_income = $company_income;
+        
         //$trainerrate->student_id = $request->student_id;
         $trainerrate->save();
 
