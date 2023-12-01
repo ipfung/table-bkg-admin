@@ -231,11 +231,12 @@ class PackageController extends BaseController
         $package->quantity = $request->quantity;
         $package->total_space = $request->total_space;
         $package->trainer_id = $request->trainer_id;
-        $package->no_of_session = $request->no_of_session;
-        $package->start_date = $request->start_date;
+//        $package->no_of_session = $request->no_of_session;
+//        $package->start_date = $request->start_date;
+//        $package->start_time = $request->start_time;
+        $recurring = $request->input('recurring');
+        $package->recurring = json_encode($recurring);
         $package->end_date = $request->end_date;
-        $package->start_time = $request->start_time;
-        $package->recurring = $request->recurring;
         $package->save();
 
         return $this->sendResponse($package, 'Updated successfully.');
