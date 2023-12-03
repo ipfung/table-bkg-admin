@@ -57,6 +57,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/appointments', 'Api\CalendarAppointmentController@index');
     // finance
     Route::get('/payment/{id}', 'Api\PaymentController@show');
+    Route::apiResource('/orders', 'Api\PaymentController');
     Route::get('/finance', 'Api\PaymentController@index');
     Route::put('/payment-reminder/{id}', 'Api\PaymentController@sendBillReminder');
     Route::put('/payment/{id}', 'Api\PaymentController@update');
