@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Facade\OrderService;
 use App\Models\Room;
 use App\Models\Service;
 use App\Models\User;
@@ -63,6 +64,15 @@ class ServiceController extends BaseController
                 }
                 $data->requiredTrainer = config('app.jws.settings.required_trainer');
                 $data->requiredRoom = config('app.jws.settings.required_room');
+//                // check any valid token-based orders.
+                $orderService = new OrderService;
+                $validOrder = $orderService->getValidTokenBasedOrder($user);
+                if ($validOrder) {
+                    $data->order_number = $validOrder['order_number'];
+                    $data->token_quantity = $validOrder['token_quantity'];
+                    $data->no_of_session = $validOrder['no_of_session'];
+                    $data->trainers = $validOrder['trainers'];
+                }
                 if (!empty($user->settings)) {
                     $settings = json_decode($user->settings);
                     if (isset($settings->trainer)) {

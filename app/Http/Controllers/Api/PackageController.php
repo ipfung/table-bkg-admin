@@ -73,6 +73,10 @@ class PackageController extends BaseController
             if ($request->name != '')
                 $packages->whereRaw('upper(name) LIKE upper(?)', $request->name . '%');
         }
+        if ($request->has('package_type')) {
+            if ($request->package_type != '')
+                $packages->whereRaw('recurring LIKE ?', '%' . $request->package_type . '%');
+        }
         if ($request->has('id')) {
             if ($request->id > 0)
                 $packages->where('id', $request->id);

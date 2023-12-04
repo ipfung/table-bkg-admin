@@ -124,8 +124,8 @@ class PaymentController extends BaseController
         $order->user_id = $user->id;
         $order->order_total = $request->order_total;
         $order->order_status = $request->order_status;
+        $recurring = $request->input('recurring');
         if ($request->has('recurring')) {
-            $recurring = $request->input('recurring');
             $order->recurring = json_encode($recurring);
         }
         $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
@@ -133,14 +133,46 @@ class PaymentController extends BaseController
         $order->payment_status = $request->payment_status;
         $order->save();
 
-        // token based, loop the quantity? how to handle free sessions?
-        $orderDetail = new OrderDetail;
-        $orderDetail->order_id = $order->id;
-        $orderDetail->order_type = $request->order_type;
-        $orderDetail->original_price = $order->order_total;
-        $orderDetail->discounted_price = $order->order_total;
-        $orderDetail->order_description = $order->recurring;
-        $orderDetail->save();
+        if ($request->order_type == 'token' && $request->has('recurring')) {
+            // token based, loop the quantity? how to handle free sessions?
+            foreach (range(1, $recurring['quantity']) as $i) {
+                $orderDetail = new OrderDetail;
+                $orderDetail->order_id = $order->id;
+                $orderDetail->order_type = $request->order_type;
+                $orderDetail->original_price = 0;
+                $orderDetail->discounted_price = 0;
+                $order_description = new stdClass;
+                $order_description->quantity = 1;
+                $order_description->no_of_session = $recurring["no_of_session"];
+                $orderDetail->order_description = json_encode($order_description);
+                $orderDetail->booking_id = 0;
+                $orderDetail->save();
+            }
+            // free class.
+            if ($recurring["free"]) {
+                foreach (range(1, $recurring["free"]["quantity"]) as $i) {
+                    $orderDetail = new OrderDetail;
+                    $orderDetail->order_id = $order->id;
+                    $orderDetail->order_type = 'free_' . $request->order_type;
+                    $orderDetail->original_price = 0;
+                    $orderDetail->discounted_price = 0;
+                    $order_description = new stdClass;
+                    $order_description->quantity = 1;
+                    $order_description->no_of_session = $recurring["free"]["no_of_session"];
+                    $orderDetail->order_description = json_encode($order_description);
+                    $orderDetail->booking_id = 0;
+                    $orderDetail->save();
+                }
+            }
+        } else {
+            $orderDetail = new OrderDetail;
+            $orderDetail->order_id = $order->id;
+            $orderDetail->order_type = $request->order_type;
+            $orderDetail->original_price = $order->order_total;
+            $orderDetail->discounted_price = $order->order_total;
+            $orderDetail->order_description = $order->recurring;
+            $orderDetail->save();
+        }
 
         $payment = new Payment;
         $payment->order_id = $order->id;

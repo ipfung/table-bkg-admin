@@ -7,6 +7,8 @@ use App\Models\CustomerBooking;
 use App\Models\Order;
 use App\Models\OrderDetail;
 use App\Models\Payment;
+use App\Models\TrainerRate;
+use App\Models\User;
 use App\Services\NotificationsService;
 use DateTime;
 use Illuminate\Support\Carbon;
@@ -43,6 +45,41 @@ class OrderService
     }
 
     public function generateNextPackageLessons($packageId) {
+    }
+
+    public function getValidTokenBasedOrder($customer) {
+        // check any valid token-based orders.
+        $today = Carbon::now();
+        $orders = Order::orderBy('order_date', 'DESC')
+            ->limit(2)   // current month & last month.
+            ->where('order_status', 'confirmed')
+            ->where('customer_id', $customer->id)
+            ->whereRaw("id in (select order_id from order_details where order_type in ('token', 'free_token'))")
+            ->get();
+        $order = null;
+        $quantity = 0;
+        $no_of_session = 0;
+        foreach ($orders as $order) {
+            $recurring = json_decode($order->recurring);
+            if ($today->isBetween($recurring->start_date, $recurring->end_date)) {
+                foreach ($order->details as $orderdtl) {
+                    if ($orderdtl->order_type == 'token' && $orderdtl->booking_id == 0) {
+                        $quantity += $orderdtl->description->quantity;
+                        $no_of_session = $orderdtl->description->no_of_session;
+                    }
+                }
+                $customerTrainerRates = TrainerRate::where('student_id', $customer->id)->select('trainer')->get();
+                $trainers = [];
+                foreach ($customerTrainerRates as $trainerRate) {
+                    $trainer = User::find($trainerRate->trainer);
+                    $trainers[] = ["id" => $trainer->id, "name" => $trainer->name, "avatar" => $trainer->avatar, "mobile_no" => $trainer->mobile_no];
+                }
+                if ($quantity > 0)
+                    $order = ['trainers' => $trainers, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session];
+                break;
+            }
+        }
+        return $order;
     }
 
     public function generateNextOrder($orderId, $createdUserId) {
