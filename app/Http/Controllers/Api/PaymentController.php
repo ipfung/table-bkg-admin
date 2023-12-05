@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 use DateTime;
+use stdClass;
 
 class PaymentController extends BaseController
 {
@@ -39,7 +40,7 @@ class PaymentController extends BaseController
     public function index(Request $request)
     {
         $user = Auth::user();
-        $withRelationship = ['customer.role', 'details', 'payment'];
+        $withRelationship = ['customer.role', 'details.booking.appointment.user', 'payment'];
 
         $fromDate = Carbon::today()->format("Y-m-d");
         if ($request->has('from_date')) {
