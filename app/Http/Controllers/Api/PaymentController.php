@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Facade\OrderService;
 use App\Facade\PermissionService;
 use App\Models\Order;
+use App\Models\OrderDetail;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -103,55 +104,90 @@ class PaymentController extends BaseController
      */
     public function store(Request $request)
     {
-//        $user = Auth::user();
-//        $request->validate([
-//            'order_total' => 'required',
-//            'order_status' => 'required',
-//            'payment_status' => 'required',
-//        ]);
-//
-//        DB::beginTransaction();
-//        $order = new Order;
-//        $order->order_number = uniqid();
-//        $order->order_date = Carbon::today()->format('Y-m-d');
-//        if ($request->has('discount')) {
-//            if ($request->discount > 0)
-//                $order->discount = $request->discount;
-//        }
-//        $order->customer_id = $request->customer_id;
-//        $order->user_id = $user->id;
-//        $order->order_total = $request->order_total;
-//        $order->paid_amount = $request->order_total;
-//        $order->payment_status = $request->payment_status;
-//        $order->order_status = $request->order_status;
-//        if ($request->has('recurring')) {
-//            $recurring = $request->input('recurring');
-//            $order->recurring = json_encode($recurring);
-//        }
-//        $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
-//        $order->save();
-//
-//        $orderDetail = new OrderDetail;
-//        $orderDetail->order_id = $order->id;
-//        $orderDetail->order_type = $request->order_type;
-//        $orderDetail->original_price = $order->order_total;
-//        $orderDetail->discounted_price = $order->order_total;
-//        $orderDetail->save();
-//
-//        $payment = new Payment;
-//        $payment->order_id = $order->id;
-//        $payment->amount = $order->order_total;
-//        $payment->payment_date_time = (new DateTime())->format('Y-m-d H:i:s');
-//        $payment->status = $order->payment_status;
-//        $payment->payment_method = 'onsite';
-//        $payment->gateway = 'cash';
-////        $payment->parent_id = ;
+        $user = Auth::user();
+        $request->validate([
+            'order_total' => 'required',
+            'order_status' => 'required',
+            'payment_status' => 'required',
+        ]);
+        $locationId = 1;
+
+        DB::beginTransaction();
+        $order = new Order;
+        $order->order_number = $this->orderService->genOrderNo($locationId);
+        $order->order_date = Carbon::today()->format('Y-m-d');
+        if ($request->has('discount')) {
+            if ($request->discount > 0)
+                $order->discount = $request->discount;
+        }
+        $order->customer_id = $request->customer_id;
+        $order->user_id = $user->id;
+        $order->order_total = $request->order_total;
+        $order->order_status = $request->order_status;
+        $recurring = $request->input('recurring');
+        if ($request->has('recurring')) {
+            $order->recurring = json_encode($recurring);
+        }
+        $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
+        $order->paid_amount = $request->payment_amount;
+        $order->payment_status = $request->payment_status;
+        $order->save();
+
+        if ($request->order_type == 'token' && $request->has('recurring')) {
+            // token based, loop the quantity? how to handle free sessions?
+            foreach (range(1, $recurring['quantity']) as $i) {
+                $orderDetail = new OrderDetail;
+                $orderDetail->order_id = $order->id;
+                $orderDetail->order_type = $request->order_type;
+                $orderDetail->original_price = 0;
+                $orderDetail->discounted_price = 0;
+                $order_description = new stdClass;
+                $order_description->quantity = 1;
+                $order_description->no_of_session = $recurring["no_of_session"];
+                $orderDetail->order_description = json_encode($order_description);
+                $orderDetail->booking_id = 0;
+                $orderDetail->save();
+            }
+            // free class.
+            if ($recurring["free"]) {
+                foreach (range(1, $recurring["free"]["quantity"]) as $i) {
+                    $orderDetail = new OrderDetail;
+                    $orderDetail->order_id = $order->id;
+                    $orderDetail->order_type = 'free_' . $request->order_type;
+                    $orderDetail->original_price = 0;
+                    $orderDetail->discounted_price = 0;
+                    $order_description = new stdClass;
+                    $order_description->quantity = 1;
+                    $order_description->no_of_session = $recurring["free"]["no_of_session"];
+                    $orderDetail->order_description = json_encode($order_description);
+                    $orderDetail->booking_id = 0;
+                    $orderDetail->save();
+                }
+            }
+        } else {
+            $orderDetail = new OrderDetail;
+            $orderDetail->order_id = $order->id;
+            $orderDetail->order_type = $request->order_type;
+            $orderDetail->original_price = $order->order_total;
+            $orderDetail->discounted_price = $order->order_total;
+            $orderDetail->order_description = $order->recurring;
+            $orderDetail->save();
+        }
+
+        $payment = new Payment;
+        $payment->order_id = $order->id;
+        $payment->amount = $order->paid_amount;
+        $payment->payment_date_time = (new DateTime())->format('Y-m-d H:i:s');
+        $payment->status = $order->payment_status;
+        $payment->payment_method = 'onsite';
+        $payment->gateway = $request->payment_gateway;
+//        $payment->parent_id = ;
 //        $payment->entity = 'commission';
-//        $payment->save();
-//
-//        DB::commit();
-//        $result = ["success" => true, "data" => $order];
-//        return $result;
+        $payment->save();
+
+        DB::commit();
+        $result = ["success" => true, "data" => $order];
+        return $result;
     }
 
     /**

@@ -34,9 +34,10 @@ class AppointmentController extends Controller
      *
      * @return void
      */
-    public function __construct(AppointmentService $appointmentService, PermissionService $permissionService)
+    public function __construct(AppointmentService $appointmentService, OrderService $orderService, PermissionService $permissionService)
     {
         $this->appointmentService = $appointmentService;
+        $this->orderService = $orderService;
         $this->permissionService = $permissionService;
     }
 
@@ -119,6 +120,12 @@ class AppointmentController extends Controller
                 $trainerId = $booking->appointment->user_id;
             }
 //        echo 'bookId noOfSession, price=' . $price . ', ' . $noOfSession;
+        }
+        $validOrder = $this->orderService->getValidTokenBasedOrder($user);
+        if ($validOrder) {
+            if ($validOrder['token_quantity'] > 0) {
+                $price = -1;   // -1 mean will be deduct by token.
+            }
         }
 //        echo 'dayOfWeek_timeslots=' . $dayOfWeek_timeslots;
         // create a TODAY 0:00 epoch.
@@ -407,53 +414,63 @@ class AppointmentController extends Controller
         $paymentGatway = $request->paymentMethod;
         $entity = 'appointment';
         $sendNotify = false;
-        // onsite appointment, use Customer as user.
-        if ($request->paymentMethod == 'onsite') {
-            if ($request->has('notify_parties'))
-                $sendNotify = $request->notify_parties;
-            $paymentMethod = 'onsite';
-            $paymentGatway = 'cash';
-            if ($request->has('paymentGateway')) {
-                $paymentGatway = $request->paymentGateway;
-            }
-            $request->validate([
-                'customerId' => 'required|integer',
-            ]);
-            $user = User::find($request->customerId);
-            if ($request->roomId > 0) {
-                $assignRandomRoom = false;
-            }
-            if ($request->has('is_package')) {
-                $isPackage = $request->is_package;
-                $appointmentDate = $request->lesson_dates[0];
-                if ($isPackage) {
-                    $packageId = $request->package_id;
-                    $package = Package::find($packageId);
+        $order = null;
+        if ($request->has('orderNo')) {
+            // has orderNo means session will be deducted from orders.
+            $order = Order::where('order_number', $request->orderNo)->with('details')->first();
+            $saveAsPending = false;
+            $sendNotify = true;
+            $entity = 'token';
+        }
+        if (!$order) {
+            // onsite appointment, use Customer as user.
+            if ($request->paymentMethod == 'onsite') {
+                if ($request->has('notify_parties'))
+                    $sendNotify = $request->notify_parties;
+                $paymentMethod = 'onsite';
+                $paymentGatway = 'cash';
+                if ($request->has('paymentGateway')) {
+                    $paymentGatway = $request->paymentGateway;
                 }
-            }
-            if ($request->has('status')) {
-                $saveAsPending = ($request->status == 'pending');
-            }
-        } else {
-            $sendNotify = true;   // always send
-            $paymentMethod = 'electronic';
-            if (config("app.jws.settings.required_room")) {
-                $assignRandomRoom = false;
-            }
-            // check if user is new, make appointment status to 'pending' instead.
-            $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
-            foreach ($bookedAppointments as $bookedAppointment) {
-                if ($bookedAppointment->status == 'approved') {
-                    $saveAsPending = false;
+                $request->validate([
+                    'customerId' => 'required|integer',
+                ]);
+                $user = User::find($request->customerId);
+                if ($request->roomId > 0) {
+                    $assignRandomRoom = false;
                 }
-            }
-            if ($user->role->max_book > 0) {
-                // check user's booking
-                $counter = $this->appointmentService->getAppointmentCount($user);
-                if ($counter >= $user->role->max_book) {
-                    // exceed no. of booking, throw error.
-                    $results = ['success' => false, 'error' => 'You have reached the maximum number of booking.', 'param' => $counter];
-                    return $results;
+                if ($request->has('is_package')) {
+                    $isPackage = $request->is_package;
+                    $appointmentDate = $request->lesson_dates[0];
+                    if ($isPackage) {
+                        $packageId = $request->package_id;
+                        $package = Package::find($packageId);
+                    }
+                }
+                if ($request->has('status')) {
+                    $saveAsPending = ($request->status == 'pending');
+                }
+            } else {
+                $sendNotify = true;   // always send
+                $paymentMethod = 'electronic';
+                if (config("app.jws.settings.required_room")) {
+                    $assignRandomRoom = false;
+                }
+                // check if user is new, make appointment status to 'pending' instead.
+                $bookedAppointments = Appointment::orderBy('start_time', 'desc')->where('user_id', $user->id)->limit(10)->get();
+                foreach ($bookedAppointments as $bookedAppointment) {
+                    if ($bookedAppointment->status == 'approved') {
+                        $saveAsPending = false;
+                    }
+                }
+                if ($user->role->max_book > 0) {
+                    // check user's booking
+                    $counter = $this->appointmentService->getAppointmentCount($user);
+                    if ($counter >= $user->role->max_book) {
+                        // exceed no. of booking, throw error.
+                        $results = ['success' => false, 'error' => 'You have reached the maximum number of booking.', 'param' => $counter];
+                        return $results;
+                    }
                 }
             }
         }
@@ -494,6 +511,7 @@ class AppointmentController extends Controller
         }
         $appointment->user_id = $userId;
         $appointment->service_id = $request->serviceId;
+        $appointment->entity = $entity;
 //        $appointment->lesson_space
         $appointment->notify_parties = $sendNotify;
         $appointment->internal_remark = $request->internal_remark;
@@ -527,6 +545,7 @@ class AppointmentController extends Controller
                 }
                 $appointment->user_id = $userId;
                 $appointment->service_id = $request->serviceId;
+                $appointment->entity = $entity;
 //        $appointment->lesson_space
                 $appointment->notify_parties = $sendNotify;
                 $appointment->parent_id = $savedAppointment->id;
@@ -548,76 +567,96 @@ class AppointmentController extends Controller
         }
 
         $paymentStatus = $request->paymentStatus;
+        $locationId = 1;   //FIXME
 
-        $order = new Order;
-        $order->order_number = uniqid();
-        $order->order_date = Carbon::today()->format(BaseController::$dateFormat);
-        $order->order_total = $amount;
-        if ($request->has('discount')) {
-            if ($request->discount > 0)
-                $order->discount = $request->discount;
-        }
-        $order->customer_id = $customerBooking->customer_id;
-        $order->user_id = Auth::user()->id;
-        $order->paid_amount = $appointmentStatus == 'approved' ? $order->order_total : 0;
-        $order->payment_status = $paymentStatus;
-        $order->order_status = $appointmentStatus == 'approved' ? 'confirmed' : 'pending';
-        $recurring = $request->input('recurring');
-        $order->recurring = json_encode($recurring);
-        $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
-        if ($request->has('commission')) {
-            // note trainerId will be saved only for order that has commission.
-            if ($request->commission > 0 && $request->has('trainerId')) {
-                $order->trainer_id = $request->trainerId;
-                $order->commission = $request->commission;
+        $deduct_order_dtl = null;
+        if ($order) {
+            $result = $results[0];
+            foreach ($order->details as $orderDetail) {
+                if ($orderDetail->order_type == 'token' && $orderDetail->booking_id == 0) {
+                    // get more objects for invoice printing.
+                    $result->room = Room::find($result->room_id);
+                    $orderDetail->order_description = json_encode($result);
+                    $orderDetail->booking_id = $result->customer_booking_id;
+                    $orderDetail->save();
+                    $deduct_order_dtl = $orderDetail;
+                    break;
+                }
             }
-        }
-        $order->save();
-
-        $previousPkgId = -1;
-        foreach ($results as $result) {
-            // get more objects for invoice printing.
-            $result->room = Room::find($result->room_id);
-            $result->service = Service::find($result->service_id);
-            if ($result->package_id && $result->package_id != $previousPkgId) {
-                $result->package = $package;
-                $previousPkgId = $result->package_id;
+        } else {
+            $order = new Order;
+            $order->order_number = $this->orderService->genOrderNo($locationId);
+            $order->order_date = Carbon::today()->format(BaseController::$dateFormat);
+            $order->order_total = $amount;
+            if ($request->has('discount')) {
+                if ($request->discount > 0)
+                    $order->discount = $request->discount;
             }
-            $orderDetail = new OrderDetail;
-            $orderDetail->order_id = $order->id;
-            $orderDetail->order_type = $order_type;
-            $orderDetail->booking_id = $result->customer_booking_id;
-            $orderDetail->order_description = json_encode($result);
-            $orderDetail->original_price = $request->price;
-            $orderDetail->discounted_price = $request->price;
-            $orderDetail->coupon_id = $request->coupon_id;
-            $orderDetail->save();
-        }
+            $order->customer_id = $customerBooking->customer_id;
+            $order->user_id = Auth::user()->id;
+            $order->paid_amount = $appointmentStatus == 'approved' ? $order->order_total : 0;
+            $order->payment_status = $paymentStatus;
+            $order->order_status = $appointmentStatus == 'approved' ? 'confirmed' : 'pending';
+            $recurring = $request->input('recurring');
+            $order->recurring = json_encode($recurring);
+            $order->repeatable = $request->has('repeatable') ? $request->repeatable : false;
+            if ($request->has('commission')) {
+                // note trainerId will be saved only for order that has commission.
+                if ($request->commission > 0 && $request->has('trainerId')) {
+                    $order->trainer_id = $request->trainerId;
+                    $order->commission = $request->commission;
+                }
+            }
+            $order->save();
 
-        $payment = new Payment;
-        $payment->order_id = $order->id;
-        $payment->amount = $order->order_total;
-        $payment->payment_date_time = (new DateTime())->format('Y-m-d H:i:s');
-        $payment->status = $order->payment_status;
-        $payment->payment_method = $paymentMethod;
-        $payment->gateway = $paymentGatway;
+            $previousPkgId = -1;
+            foreach ($results as $result) {
+                // get more objects for invoice printing.
+                $result->room = Room::find($result->room_id);
+                $result->service = Service::find($result->service_id);
+                if ($result->package_id && $result->package_id != $previousPkgId) {
+                    $result->package = $package;
+                    $previousPkgId = $result->package_id;
+                }
+                $orderDetail = new OrderDetail;
+                $orderDetail->order_id = $order->id;
+                $orderDetail->order_type = $order_type;
+                $orderDetail->booking_id = $result->customer_booking_id;
+                $orderDetail->order_description = json_encode($result);
+                $orderDetail->original_price = $request->price;
+                $orderDetail->discounted_price = $request->price;
+                $orderDetail->coupon_id = $request->coupon_id;
+                $orderDetail->save();
+            }
+
+            $payment = new Payment;
+            $payment->order_id = $order->id;
+            $payment->amount = $order->order_total;
+            $payment->payment_date_time = (new DateTime())->format('Y-m-d H:i:s');
+            $payment->status = $order->payment_status;
+            $payment->payment_method = $paymentMethod;
+            $payment->gateway = $paymentGatway;
 //        $payment->parent_id = ;
-        $payment->entity = $entity;
-        $payment->save();
+            $payment->entity = $entity;
+            $payment->save();
+        }
 
         DB::commit();
 
+        $str = $this->orderService->getEncodeOrderNo($order->id, $order->order_number);
         // send notifications.
         if ($sendNotify) {
             $resp = -1;   // default value.
             if ($isPackage) {
-                $orderService = new OrderService();
                 $resOrder = Order::find($order->id);
                 $resOrder->package = $package;
-                $resp = $orderService->sendOrderNotifications('package_approved', $resOrder, Auth::user()->id);
-            } else if (config("app.jws.settings.payment_gateway") == false) {
+                $resp = $this->orderService->sendOrderNotifications('package_approved', $resOrder, Auth::user()->id);
+            } else if (config("app.jws.settings.payment_gateway") == false || $deduct_order_dtl) {
                 // send if no payment gateway, otherwise notification should be sent after payment.
                 $resCustomerBooking = CustomerBooking::find($customerBooking->id);
+                if ($deduct_order_dtl) {
+                    $resCustomerBooking->order = $order;
+                }
                 $resp = $this->appointmentService->sendAppointmentNotifications('appointment_approved', $resCustomerBooking, Auth::user()->id);
 //                $payload = [
 //                    'template' => 'appointment_approved',
@@ -637,20 +676,22 @@ class AppointmentController extends Controller
 //                }
             }
             if ($resp == -1) {    // no notifications being sent.
-                return ['success' => true, 'order_id' => $order->id, 'order_num' => $order->order_number, 'pay_status' => $paymentStatus, 'package' => $isPackage, 'notifications' => false];
+                return ['success' => true, 'order_id' => $order->id, 'order_num' => $order->order_number, 'order_str' => $str, 'pay_status' => $paymentStatus, 'package' => $isPackage, 'notifications' => false];
             } else {    // some notifications are sent.
                 $resp['success'] = true;
                 $resp['order_id'] = $order->id;
                 $resp['order_num'] = $order->order_number;
+                $resp['order_str'] = $str;
                 $resp['pay_status'] = $paymentStatus;
                 $resp['package'] = $isPackage;
+                $resp['notifications'] = true;
 //                    $resp['placeholders'] = $payload['placeholders'];
                 return $resp;
             }
         }
 
         if ($request->expectsJson()) {
-            $results = ['success' => true, 'order_id' => $order->id, 'package' => $isPackage];
+            $results = ['success' => true, 'pay_status' => $paymentStatus, 'order_id' => $order->id, 'order_num' => $order->order_number, 'order_str' => $str, 'package' => $isPackage];
             return $results;
         }
         return redirect()->route('orders.index');
@@ -662,7 +703,9 @@ class AppointmentController extends Controller
         $customerBooking->customer_id = $user->id;
         $price = $request->order_total;
         if (!$isPackage && !$request->has('order_total')) {
-            $price = $request->price;
+            if ($request->has('orderNo'))
+                $price = 0;
+            else $price = $request->price;
         }
         $customerBooking->price = $price;
         $customerBooking->info = json_decode($request->personalInformation);    // if any.

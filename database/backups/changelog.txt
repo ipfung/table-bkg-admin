@@ -277,12 +277,14 @@ delete from customer_bookings where created_at>'2023-04-11 00:15:00';
 delete from appointments where created_at>'2023-04-11 00:15:00';
 
 
---20230605
+--20230605 [done 20230921: prod_vttdb]
 ALTER TABLE `packages` ADD `total_space` INT NULL AFTER `room_id`;
 update packages set total_space=10 where total_space is null;   -- demo only.
 
 --20230825
 ALTER TABLE `payments` ADD `gateway_msg` VARCHAR(120) NULL AFTER `gateway`;
 
-
+--20231203
+delete FROM `order_details` WHERE date(created_at)=CURRENT_DATE;
+delete FROM `orders` WHERE date(created_at)=CURRENT_DATE;
 
