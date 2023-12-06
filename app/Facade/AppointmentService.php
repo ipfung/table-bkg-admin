@@ -2,6 +2,7 @@
 
 namespace App\Facade;
 
+use App\Http\Controllers\Api\BaseController;
 use App\Models\Appointment;
 use App\Models\CustomerBooking;
 use App\Models\Holiday;
