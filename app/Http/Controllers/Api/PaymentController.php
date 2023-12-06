@@ -89,7 +89,7 @@ class PaymentController extends BaseController
         if ($request->expectsJson()) {
 //            return $payments->get();
             // ref: https://stackoverflow.com/questions/52559732/how-to-add-custom-properties-to-laravel-paginate-json-response
-            $data = $payments->with($withRelationship)->paginate()->toArray();
+            $data = $payments->with($withRelationship)->with('details.booking.appointment.room')->paginate()->toArray();
             $data['paymentGateway'] = (config("app.jws.settings.payment_gateway") != false);
             $data['showCustomer'] = $showCustomer;   // append to paginate()
             return $data;
