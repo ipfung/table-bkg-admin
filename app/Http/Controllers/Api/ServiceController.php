@@ -71,6 +71,8 @@ class ServiceController extends BaseController
                     $data->order_number = $validOrder['order_number'];
                     $data->token_quantity = $validOrder['token_quantity'];
                     $data->no_of_session = $validOrder['no_of_session'];
+                    $data->free_quantity = $validOrder['free_quantity'];
+                    $data->free_no_of_session = $validOrder['free_no_of_session'];
                     $data->trainers = $validOrder['trainers'];
                 }
                 if (!empty($user->settings)) {

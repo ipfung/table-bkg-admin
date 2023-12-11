@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class OrderDetail extends Model
 {
+    public static $TYPE_TOKEN = 'token';
+    public static $TYPE_FREE_TOKEN = 'free_token';
+    public static $TYPE_USED_TOKEN = 'used_token';
+
     /**
      * The attributes that should be cast.
      *

@@ -59,23 +59,40 @@ class OrderService
         $order = null;
         $quantity = 0;
         $no_of_session = 0;
+        $free_quantity = 0;
+        $free_no_of_session = 0;
+        $usedTokenSession = 0;
         foreach ($orders as $order) {
             $recurring = json_decode($order->recurring);
             if ($today->isBetween($recurring->start_date, $recurring->end_date)) {
                 foreach ($order->details as $orderdtl) {
-                    if ($orderdtl->order_type == 'token' && $orderdtl->booking_id == 0) {
-                        $quantity += $orderdtl->description->quantity;
+                    if ($orderdtl->order_type == OrderDetail::$TYPE_TOKEN && !$orderdtl->booking_id) {
+                        // token-based order detail stores the total token that customer can book.
+                        $quantity = $orderdtl->description->quantity;
                         $no_of_session = $orderdtl->description->no_of_session;
+                    } else if ($orderdtl->order_type == OrderDetail::$TYPE_FREE_TOKEN && $orderdtl->booking_id == 0) {
+                        // free-token order detail stores each free-session per record.
+                        $free_quantity += $orderdtl->description->quantity;
+                        $free_no_of_session = $orderdtl->description->no_of_session;
+                    } else if ($orderdtl->order_type == OrderDetail::$TYPE_USED_TOKEN) {
+                        $usedTokenSession += $orderdtl->description->no_of_session;
                     }
                 }
-                $customerTrainerRates = TrainerRate::where('student_id', $customer->id)->select('trainer')->get();
-                $trainers = [];
-                foreach ($customerTrainerRates as $trainerRate) {
-                    $trainer = User::find($trainerRate->trainer);
-                    $trainers[] = ["id" => $trainer->id, "name" => $trainer->name, "avatar" => $trainer->avatar, "mobile_no" => $trainer->mobile_no];
+                if ($usedTokenSession > 0) {
+                    $quantity -= ($usedTokenSession / $no_of_session);
                 }
-                if ($quantity > 0)
-                    $order = ['trainers' => $trainers, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session];
+                if ($quantity > 0) {
+                    $customerTrainerRates = TrainerRate::where('student_id', $customer->id)->select('trainer')->get();
+                    $trainers = [];
+                    foreach ($customerTrainerRates as $trainerRate) {
+                        $trainer = User::find($trainerRate->trainer);
+                        $trainers[] = ["id" => $trainer->id, "name" => $trainer->name, "avatar" => $trainer->avatar, "mobile_no" => $trainer->mobile_no];
+                    }
+                    $order = ['trainers' => $trainers, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
+                } else if ($free_quantity > 0) {
+                    // don't return token-based qty
+                    $order = ['trainers' => null, 'order_number' => $order->order_number, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
+                }
                 break;
             }
         }

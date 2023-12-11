@@ -149,10 +149,7 @@ class AppointmentService
         $isDup = false;
         for ($i=0; $i<2; $i++) {   // do twice, 1 for start_time, another for end_time.
             $paramDate = $i == 0 ? $dt : $dt2;
-            $found = DB::table('customer_bookings')
-                ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
-                ->where('customer_bookings.customer_id', $user->id)
-                ->whereRaw('? between appointments.start_time and appointments.end_time', $paramDate)->first();
+            $found = $this->checkDupCustomerBooking($user->id, $paramDate);
             if (!empty($found)) {
                 $isDup = true;
                 break;
@@ -164,6 +161,14 @@ class AppointmentService
             'room_id' => $assignedRoom,
             'duplicated' => $isDup
         ];
+    }
+
+    public function checkDupCustomerBooking($customerId, $paramDate) {
+        $found = DB::table('customer_bookings')
+            ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+            ->where('customer_bookings.customer_id', $customerId)
+            ->whereRaw('? between appointments.start_time and appointments.end_time', $paramDate)->first();
+        return $found;
     }
 
     public function saveAppointment($appointment) {
