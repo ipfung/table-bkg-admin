@@ -171,6 +171,18 @@ class AppointmentService
         return $found;
     }
 
+    public function isPackageAppointmentHavingEnoughSpace($appointment_id) {
+        // found package space
+        $found = DB::table('packages')
+            ->join('appointments', 'packages.id', '=', 'appointments.package_id')
+            ->selectRaw('(select count(*) from customer_bookings where appointment_id=appointments.id) as booked, packages.id, packages.total_space')
+            ->where('appointments.id', $appointment_id)->first();
+        if (!empty($found)) {
+            return ($found->total_space - $found->booked) > 0;
+        }
+        return false;
+    }
+
     public function saveAppointment($appointment) {
         if ($appointment->package_id > 0) {
             // get existing package appointment.

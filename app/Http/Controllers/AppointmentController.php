@@ -669,7 +669,11 @@ class AppointmentController extends Controller
             $savedAppointment2 = Appointment::find($request->appointment_id);
             $found = $this->appointmentService->checkDupCustomerBooking($user->id, $savedAppointment2->start_time);
             if (!empty($found)) {
-                return ['success' => false, 'error' => 'Already booked.'];
+                return ['success' => false, 'error' => 'Appointment is already booked.'];
+            }
+            $hasSpace = $this->appointmentService->isPackageAppointmentHavingEnoughSpace($savedAppointment2->id);
+            if (!$hasSpace) {
+                return ['success' => false, 'error' => 'No more space for the packages.'];
             }
             $customerBooking = $this->saveCustomerBooking($request, $savedAppointment2, $user, false);
             $savedAppointment2->customer_booking_id = $customerBooking->id;
