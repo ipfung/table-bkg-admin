@@ -95,7 +95,7 @@ class PackageController extends BaseController
         $packages = Appointment::orderBy('start_time', 'asc');
         $packages->select("appointments.*");
         $packages->selectRaw(" (select count(*) from customer_bookings where appointment_id=appointments.id) as no_of_booked");
-        $packages->whereRaw("package_id IN (select id from packages WHERE service_id=? and recurring LIKE '%group_event%')", [$request->service_id]);
+        $packages->whereRaw("package_id IN (select id from packages WHERE service_id=? and no_of_session=? and recurring LIKE '%group_event%')", [$request->service_id, $request->no_of_session]);
         $packages->where("start_time", ">", (new DateTime())->format('Y-m-d H:i:s'));
         if ($request->expectsJson()) {
             $data = $packages->with(['package', 'user', 'room'])->paginate()->toArray();
