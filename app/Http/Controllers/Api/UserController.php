@@ -184,7 +184,7 @@ class UserController extends BaseController
         $request->validate([
             'name' => 'required|max:255',    // first name
             'role_id' => 'required|exists:roles,id',   //roles
-            'mobile_no' => 'required|max:8|unique:users',
+            'mobile_no' => 'required|max:8',
             'password' => 'min:8',
         ]);
         $user = User::find($id);
