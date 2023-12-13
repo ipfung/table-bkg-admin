@@ -49,14 +49,14 @@ class OrderService
 
     public function getValidTokenBasedOrder($customer) {
         // check any valid token-based orders.
-        $today = Carbon::now();
+        $today = Carbon::today();
         $orders = Order::orderBy('order_date', 'DESC')
             ->limit(2)   // current month & last month.
             ->where('order_status', 'confirmed')
             ->where('customer_id', $customer->id)
-            ->whereRaw("id in (select order_id from order_details where order_type in ('token', 'free_token'))")
+            ->whereRaw("id in (select order_id from order_details where order_type in (?, ?))", [OrderDetail::$TYPE_TOKEN, OrderDetail::$TYPE_FREE_TOKEN])
             ->get();
-        $order = null;
+        $result = null;
         $quantity = 0;
         $no_of_session = 0;
         $free_quantity = 0;
@@ -88,15 +88,15 @@ class OrderService
                         $trainer = User::find($trainerRate->trainer);
                         $trainers[] = ["id" => $trainer->id, "name" => $trainer->name, "avatar" => $trainer->avatar, "mobile_no" => $trainer->mobile_no];
                     }
-                    $order = ['trainers' => $trainers, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
+                    $result = ['trainers' => $trainers, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
                 } else if ($free_quantity > 0) {
                     // don't return token-based qty
-                    $order = ['trainers' => null, 'order_number' => $order->order_number, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
+                    $result = ['trainers' => null, 'order_number' => $order->order_number, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
                 }
                 break;
             }
         }
-        return $order;
+        return $result;
     }
 
     public function generateNextOrder($orderId, $createdUserId) {
