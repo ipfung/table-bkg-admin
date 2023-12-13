@@ -89,6 +89,12 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::apiResource('/rooms', 'Api\RoomController');
     Route::get('/locations', 'Api\LocationController@index');    //
 
+    //trainer rate
     Route::apiResource('/trainerrates', 'Api\TrainerRateController');
     Route::get('/trainerrates-bystudentid/{user_id}', 'Api\TrainerRateController@listByStudentId');
+    // Reporting
+    Route::get('/report-sales', 'Api\ReportController@salesReport')->name('report.sales');
+    Route::get('/export-report-sales-xlsx', 'Api\ReportController@exportXlsxSalesReport');
+
+    Route::get('/export-report-order', 'ReportController@orderReportExport');
 });

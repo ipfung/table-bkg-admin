@@ -29,6 +29,10 @@ Route::get('/pay/{orderNum}', 'PaymentGatewayController@paymentPage');
 Route::post('/pay/feedback', 'PaymentGatewayController@returnPage');
 Route::post('/pay/notify', 'PaymentGatewayController@notifyPage');
 
+
+//reporting
+Route::get('/report-order', 'ReportController@orderReport')->name('report.order');
+Route::get('/export-report-order', 'ReportController@orderReportExport')->name('export.report.order');
 Route::group(['prefix' => 'admin'], function () {
     Voyager::routes();
 });
