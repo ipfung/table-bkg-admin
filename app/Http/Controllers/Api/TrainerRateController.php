@@ -1,12 +1,10 @@
 <?php
 
-namespace App\Http\Controllers\api;
+namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TrainerRate;
-use App\Models\User;
 
 class TrainerRateController extends BaseController
 {
@@ -52,11 +50,11 @@ class TrainerRateController extends BaseController
 
         // validate
         $request->validate([
-           
+
         ]);
         $trainerrate = new TrainerRate($request->all());
-        
-        
+
+
         $trainerrate->save();
 
         return $this->sendResponse($trainerrate, 'Create successfully.');
@@ -87,7 +85,7 @@ class TrainerRateController extends BaseController
         } */
 
         $request->validate([
-       
+
         ]);
         $trainerrate = TrainerRate::find($id);
         // update user, we don't use fill here because avatar and roles shouldn't be updated.
@@ -98,9 +96,9 @@ class TrainerRateController extends BaseController
         $company_income = 0;
         if ($request->trainer_charge > 0 &&  $request->trainer_commission >=0) {
             $company_income = $request->trainer_charge - $request->trainer_commission;
-        } 
+        }
         $trainerrate->company_income = $company_income;
-        
+
         //$trainerrate->student_id = $request->student_id;
         $trainerrate->save();
 
@@ -119,7 +117,7 @@ class TrainerRateController extends BaseController
             return $this->sendPermissionDenied();
         } */
 
-        
+
         if ($id) {
             TrainerRate::where('id', $id)->delete();
 
