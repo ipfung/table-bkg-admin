@@ -67,6 +67,8 @@ class PaymentController extends BaseController
             if ($request->order_type == 'commission') {
                 $payments->whereRaw('id in (select order_id from order_details where order_type=?)', 'commission' . ($this->isSuperLevel($user) ? '' : '167'));
                 $withRelationship[] = 'trainer';
+            } else {
+                $payments->whereRaw('id in (select order_id from order_details where order_type=?)', $request->order_type);
             }
         }
         if ($request->has('trainer_id')) {
