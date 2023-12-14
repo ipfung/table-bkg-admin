@@ -73,6 +73,10 @@ class UserController extends BaseController
             if ($request->status != '')
                 $users->where('status', $request->status);
         }
+        if ($request->has('id')) {
+            if ($request->id != '')
+                $users->where('id', $request->id);
+        }
         if ($request->has('name')) {
             if ($request->name != '')
                 $users->whereRaw('(upper(name) LIKE upper(?) or upper(second_name) LIKE upper(?))', [$request->name . '%', $request->name . '%']);
