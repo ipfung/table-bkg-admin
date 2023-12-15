@@ -94,7 +94,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/trainerrates-bystudentid/{user_id}', 'Api\TrainerRateController@listByStudentId');
     // Reporting
     Route::get('/report-sales', 'Api\ReportController@salesReport')->name('report.sales');
-    Route::get('/export-report-sales-xlsx', 'Api\ReportController@exportXlsxSalesReport');
+    Route::post('/export-report-sales-xlsx', 'Api\ReportController@exportXlsxSalesReport1');
 
     Route::get('/export-report-order', 'ReportController@orderReportExport');
 });
