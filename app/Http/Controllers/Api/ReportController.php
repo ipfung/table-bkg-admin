@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Exports\OrderExport;
 use Illuminate\Http\Request;
 
 use App\Models\Order;
@@ -10,7 +10,7 @@ use App\Models\OrderDetail;
 use App\Models\Payment;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 
 class ReportController extends BaseController
@@ -135,7 +135,7 @@ class ReportController extends BaseController
     public function exportXlsxSalesReport1(Request $request)
     {
        // ddd($request->start_date);
-        return Excel::download(new SalesExport(), 'Report Sales.xlsx');
+        return Excel::download(new OrderExport(), 'Report Sales.xlsx');
         //return Excel::download(new SalesExport($request->start_date, $request->end_date, $request->search_payment_status), 'Report Sales.xlsx');
     }
 
@@ -160,5 +160,5 @@ class ReportController extends BaseController
     }
 
 
-    
+
 }
