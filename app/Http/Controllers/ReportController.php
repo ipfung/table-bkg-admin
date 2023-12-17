@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Exports\OrderExport;
+use App\Exports\SaleExport;
 //use App\Exports\SharesExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -32,7 +33,8 @@ class ReportController extends Controller
             }
         } */
         $orders = Order::orderby('id');
-       
+       return  $orders->get();
+
         return view("reports.orders", ['orders' => $orders->paginate(20)] );
     }
 
@@ -41,5 +43,13 @@ class ReportController extends Controller
        // ddd($request->start_date);
        //return Excel::download(new OrderExport($request->start_date, $request->end_date, $request->search_payment_status), 'Report Orders.xlsx');
        return Excel::download(new OrderExport(), 'Report Orders.xlsx');
+    }
+
+    public function orderReportExport1(Request $request)
+    {
+       // ddd($request->start_date);
+        $data = $this->orderReport($request); 
+        return Excel::download(new SaleExport($data), 'Report Sales.xlsx');
+        //return Excel::download(new SalesExport($request->start_date, $request->end_date, $request->search_payment_status), 'Report Sales.xlsx');
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Exports\OrderExport;
+use App\Exports\SaleExport;
+
 use Illuminate\Http\Request;
 
 use App\Models\Order;
@@ -24,54 +26,10 @@ class ReportController extends BaseController
     {
         //
     }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
-    }
-
+   
     public function salesReport(Request $request)
     {
+       
         $user = Auth::user();
         $withRelationship = ['customer.role', 'details.booking.appointment.user', 'payment'];
 
@@ -118,7 +76,14 @@ class ReportController extends BaseController
         } else {
             $payments->where('customer_id', $user->id);
         }
-
+        
+        if ($request->has('exporttoexcel'))
+        {
+            if($request->exporttoexcel)
+            {
+                return $payments->get();
+            }
+        }
         if ($request->expectsJson()) {
 //            return $payments->get();
             // ref: https://stackoverflow.com/questions/52559732/how-to-add-custom-properties-to-laravel-paginate-json-response
@@ -132,7 +97,23 @@ class ReportController extends BaseController
         //return view("reports.sales", ['orders' => $orders->paginate(20)] );
     }
 
+    public function ordersReport()
+    {
+        $orders =Order::OrderBy('id');
+        //ddd($orders->get());
+        return $orders->get();
+        
+    }
+
     public function exportXlsxSalesReport1(Request $request)
+    {
+       // ddd($request->start_date);
+        $data = $this->salesReport($request);
+        return Excel::download(new SaleExport($data), 'Report Sales.xlsx');
+        //return Excel::download(new SalesExport($request->start_date, $request->end_date, $request->search_payment_status), 'Report Sales.xlsx');
+    }
+
+    public function exportXlsxSalesReport2(Request $request)
     {
        // ddd($request->start_date);
         return Excel::download(new OrderExport(), 'Report Sales.xlsx');
