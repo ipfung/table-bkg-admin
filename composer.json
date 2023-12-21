@@ -12,7 +12,7 @@
         "laravel/sanctum": "^2.11",
         "maatwebsite/excel": "^3.1",
         "laravel/tinker": "^2.5",
-        "plesk/ext-laravel-integration": "*",
+        "phpoffice/phpspreadsheet": "^1.12",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "tcg/voyager": "^1.5"
     },
