@@ -223,6 +223,20 @@ class PaymentController extends BaseController
     }
 
     /**
+     * Display the payment status.
+     *
+     * @param  int  $id the payment id, NOT order id.
+     * @return \Illuminate\Http\Response
+     */
+    public function showOrder($id)
+    {
+        $order = Order::find($id);
+//        return $order->customer;
+        $validOrder = $this->orderService->getValidTokenBasedOrder($order->customer, $order->id);
+        return $this->sendResponse($validOrder, "Found valid order");
+    }
+
+    /**
      * Update the specified resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request

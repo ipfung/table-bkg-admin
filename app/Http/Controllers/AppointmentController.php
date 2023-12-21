@@ -120,7 +120,7 @@ class AppointmentController extends Controller
             }
 //        echo 'bookId noOfSession, price=' . $price . ', ' . $noOfSession;
         }
-        $validOrder = $this->orderService->getValidTokenBasedOrder($user);
+        $validOrder = $this->orderService->getValidTokenBasedOrder($user, $request->order_id);
         if ($validOrder) {
             if ($validOrder['token_quantity'] > 0) {
                 $price = -1;   // -1 mean will be deduct by token.
