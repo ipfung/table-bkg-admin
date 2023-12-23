@@ -95,6 +95,8 @@ Route::middleware(['auth:sanctum'])->group(function (){
     // Reporting
     Route::get('/report-sales', 'Api\ReportController@salesReport');
     Route::post('/export-report-sales-xlsx', 'Api\ReportController@exportXlsxSalesReport1');
+    Route::get('/report-trainer-commission', 'Api\ReportController@trainersCommissionReport');
+    
 
     Route::get('/export-report-order', 'ReportController@orderReportExport');
 });
