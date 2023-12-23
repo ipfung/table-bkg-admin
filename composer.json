@@ -13,6 +13,7 @@
         "maatwebsite/excel": "^3.1",
         "laravel/tinker": "^2.5",
         "phpoffice/phpspreadsheet": "^1.12",
+        "plesk/ext-laravel-integration": "*",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "tcg/voyager": "^1.5"
     },
@@ -23,7 +24,7 @@
         "mockery/mockery": "^1.4.4",
         "nunomaduro/collision": "^5.10",
         "phpunit/phpunit": "^9.5.10"
-        
+
     },
     "autoload": {
         "psr-4": {
