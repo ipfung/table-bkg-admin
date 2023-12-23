@@ -98,10 +98,10 @@ class OrderService
                         $trainer = User::where('id', $trainerRate->trainer)->with('role')->first();
                         $trainers[] = $trainer;
                     }
-                    $result = ['trainers' => $trainers, 'cus_id' => $customer->id, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
+                    $result = ['trainers' => $trainers, 'customer_id' => $customer->id, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
                 } else if ($free_quantity > 0) {
                     // don't return token-based qty
-                    $result = ['trainers' => null, 'order_number' => $order->order_number, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
+                    $result = ['trainers' => null, 'customer_id' => $customer->id, 'order_number' => $order->order_number, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
                 }
                 break;
             }

@@ -71,8 +71,11 @@ class BookingController extends BaseController
         if ($request->has('customerId')) {
             $bookings->where('customer_id', $request->customerId);
         }
-        if ($request->has('trainerId')) {
-            $bookings->where('user_id', $request->trainerId);
+        if ($request->has('bookId')) {
+            $bookings->where('customer_bookings.id', $request->bookId);
+        }
+        if ($request->has('orderId')) {
+            $bookings->whereRaw('customer_bookings.id in (select booking_id from order_details where order_id=?)', $request->orderId);
         }
         if ($request->has('ownerId')) {
             $ownerId = $request->ownerId;
