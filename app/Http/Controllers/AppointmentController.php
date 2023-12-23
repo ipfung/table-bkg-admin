@@ -120,7 +120,7 @@ class AppointmentController extends Controller
             }
 //        echo 'bookId noOfSession, price=' . $price . ', ' . $noOfSession;
         }
-        $validOrder = $this->orderService->getValidTokenBasedOrder($user);
+        $validOrder = $this->orderService->getValidTokenBasedOrder($user, $request->order_id);
         if ($validOrder) {
             if ($validOrder['token_quantity'] > 0) {
                 $price = -1;   // -1 mean will be deduct by token.
@@ -395,6 +395,7 @@ class AppointmentController extends Controller
         $user = Auth::user();
         $hasAptId = false;
         if ($request->has('appointment_id')) {
+            // group lesson or free_token.
             $request->validate([
                 'appointment_id' => 'required|integer',
                 'orderNo' => 'required',
@@ -426,6 +427,9 @@ class AppointmentController extends Controller
         if ($request->has('orderNo')) {
             // has orderNo means session will be deducted from orders.
             $order = Order::where('order_number', $request->orderNo)->with('details')->first();
+            $user = $order->customer;
+            if ($request->has('roomId'))
+                $assignRandomRoom = false;
             $saveAsPending = false;
             $sendNotify = true;
             $entity = 'token';

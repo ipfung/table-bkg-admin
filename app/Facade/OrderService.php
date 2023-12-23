@@ -47,15 +47,25 @@ class OrderService
     public function generateNextPackageLessons($packageId) {
     }
 
-    public function getValidTokenBasedOrder($customer) {
+    public function getValidTokenBasedOrder($customer, $order_id) {
         // check any valid token-based orders.
+        DB::enableQueryLog(); // Enable query log
         $today = Carbon::today();
-        $orders = Order::orderBy('order_date', 'DESC')
-            ->limit(2)   // current month & last month.
-            ->where('order_status', 'confirmed')
+        $orders = Order::orderBy('order_date', 'DESC');
+        if ($order_id) {
+            $orders->where('id', $order_id);
+        } else {
+            $orders->limit(2);   // current month & last month.
+        }
+        $orders = $orders->where('order_status', 'confirmed')
             ->where('customer_id', $customer->id)
             ->whereRaw("id in (select order_id from order_details where order_type in (?, ?))", [OrderDetail::$TYPE_TOKEN, OrderDetail::$TYPE_FREE_TOKEN])
             ->get();
+//      $orders->get()    // debug
+//        ;
+//        $aaa = DB::getQueryLog(); // debug, Show results of log
+//        $results = end($aaa);    // debug
+//        return $this->sendResponse($results, "ok");    // debug
         $result = null;
         $quantity = 0;
         $no_of_session = 0;
@@ -64,7 +74,7 @@ class OrderService
         $usedTokenSession = 0;
         foreach ($orders as $order) {
             $recurring = json_decode($order->recurring);
-            if ($today->isBetween($recurring->start_date, $recurring->end_date)) {
+            if ($today->isBefore($recurring->end_date)) {   // valid order which end_date still greater than today.
                 foreach ($order->details as $orderdtl) {
                     if ($orderdtl->order_type == OrderDetail::$TYPE_TOKEN && !$orderdtl->booking_id) {
                         // token-based order detail stores the total token that customer can book.
@@ -82,20 +92,21 @@ class OrderService
                     $quantity -= ($usedTokenSession / $no_of_session);
                 }
                 if ($quantity > 0) {
-                    $customerTrainerRates = TrainerRate::where('student_id', $customer->id)->select('trainer')->get();
+                    $customerTrainerRates = TrainerRate::where('student_id', $customer->id)->get();
                     $trainers = [];
                     foreach ($customerTrainerRates as $trainerRate) {
-                        $trainer = User::find($trainerRate->trainer);
-                        $trainers[] = ["id" => $trainer->id, "name" => $trainer->name, "avatar" => $trainer->avatar, "mobile_no" => $trainer->mobile_no];
+                        $trainer = User::where('id', $trainerRate->trainer)->with('role')->first();
+                        $trainers[] = $trainer;
                     }
-                    $result = ['trainers' => $trainers, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
+                    $result = ['trainers' => $trainers, 'customer_id' => $customer->id, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
                 } else if ($free_quantity > 0) {
                     // don't return token-based qty
-                    $result = ['trainers' => null, 'order_number' => $order->order_number, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
+                    $result = ['trainers' => null, 'customer_id' => $customer->id, 'order_number' => $order->order_number, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
                 }
                 break;
             }
         }
+//        echo "found333," . json_encode($result);
         return $result;
     }
 

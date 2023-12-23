@@ -66,7 +66,7 @@ class ServiceController extends BaseController
                 $data->requiredRoom = config('app.jws.settings.required_room');
 //                // check any valid token-based orders.
                 $orderService = new OrderService;
-                $validOrder = $orderService->getValidTokenBasedOrder($user);
+                $validOrder = $orderService->getValidTokenBasedOrder($user, $request->order_id);
                 if ($validOrder) {
                     $data->order_number = $validOrder['order_number'];
                     $data->token_quantity = $validOrder['token_quantity'];
