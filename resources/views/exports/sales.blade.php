@@ -5,9 +5,9 @@
     <tr>
         <td colspan="8" align="right">Print Report Date:{{ date("Y-M-d")}}</td>
     </tr>
-    {{-- <tr>
+    <tr>
         <td colspan="8" align="right">Report Period:{{ date('Y-M-d', strtotime($report_s_date)) }}~{{ date('Y-M-d', strtotime($report_e_date)) }} </td>
-    </tr> --}}
+    </tr>
 </table>
 
     <table class="table table-striped table-hover">
@@ -44,20 +44,21 @@
                             
         </tr>
         @php
-            /* if ($order->payment_status==2002) {//paid
-                $total = $total + $order->order_total;    
+         $total = $total + $order->paid_amount;    
+           /*  if ($order->payment_status==2002) {//paid
+                $total = $total + $order->paid_amount;    
             } else {
-                $total_unpaid = $total_unpaid + $order->order_total; 
+                //$total_unpaid = $total_unpaid + $order->order_total; 
             } */
         @endphp
         @endforeach
         
-  {{--   <tr>
+    <tr>
         <td colspan="3" align="right" ><strong>Total:</strong></td>
-        <td align="right" ><strong>HK${{$total}}</strong></td>
-        <td align="right" ><strong>Unpaid Total:</strong></td>
-        <td align="right" ><strong>HK${{$total_unpaid}}</strong></td>
-    </tr> --}}
+        <td align="right" ><strong>{{$total}}</strong></td>
+       {{--  <td align="right" ><strong>Unpaid Total:</strong></td>
+        <td align="right" ><strong>HK${{$total_unpaid}}</strong></td> --}}
+    </tr>
         </tbody>
     </table>
    

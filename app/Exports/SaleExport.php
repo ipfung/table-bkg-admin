@@ -12,7 +12,7 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
 use \Maatwebsite\Excel\Sheet;
 
-class SaleExport implements  FromView, ShouldAutoSize, WithEvents
+class SaleExport implements FromView, ShouldAutoSize, WithEvents
 {
     protected $s_date;
     protected $e_date; 
@@ -27,8 +27,10 @@ class SaleExport implements  FromView, ShouldAutoSize, WithEvents
         //
     }
 
-    function __construct($data) {
+    function __construct($start_date, $end_date, $data) {
         //ddd($this->e_date);
+        $this->s_date = $start_date;
+        $this->e_date = $end_date;
         $this->orders = $data;
         //ddd($this->orders);
     }
@@ -68,8 +70,8 @@ class SaleExport implements  FromView, ShouldAutoSize, WithEvents
        
         return view('exports.sales', [
             'orders' => $this->orders,
-            /* 'report_s_date' => $this->s_date,
-            'report_e_date' => $this->e_date, */
+            'report_s_date' => $this->s_date,
+            'report_e_date' => $this->e_date,
         ]);
     }
 }
