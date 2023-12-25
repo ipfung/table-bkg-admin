@@ -22,11 +22,16 @@ class ReportController extends BaseController
      *
      * @return \Illuminate\Http\Response
      */
+    protected $s_date;
+    protected $e_date; 
+
     public function index()
     {
         //
     }
    
+
+    // Report Sales 
     public function salesReport(Request $request)
     {
        
@@ -41,6 +46,8 @@ class ReportController extends BaseController
         if ($request->has('to_date')) {
             $toDate = $request->to_date;
         }
+        $this->s_date = $fromDate;
+        $this->e_date = $toDate;
         //
         $payments = Order::orderBy('order_date', 'desc')
             ->where('order_date', '>=', $fromDate )
@@ -76,7 +83,7 @@ class ReportController extends BaseController
         } else {
             $payments->where('customer_id', $user->id);
         }
-        
+
         if ($request->has('exporttoexcel'))
         {
             if($request->exporttoexcel)
@@ -107,13 +114,12 @@ class ReportController extends BaseController
 
     public function exportXlsxSalesReport1(Request $request)
     {
-       // ddd($request->start_date);
         $data = $this->salesReport($request);
-        return Excel::download(new SaleExport($data), 'Report Sales.xlsx');
+        return Excel::download(new SaleExport($this->s_date, $this->e_date, $data), 'Report Sales.xlsx');
         //return Excel::download(new SalesExport($request->start_date, $request->end_date, $request->search_payment_status), 'Report Sales.xlsx');
     }
 
-    public function exportXlsxSalesReport2(Request $request)
+    /* public function exportXlsxSalesReport2(Request $request)
     {
        // ddd($request->start_date);
         return Excel::download(new OrderExport(), 'Report Sales.xlsx');
@@ -122,8 +128,8 @@ class ReportController extends BaseController
 
     public function exportXlsxSalesReport(Request $request, $id)
     {
-        /* $uris = explode('/', $request->getRequestUri());
-        $order = Order::find($id); */
+        $uris = explode('/', $request->getRequestUri());
+        $order = Order::find($id); 
         $data = [
             //'order' => $order,
             'uri' => "testing"    // invoice or receipt, show diff title
@@ -131,14 +137,30 @@ class ReportController extends BaseController
         return view('orders.invoice', $data);
         // $pdf = PDF::loadView('student.orders.receipt', $data);
         // return $pdf->stream();
-    }
+    } */
 
-    public function orderReportExport(Request $request)
+    /* public function orderReportExport(Request $request)
     {
        // ddd($request->start_date);
        //return Excel::download(new OrderExport($request->start_date, $request->end_date, $request->search_payment_status), 'Report Orders.xlsx');
        return Excel::download(new OrderExport(), 'Report Orders.xlsx');
+    } */
+
+    // end Sales Report
+
+    // Report Trainer commission 
+    public function trainersCommissionReport(Request $request){
+
     }
+
+    public function exportXlsxTrainerCommissionReport(Request $request)
+    {
+        $data = $this->trainersCommissionReport($request);
+        return Excel::download(new TrainerCommissionExport($this->s_date, $this->e_date, $data), 'Report TrainerCommission.xlsx');
+        //return Excel::download(new SalesExport($request->start_date, $request->end_date, $request->search_payment_status), 'Report Sales.xlsx');
+    }
+
+    // End Report Trainer commission
 
 
 
