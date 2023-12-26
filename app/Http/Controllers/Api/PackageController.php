@@ -42,7 +42,7 @@ class PackageController extends BaseController
     public function index(Request $request)
     {
         if (!Gate::allows('packages')) {
-            return $this->sendPermissionDenied();
+//            return $this->sendPermissionDenied();
         }
 
         $user = Auth::user();
