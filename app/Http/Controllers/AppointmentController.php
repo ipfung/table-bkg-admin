@@ -224,7 +224,10 @@ class AppointmentController extends Controller
                 $bufferSlots = [];
                 // TODO check if it's special day/holiday of Trainer.
                 // get freeslot from week_number freeslot.
-                $freeslots = $freeTimesolts[$d->dayOfWeekIso];    // it contains 'time', 'price'.
+//                echo "freeTimesolts length=" . sizeof($freeTimesolts) . '-' . json_encode($freeTimesolts);
+                if (isset($freeTimesolts['w'.$d->dayOfWeekIso]))
+                    $freeslots = $freeTimesolts['w'.$d->dayOfWeekIso];    // it contains 'time', 'price'.
+                else $freeslots = [];
                 $isDayOff = (sizeof($freeslots) == 0);
                 // TODO remove occupied time.
                 foreach ($freeslots as $index => $slot) {
@@ -894,7 +897,7 @@ class AppointmentController extends Controller
 //            echo '<br />stime=' . $startTime . ', etime=' . $endTime;
             // get timeslot session
             while ($startTime <= $endTime) {
-                $freeTimesolts[$dow->day_idx][] = ['time' => $startTime, 'price' => $price];
+                $freeTimesolts['w'.$dow->day_idx][] = ['time' => $startTime, 'price' => $price];
                 if (($startTime / $DAY_EPOCH) >= 1) {   // after midnight, add to next day as well.
                     $nextDayOfWeek = $dow->day_idx + 1;
                     if ($dow->day_idx > 7) {   // Sunday
@@ -902,7 +905,7 @@ class AppointmentController extends Controller
                     }
                     // add to next day.
 //            echo '<br />nextDayOfWeek=' . $nextDayOfWeek . ', etime=' . ($startTime - $DAY_EPOCH);
-                    $freeTimesolts[$nextDayOfWeek][] = ['time' => ($startTime - $DAY_EPOCH), 'price' => $price];
+                    $freeTimesolts['w'.$nextDayOfWeek][] = ['time' => ($startTime - $DAY_EPOCH), 'price' => $price];
                 }
                 $startTime += $sessionIntervalEpoch;
 //                echo ', starttime=' . $startTime . '!';
