@@ -431,8 +431,12 @@ class AppointmentController extends Controller
             // has orderNo means session will be deducted from orders.
             $order = Order::where('order_number', $request->orderNo)->with('details')->first();
             $user = $order->customer;
-            if ($request->has('roomId'))
-                $assignRandomRoom = false;
+            if ($request->has('roomId')) {
+                if ($request->roomId > 0) {
+                    // client side no room selection, but admin does.
+                    $assignRandomRoom = false;
+                }
+            }
             $saveAsPending = false;
             $sendNotify = true;
             $entity = 'token';
