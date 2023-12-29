@@ -232,22 +232,46 @@ class DashboardController extends BaseController
 
     private function getRemainingPackages($user) {
         $filterDate = $this->getCurrentDateTime();
-        $bookings = DB::table('orders')
+        $results = [];
+        // fixed schedule packages.
+        $order_packages = DB::table('orders')
             ->join('order_details', 'orders.id', '=', 'order_details.order_id')
             ->join('customer_bookings', 'order_details.booking_id', '=', 'customer_bookings.id')
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
             ->join('packages', 'appointments.package_id', '=', 'packages.id')
-            ->select(DB::raw('count(*) as remaining, max(date(appointments.start_time)) as last_lesson_date, package_id, packages.name, order_id, orders.recurring'))
+            ->selectRaw('count(*) as remaining, max(date(appointments.start_time)) as last_lesson_date, package_id, packages.name, order_id, orders.recurring')
+            ->where('order_details.order_type', 'package')   // package only orders.
             ->where('appointments.status', 'approved')
             ->where('appointments.package_id', '>', 0)
             ->where('appointments.start_time', '>',  $filterDate)
-            ->where('customer_bookings.customer_id', $user->id)
+            ->where('orders.customer_id', $user->id)
             ->groupBy('package_id')
             ->groupBy('packages.name')
             ->groupBy('order_id')
             ->groupBy('orders.recurring')
-            ->orderBy('packages.name', 'asc');
+            ->orderBy('packages.name', 'asc')
+            ->get();
 
-        return $bookings->get();
+        foreach ($order_packages as $order) {
+            $results[] = ['order_id' => $order->order_id, 'name' => $order->name, 'remaining' => $order->remaining, 'last_lesson_date' => $order->last_lesson_date, 'recurring' => $order->recurring];
+        }
+
+        // calculate hourly.
+        $order_courses = DB::table('orders')
+            ->join('order_details', 'orders.id', '=', 'order_details.order_id')
+//            ->selectRaw("(select sum(TIMESTAMPDIFF(minute, z.start_time, z.end_time)) from order_details x, customer_bookings y, appointments z where x.order_id=orders.id and x.order_type='used_token' and x.booking_id=y.id and y.appointment_id=z.id and z.start_time < ?) as used_minutes, (select max(date(z.start_time)) from order_details x, customer_bookings y, appointments z where x.order_id=orders.id) as last_lesson_date, orders.recurring, order_details.order_id", [$filterDate])
+            ->selectRaw("(select sum(JSON_EXTRACT(order_description, '$.no_of_session')) from order_details x, customer_bookings y, appointments z where x.order_id=orders.id and x.order_type='used_token' and x.booking_id=y.id and y.appointment_id=z.id and z.start_time < ?) as used_sessions, (select max(date(z.start_time)) from order_details x, customer_bookings y, appointments z where x.order_id=orders.id) as last_lesson_date, orders.recurring, order_details.order_id", [$filterDate])
+            ->where('order_details.order_type', 'token')
+            ->where('orders.customer_id', $user->id)
+            ->get();
+        foreach ($order_courses as $order) {
+            $recurring = json_decode($order->recurring);
+            // $recurring->quantity is in terms of 'hour'.
+            $order_remaining = $recurring->quantity;
+            if ($order->used_sessions > 0)
+                $order_remaining -= ($order->used_sessions / $recurring->no_of_session);
+            $results[] = ['order_id' => $order->order_id, 'name' => $recurring->package->name, 'remaining' => $order_remaining, 'last_lesson_date' => $order->last_lesson_date, 'recurring' => $order->recurring];
+        }
+        return $results;
     }
 }
