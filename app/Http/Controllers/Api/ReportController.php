@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Exports\OrderExport;
 use App\Exports\SaleExport;
+use App\Exports\TrainerCommissionExport;
 
 use Illuminate\Http\Request;
 
 use App\Models\Order;
 use App\Models\OrderDetail;
+use App\Models\Appointment;
+use App\Models\CustomerBookinghg;
 use App\Models\Payment;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -151,6 +154,57 @@ class ReportController extends BaseController
     // Report Trainer commission 
     public function trainersCommissionReport(Request $request){
 
+        $fromDate = Carbon::today()->format("Y-m-d");
+        if ($request->has('from_date')) {
+            $fromDate = $request->from_date;
+        }
+        $toDate = Carbon::today()->addDays(7)->format("Y-m-d");
+        if ($request->has('to_date')) {
+            $toDate = $request->to_date;
+        }
+        $this->s_date = $fromDate;
+        $this->e_date = $toDate;
+        //
+        //$trainer_commissions = Appointment::orderby('user_id')->with('user')
+       
+                            //->orderBy('user.name');
+                            // ->orderby('start_time', 'desc')
+           
+           // $trainer_commissions =  $trainer_commissions->with('customerBookings')
+             //           ->with('customerBookings.customer');
+            /*  $trainer_commissions = Appointment::with(['user' => function($query) {
+                $query->orderBy('users.name', 'desc');
+            }]); */
+            //$trainer_commissions = Appointment::with('user');
+            //->orderBy('users.name');
+            /* $trainer_commissions =  $trainer_commissions->with('customerBookings')
+                    ->with('customerBookings.customer'); */
+        
+                    
+        $trainer_commissions =  Appointment::select(['appointments.*','users.name'])
+        ->join('users','appointments.user_id','=','users.id')
+        ->where('start_time', '>=', $fromDate )
+        ->where('start_time', '<=', $toDate );
+
+        if ($request->has('trainerId')){
+            $trainer_commissions = $trainer_commissions->where('user_id','=',$request->trainerId);
+        }
+        $trainer_commissions =  $trainer_commissions
+       
+        ->with('customerBookings')
+        ->with('customerBookings.customer')
+        ->orderby('users.name')
+        ->orderby('start_time');
+
+        if ($request->has('exporttoexcel'))
+        {
+            if($request->exporttoexcel)
+            {
+              
+                return $trainer_commissions->get();
+            }
+        }
+        return $trainer_commissions->paginate()->toArray();
     }
 
     public function exportXlsxTrainerCommissionReport(Request $request)

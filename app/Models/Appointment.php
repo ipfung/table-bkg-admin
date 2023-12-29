@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use DateTime;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
 
 class Appointment extends Model
 {
+    protected $appends = ['duration','simpleduration'];
 
     public function getDurationAttribute()
     {
@@ -15,6 +17,14 @@ class Appointment extends Model
         $end = DateTime::createFromFormat('Y-m-d H:i:s', $this->end_time);
         $interval = $start->diff($end);
         return $interval->format('%h h %i min');
+    }
+
+    public function getSimpleDurationAttribute()
+    {
+        $start = DateTime::createFromFormat('Y-m-d H:i:s', $this->start_time);
+        $end = DateTime::createFromFormat('Y-m-d H:i:s', $this->end_time);
+        $interval = Carbon::parse($start)->diffInMinutes($end);        
+        return $interval;
     }
 
     public function room()
