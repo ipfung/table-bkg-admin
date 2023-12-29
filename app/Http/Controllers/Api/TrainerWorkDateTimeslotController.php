@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Facade\PermissionService;
 use App\Models\TrainerWorkdateTimeslot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,9 +15,8 @@ class TrainerWorkDateTimeslotController extends BaseController
      *
      * @return void
      */
-    public function __construct(PermissionService $permissionService)
+    public function __construct()
     {
-        parent::__construct($permissionService);
         $canAccess = (config("app.jws.settings.timeslots") == 'trainer_date');
         if (!$canAccess) {
             abort(404);

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Facade\AppointmentService;
-use App\Facade\PermissionService;
 use App\Models\Appointment;
 use App\Models\CustomerBooking;
 use App\Models\Package;
@@ -24,9 +23,8 @@ class PackageController extends BaseController
      *
      * @return void
      */
-    public function __construct(PermissionService $permissionService, AppointmentService $appointmentService)
+    public function __construct(AppointmentService $appointmentService)
     {
-        parent::__construct($permissionService);
         $canAccess = config("app.jws.settings.packages");
         if (!$canAccess) {
             abort(404);

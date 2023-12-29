@@ -16,15 +16,6 @@ class BaseController extends Controller
     public static $dateTimeFormat = 'Y-m-d H:i:s';
     public static $dateFormat = 'Y-m-d';
 
-    /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
-    public function __construct(PermissionService $permissionService) {
-        $this->permissionService = $permissionService;
-    }
-
     protected function getCurrentDateTime() {
         $now = new DateTime();
         $now->setTimezone(new DateTimeZone(config("app.jws.local_timezone")));   // must set timezone, otherwise the punch-in time use UTC(app.php) and can't checkin.
@@ -32,15 +23,15 @@ class BaseController extends Controller
     }
 
     protected function isSuperLevel($user) {
-        return $this->permissionService->isSuperLevel($user);
+        return PermissionService::isSuperLevel($user);
     }
 
     protected function isInternalCoachLevel($user) {
-        return $this->permissionService->isInternalCoachLevel($user);
+        return PermissionService::isInternalCoachLevel($user);
     }
 
     protected function isExternalCoachLevel($user) {
-        return $this->permissionService->isExternalCoachLevel($user);
+        return PermissionService::isExternalCoachLevel($user);
     }
 
     /**

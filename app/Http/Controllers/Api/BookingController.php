@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Facade\AppointmentService;
-use App\Facade\PermissionService;
 use App\Models\CustomerBooking;
 use App\Models\Leave;
 use DateTime;
@@ -22,9 +21,8 @@ class BookingController extends BaseController
      *
      * @return void
      */
-    public function __construct(PermissionService $permissionService, AppointmentService $appointmentService)
+    public function __construct(AppointmentService $appointmentService)
     {
-        parent::__construct($permissionService);
         $this->appointmentService = $appointmentService;
     }
 

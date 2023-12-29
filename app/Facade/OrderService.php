@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\NotificationsService;
 use DateTime;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class OrderService
@@ -49,6 +50,8 @@ class OrderService
 
     public function getValidTokenBasedOrder($customer, $order_id) {
         // check any valid token-based orders.
+        $user = Auth::user();
+        $isInternalCoach = PermissionService::isExternalCoachLevel($user);
         DB::enableQueryLog(); // Enable query log
         $today = Carbon::today();
         $orders = Order::orderBy('order_date', 'DESC');
@@ -93,12 +96,18 @@ class OrderService
                 }
                 if ($quantity > 0) {
                     $customerTrainerRates = TrainerRate::where('student_id', $customer->id)
-//                        ->where('rate_type', TrainerRate::ONE_TO_ONE_MONTHLY)  // shall get ONE_TO_ONE_MONTHLY only?
+                        ->where('rate_type', TrainerRate::ONE_TO_ONE_MONTHLY)  // shall get ONE_TO_ONE_MONTHLY only?
                         ->get();
                     $trainers = [];
                     foreach ($customerTrainerRates as $trainerRate) {
                         $trainer = User::where('id', $trainerRate->trainer)->with('role')->first();
                         $trainer->rate_type = $trainerRate->rate_type;
+                        if ($isInternalCoach) {
+                            // don't disclose charge to student.
+                            $trainer->trainer_charge = $trainerRate->trainer_charge;
+                            $trainer->trainer_commission = $trainerRate->trainer_commission;
+                            $trainer->company_income = $trainerRate->company_income;
+                        }
                         $trainers[] = $trainer;
                     }
                     $result = ['trainers' => $trainers, 'customer_id' => $customer->id, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
