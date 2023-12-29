@@ -85,7 +85,7 @@ class User extends \TCG\Voyager\Models\User
 
     public function trainerRates()
     {
-        return $this->hasMany(TrainerRate::class, 'student_id', 'user_id');
+        return $this->hasMany(TrainerRate::class, 'student_id', 'id');
     }
 
 }

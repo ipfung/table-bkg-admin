@@ -26,6 +26,7 @@ class UserController extends BaseController
     public function index(Request $request)
     {
         $user = Auth::user();
+        $withRelationship = ['role'];
         //
         DB::enableQueryLog(); // Enable query log
         $users = User::orderBy('name', 'asc')
@@ -55,8 +56,10 @@ class UserController extends BaseController
             }
             if ($request->role == 'Trainer')
                 $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?))', [User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF, User::$MANAGER]);
-            if ($request->role == 'Student')
+            if ($request->role == 'Student') {
                 $users->whereRaw('role_id in (select id from roles where name in (?, ?))', [User::$MEMBER, User::$USER]);
+                $withRelationship[] = 'trainerRates';   // get trainer rates as well.
+            }
         }
 
         if ($request->has('q')) {
@@ -100,7 +103,7 @@ class UserController extends BaseController
 //        $results = end($aaa);    // debug
 //        return $this->sendResponse($results, "ok");    // debug
         if ($request->expectsJson()) {
-            $data = $users->with('role')->paginate()->toArray();
+            $data = $users->with($withRelationship)->paginate()->toArray();
             $data['editable'] = $editable;   // append to paginate()
             $data['newable'] = $newable;
             $data['student_qr'] = config('app.jws.settings.student_qr');
