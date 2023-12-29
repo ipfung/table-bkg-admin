@@ -92,10 +92,13 @@ class OrderService
                     $quantity -= ($usedTokenSession / $no_of_session);
                 }
                 if ($quantity > 0) {
-                    $customerTrainerRates = TrainerRate::where('student_id', $customer->id)->get();
+                    $customerTrainerRates = TrainerRate::where('student_id', $customer->id)
+//                        ->where('rate_type', TrainerRate::ONE_TO_ONE_MONTHLY)  // shall get ONE_TO_ONE_MONTHLY only?
+                        ->get();
                     $trainers = [];
                     foreach ($customerTrainerRates as $trainerRate) {
                         $trainer = User::where('id', $trainerRate->trainer)->with('role')->first();
+                        $trainer->rate_type = $trainerRate->rate_type;
                         $trainers[] = $trainer;
                     }
                     $result = ['trainers' => $trainers, 'customer_id' => $customer->id, 'order_number' => $order->order_number, 'token_quantity' => $quantity, 'no_of_session' => $no_of_session, 'free_quantity' => $free_quantity, 'free_no_of_session' => $free_no_of_session, 'start_date' => $recurring->start_date, 'end_date' => $recurring->end_date];
