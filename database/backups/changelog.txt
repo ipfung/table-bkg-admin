@@ -288,3 +288,6 @@ ALTER TABLE `payments` ADD `gateway_msg` VARCHAR(120) NULL AFTER `gateway`;
 delete FROM `order_details` WHERE date(created_at)=CURRENT_DATE;
 delete FROM `orders` WHERE date(created_at)=CURRENT_DATE;
 
+--20231228
+ALTER TABLE `customer_bookings` ADD `rate_type` TINYINT NULL AFTER `take_leave_by`, ADD `trainer_charge` FLOAT NULL AFTER `rate_type`, ADD `trainer_commission` FLOAT NULL AFTER `trainer_charge`, ADD `company_income` FLOAT NULL AFTER `trainer_commission`;
+ALTER TABLE `trainer_rates` ADD UNIQUE(`trainer`, `rate_type`, `student_id`);

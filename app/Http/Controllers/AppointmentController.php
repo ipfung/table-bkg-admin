@@ -16,6 +16,7 @@ use App\Models\Room;
 use App\Models\Service;
 use App\Models\Holiday;
 use App\Models\Timeslot;
+use App\Models\TrainerRate;
 use App\Models\TrainerTimeslot;
 use App\Models\TrainerWorkdateTimeslot;
 use App\Models\User;
@@ -392,6 +393,15 @@ class AppointmentController extends Controller
         return compact('data', 'package');
     }
 
+    /**
+     * There are 4 ways to create Appointment.
+     * 1. admin: create from Appointment directly.
+     * 2. admin: create from Order of course(a Package).
+     * 3. student: create from Order for 1v1.
+     * 4. student: create from Order for group session.
+     * @param Request $request
+     * @return array|\Illuminate\Http\RedirectResponse|int
+     */
     public function store(Request $request)
     {
         // get user's book days in advance.
@@ -537,7 +547,10 @@ class AppointmentController extends Controller
             $appointment->internal_remark = $request->internal_remark;
             $appointment->status = $appointmentStatus;     // get defaults from settings.
             $savedAppointment = $this->appointmentService->saveAppointment($appointment);
-            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user, $isPackage);
+            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user, $isPackage, $order);
+            if ($customerBooking === false) {
+                return ['success' => false, 'error' => 'No trainer rate found'];
+            }
             $savedAppointment->customer_booking_id = $customerBooking->id;
             $results[] = $savedAppointment;
 
@@ -572,7 +585,7 @@ class AppointmentController extends Controller
                     $appointment->internal_remark = $request->internal_remark;
                     $appointment->status = $appointmentStatus;     // get defaults from settings.
                     $savedAppointment2 = $this->appointmentService->saveAppointment($appointment);
-                    $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user, $isPackage);
+                    $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user, $isPackage, $order);
                     $savedAppointment2->customer_booking_id = $customerBooking2->id;
                     $results[] = $savedAppointment2;
                 }
@@ -686,7 +699,10 @@ class AppointmentController extends Controller
             if (!$hasSpace) {
                 return ['success' => false, 'error' => 'No more space for the packages.'];
             }
-            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment2, $user, false);
+            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment2, $user, false, $order);
+            if ($customerBooking === false) {
+                return ['success' => false, 'error' => 'No trainer rate found'];
+            }
             $savedAppointment2->customer_booking_id = $customerBooking->id;
             foreach ($order->details as $orderdtl) {
 
@@ -756,13 +772,13 @@ class AppointmentController extends Controller
         return redirect()->route('orders.index');
     }
 
-    private function saveCustomerBooking(Request $request, Appointment $appointment, User $user, $isPackage) {
+    private function saveCustomerBooking(Request $request, Appointment $appointment, User $customer, $isPackage, $order) {
         $customerBooking = new CustomerBooking;
         $customerBooking->appointment_id = $appointment->id;
-        $customerBooking->customer_id = $user->id;
+        $customerBooking->customer_id = $customer->id;
         $price = $request->order_total;
         if (!$isPackage && !$request->has('order_total')) {
-            if ($request->has('orderNo'))
+            if ($order)
                 $price = 0;
             else $price = $request->price;
         }
@@ -770,9 +786,65 @@ class AppointmentController extends Controller
         $customerBooking->info = json_decode($request->personalInformation);    // if any.
         $customerBooking->revised_appointment_id = $appointment->id;
         $customerBooking->revision_counter = 0;
+        // get trainer_rates for commission calculation.
+        $trainerRates = TrainerRate::orderBy('created_at', 'desc')->where('student_id', $customer->id);
+        $rateType = TrainerRate::ONE_TO_ONE_TRAINING;
+        if ($order) {
+            $order_recurring = json_decode($order->recurring);
+            if ($order_recurring->cycle == 'monthly') {
+                $rateType = TrainerRate::ONE_TO_ONE_MONTHLY;
+            }
+            else if ($appointment->package_id > 0) {
+                // get group trainer rate.
+                $packages = Package::find($appointment->package_id);
+                $recurring = json_decode($packages->recurring);
+                // use packages if available.
+                if ($packages->trainer_id)
+                    $trainerRates->where('trainer', $packages->trainer_id);
+                if ($recurring->cycle == 'monthly') {
+                    $rateType = TrainerRate::ONE_TO_ONE_MONTHLY;
+                } else if ($request->has('appointment_id')) {
+                    $rateType = TrainerRate::GROUP_TRAINING;
+                }
+            } else {
+                // use param trainer
+                if ($request->has('trainerId')) {
+                    $trainerRates->where('trainer', $request->trainerId);
+                }
+            }
+        } else {
+            // not an Order, use param trainer too & TrainerRate::ONE_TO_ONE_TRAINING.
+            if ($request->has('trainerId')) {
+                $trainerRates->where('trainer', $request->trainerId);
+            }
+        }
+        $trainerRates->where('rate_type', $rateType);
+        $rate = $trainerRates->first();
+        if ($order && $rate === null) {
+            // throw ERROR! confirmed by Tinhom.
+            DB::rollBack();
+            return false;
+        }
+        if (!$appointment->service) {
+            $appointment->service = Service::find($appointment->service_id);
+        }
+        if ($request->has('noOfSession'))
+            $noOfSession = $request->noOfSession;
+        else {
+            $noOfSession = $this->appointmentService->getNoOfSession($appointment->start_time, $appointment->end_time, $appointment->service->duration);
+        }
+        $customerBooking->rate_type = $rateType;
+        $customerBooking->trainer_charge = $this->calTrainerRate($appointment, $rate->trainer_charge, $noOfSession);
+        $customerBooking->trainer_commission = $this->calTrainerRate($appointment, $rate->trainer_commission, $noOfSession);
+        $customerBooking->company_income = $this->calTrainerRate($appointment, $rate->company_income, $noOfSession);
         $customerBooking->save();
 
         return $customerBooking;
+    }
+
+    private function calTrainerRate(Appointment $appointment, $price, $no_of_session) {
+        $min_session = $appointment->service->min_duration / $appointment->service->duration;
+        return ($price / $min_session * $no_of_session);
     }
 
     /**

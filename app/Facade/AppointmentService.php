@@ -163,6 +163,14 @@ class AppointmentService
         ];
     }
 
+    // calculate no_of_session by start_time & end_time
+    public function getNoOfSession($start_time, $end_time, $duration) {
+        $start_datetime = strtotime($start_time);
+        $end_datetime = strtotime($end_time);
+        $diff_minutes = round(abs($start_datetime - $end_datetime) / 60, 2) ;
+        return $diff_minutes / $duration;
+    }
+
     public function checkDupCustomerBooking($customerId, $paramDate) {
         $found = DB::table('customer_bookings')
             ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
