@@ -58,9 +58,7 @@ class BookingController extends BaseController
                 DB::raw('(select order_number from order_details, orders where order_details.booking_id=customer_bookings.id and order_details.order_id=orders.id) as order_num'),
                 DB::raw('(select payments.amount from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_amount'),
                 DB::raw('(select payments.status from order_details, payments where order_details.booking_id=customer_bookings.id and order_details.order_id=payments.order_id) as payment_status'),
-                'appointments.start_time', 'appointments.end_time', 'appointments.entity', 'appointments.status', 'appointments.room_id', 'rooms.name', 'rooms.color')
-            ->orderBy('appointments.start_time', 'asc')
-            ->orderBy('rooms.name', 'asc');
+                'appointments.start_time', 'appointments.end_time', 'appointments.entity', 'appointments.status', 'appointments.room_id', 'rooms.name', 'rooms.color');
         if ($request->has('appointmentId')) {
             $bookings->where('appointment_id', $request->appointmentId);
         } else {
@@ -76,6 +74,7 @@ class BookingController extends BaseController
         }
         if ($request->has('orderId')) {
             $bookings->whereRaw('customer_bookings.id in (select booking_id from order_details where order_id=?)', $request->orderId);
+            $bookings->orderBy('appointments.entity', 'desc');
         }
         if ($request->has('ownerId')) {
             $ownerId = $request->ownerId;
@@ -113,6 +112,9 @@ class BookingController extends BaseController
             $results['showCustomer'] = false;
             $results['showTrainer'] = true;
         }
+        $bookings->orderBy('appointments.start_time', 'asc')
+            ->orderBy('rooms.name', 'asc');
+
 
         if ($request->expectsJson()) {
             $results['success'] = true;
