@@ -100,6 +100,16 @@ class ReportController extends BaseController
             $data = $payments->with($withRelationship)->with('details.booking.appointment.room')->paginate()->toArray();
             $data['paymentGateway'] = (config("app.jws.settings.payment_gateway") != false);
             $data['showCustomer'] = $showCustomer;   // append to paginate()
+            $tmppayments1 =clone $payments;
+            $tmppayments2 =clone $payments;
+            $tmppayments3 =clone $payments;
+            $totalamount =  $tmppayments1->sum('order_total') ;
+           
+            $paidamount = $tmppayments1->where('payment_status','=','paid')->sum('order_total') ;
+            $unpaidamount = $tmppayments3->whereIn('payment_status', ['pending', 'partially'])->sum('order_total') ;
+            $data['reportTotal'] = $totalamount;
+            $data['reportPaidTotal'] = $paidamount;
+            $data['reportUnpaidTotal'] = $unpaidamount;
             return $data;
         }
         return view("finance.list", $payments);

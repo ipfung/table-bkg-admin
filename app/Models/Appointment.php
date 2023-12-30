@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Appointment extends Model
 {
-    protected $appends = ['duration','simpleduration'];
+    protected $appends = ['duration','simpleduration', 'lessontime'];
 
     public function getDurationAttribute()
     {
@@ -25,6 +25,17 @@ class Appointment extends Model
         $end = DateTime::createFromFormat('Y-m-d H:i:s', $this->end_time);
         $interval = Carbon::parse($start)->diffInMinutes($end);        
         return $interval;
+    }
+
+    public function getLessonTimeAttribute()
+    {
+        /* $start = DateTime::createFromFormat('H:i', $this->start_time);
+        $end = DateTime::createFromFormat('H:i', $this->end_time); */
+        $start = Carbon::parse($this->start_time)->format('H:i');
+        $end = Carbon::parse($this->end_time)->format('H:i');
+       // $end = DateTime::createFromFormat('H:i', $this->end_time); 
+        //$interval = $start->toTimeString() .'-'. $end->toTimeString();        
+        return $start .'-' .$end;
     }
 
     public function room()
