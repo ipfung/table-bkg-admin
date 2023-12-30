@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Appointment extends Model
 {
-    protected $appends = ['duration','simpleduration', 'lessontime'];
+    protected $appends = ['simpleduration', 'lessontime'];
 
     public function getDurationAttribute()
     {
