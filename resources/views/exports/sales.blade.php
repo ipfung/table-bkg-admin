@@ -1,12 +1,12 @@
 <table>
     <tr>
-        <td colspan="8" align="center" style="font-size:30px;"><h1>{{ __("Sales Report") }} </h1></td>
+        <td colspan="5" align="center" style="font-size:30px;"><h1>{{ __("Sales Report") }} </h1></td>
     </tr>
     <tr>
-        <td colspan="8" align="right">Print Report Date:{{ date("Y-M-d")}}</td>
+        <td colspan="5" align="right">Print Report Date:{{ date("Y-M-d")}}</td>
     </tr>
     <tr>
-        <td colspan="8" align="right">Report Period:{{ date('Y-M-d', strtotime($report_s_date)) }}~{{ date('Y-M-d', strtotime($report_e_date)) }} </td>
+        <td colspan="5" align="right">Report Period:{{ date('Y-M-d', strtotime($report_s_date)) }}~{{ date('Y-M-d', strtotime($report_e_date)) }} </td>
     </tr>
 </table>
 
@@ -14,11 +14,11 @@
         
         <thead class="thead-dark">
         <tr>
-            <th style="width:100px;"><b>{{ __("Order No") }}</b></th>
-            <th style="width:100px;"><b>{{ __("Date") }}</b></th>
-            <th style="width:100px;"><b>{{ __("Customer") }}</b></th>
-            <th style="width:80px;"><b>{{ __("Paid Amount") }}</b></th>
-            <th style="width:100px;"><b>{{ __("Payment Status") }}</b></th>                     
+            <th style="width:150px;"><b>{{ __("Order No") }}</b></th>
+            <th style="width:150px;"><b>{{ __("Date") }}</b></th>
+            <th style="width:150px;"><b>{{ __("Customer") }}</b></th>
+            <th style="width:150px;"><b>{{ __("Paid Amount") }}</b></th>
+            <th style="width:150px;"><b>{{ __("Payment Status") }}</b></th>                     
          {{--   <th style="width:100px;"><b>{{ __("Payment Method") }}</b></th>                    
             <th style="width:100px;"><b>{{ __("Created at") }}</b></th>
             <th style="width:100px;"><b>{{ __("Updated at") }}</b></th> --}}
