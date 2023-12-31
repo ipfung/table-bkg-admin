@@ -332,6 +332,7 @@ class AppointmentController extends Controller
      * @return array
      */
     public function getPackageTimeslots(Request $request) {
+        $locationId = 1;
         $service = Service::find($request->service_id);
         $sessionToBeBooked = ($request->noOfSession * $service->durationEpoch);   // client selected session * each session, in epoch.
         $sessionInterval = $service->duration_epoch;
