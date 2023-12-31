@@ -341,12 +341,21 @@ class AppointmentController extends Controller
             if ($request->date != '') {
                 $date = new Carbon($request->date);
                 $dow = $date->isoWeekday();
-                $timeslots = Timeslot::orderBy('day_idx', 'asc')
-                    ->orderBy('from_time', 'asc')
-                    ->where('location_id', 1)
-                    ->where('day_idx', $dow)
-                    ->get();
-                $data = $this->convertTimeslot($timeslots, $sessionToBeBooked, $service->sessionMinuteEpoch, 0)[$dow];
+                if (config("app.jws.settings.timeslots") == 'trainer_date') {
+                    $trainerId = $request->trainer_id;
+                    $timeslots = TrainerWorkdateTimeslot::where('location_id', $locationId)
+                        ->where('trainer_id', $trainerId)
+                        ->where('work_date', $request->date)   // must get 1 date only, otherwise the day_idx will be confused.
+                        ->orderBy('from_time', 'asc')
+                        ->get();
+                } else {    // day of week
+                    $timeslots = Timeslot::orderBy('day_idx', 'asc')
+                        ->orderBy('from_time', 'asc')
+                        ->where('location_id', $locationId)
+                        ->where('day_idx', $dow)
+                        ->get();
+                }
+                $data = $this->convertTimeslot($timeslots, $sessionToBeBooked, $service->sessionMinuteEpoch, 0)['w'.$dow];
             }
         }
         return compact('data', 'sessionInterval');
@@ -952,6 +961,13 @@ class AppointmentController extends Controller
 
     }
 
+    /**
+     * @param $dayOfWeek_timeslots
+     * @param $sessionToBeBooked
+     * @param $sessionIntervalEpoch
+     * @param $price
+     * @return array[] Note the array index will be started with 'w1' - 'w7'.
+     */
     private function convertTimeslot($dayOfWeek_timeslots, $sessionToBeBooked, $sessionIntervalEpoch, $price) {
         $today = Carbon::today()->timestamp;
         $DAY_EPOCH = 24 * 60 * 60;
@@ -986,7 +1002,7 @@ class AppointmentController extends Controller
                 $startTime += $sessionIntervalEpoch;
 //                echo ', starttime=' . $startTime . '!';
             }
-//            echo ', $freeTimesolts[$dow->day_idx]=' . json_encode($freeTimesolts[$dow->day_idx]) . '!';
+//            echo ', $freeTimesolts[$dow->day_idx]=' . json_encode($freeTimesolts['w'.$dow->day_idx]) . '!';
         }
         return $freeTimesolts;
     }
