@@ -23,11 +23,13 @@ class BlockAppointmentController extends BaseController
         $user = Auth::user();
 
         // date range search.
-        $fromDate = Carbon::today()->subDays(30)->format(BaseController::$dateFormat);
+        //$fromDate = Carbon::today()->subDays(30)->format(BaseController::$dateFormat);
+        $fromDate = Carbon::today()->format(BaseController::$dateFormat);
         if ($request->has('from_date')) {
             $fromDate = $request->from_date;
         }
-        $toDate = Carbon::today()->addDays(30)->format(BaseController::$dateFormat);
+        //$toDate = Carbon::today()->addDays(30)->format(BaseController::$dateFormat);
+        $toDate = Carbon::today()->format(BaseController::$dateFormat);
         if ($request->has('to_date')) {
             $toDate = $request->to_date;
         }
@@ -43,6 +45,7 @@ class BlockAppointmentController extends BaseController
                 DB::raw("users.name as title"),    // client name as title.
                 DB::raw('appointments.id as appointment_id'),
                 DB::raw('rooms.color'),
+                DB::raw('rooms.id as room_id'),
                 DB::raw('rooms.name as room_name'),
                 DB::raw('appointments.start_time as start'),
                 DB::raw('appointments.end_time as end')
@@ -90,7 +93,7 @@ class BlockAppointmentController extends BaseController
         }
 
         // always return JSON type for calendar.
-        return $appointments->with('package')->with('customerBookings')->with('customerBookings.customer')->paginate(300);
+        return $appointments->orderby('start_time')->with('package')->with('customerBookings')->with('customerBookings.customer')->paginate(300);
     }
 
 
