@@ -122,68 +122,51 @@ class OrderService
         return $result;
     }
 
-    public function generateNextOrder($orderId, $createdUserId) {
+    /**
+     * generate next Monthly order by specific order Id, update old order 'repeatable' to 11 once done.
+     * @param $orderId
+     * @param $createdUserId
+     * @return mixed
+     */
+    public function generateNextMonthlyOrder($orderId, $createdUserId) {
         // ref: https://stackoverflow.com/questions/18861186/eloquent-eager-load-order-by
-        $oldOrder = Order::find($orderId)->with(array('details' => function($query) {
-            $query->where('order_type', 'package');
-            $query->orderBy('start_time', 'ASC');
-        }));
-
-        $recurring = json_decode($oldOrder->recurring);
-        // get next lessons
-        $lastLesson = end($oldOrder->details);
-        $nextAppointments = Appointment::orderBy('start_time')
-            ->where('package_id', $lastLesson->package_id)
-            ->where('start_time', '>', $lastLesson->start_time)
-            ->limit($recurring->quantity)
-            ->get();
-        if ($recurring->quantity != count($nextAppointments)) {
-            // TODO need throw exception if not match no of appointments?
+        $oldOrder = Order::where('id', $orderId)
+            ->whereExists(function ($query) {
+                $renew_date = Carbon::now()->addDays(7);
+                $query->select(DB::raw(1))
+                    ->from('order_details')
+                    ->whereColumn('order_details.order_id', 'orders.id')
+                    ->where('order_type', 'token')
+                ->where('order_description->end_date', '<=', $renew_date);   // ref: https://stackoverflow.com/questions/69336034/laravel-eloquent-filter-from-a-value-of-json-column
+            })
+//            ->whereRaw('id in (select order_id from order_details where order_type=? and JSON_CONTAINS(order_description)->end_date<=?)', [OrderDetail::$TYPE_TOKEN, $renew_date])
+//        with(array('details' => function($query) {
+//            $query->where('order_type', 'token')
+//                ->where('order_description->end_date', '<=', $renew_date);   // ref: https://stackoverflow.com/questions/69336034/laravel-eloquent-filter-from-a-value-of-json-column
+//        }))
+            ->first();
+        if (empty($oldOrder)) {
+            return false;
         }
 
         DB::beginTransaction();
 
-        $order = new Order;
+        $order = $oldOrder->replicate();
         $order->parent_id = $oldOrder->id;    // this is important.
-        $order->order_number = uniqid();
+        $order->order_number = $this->genOrderNo($oldOrder->location_id);
         $order->order_date = Carbon::today()->format('Y-m-d');
-        $order->order_total = $oldOrder->order_total;
-        $order->discount = $oldOrder->discount;
-        $order->customer_id = $oldOrder->customer_id;
-        $order->user_id = $createdUserId;
         $order->paid_amount = 0;
         $order->payment_status = 'pending';
-        $order->order_status = 'pending';
-        $order->recurring = $oldOrder->recurring;
-        $order->repeatable = $oldOrder->repeatable;
-        $order->trainer_id = $oldOrder->trainerId;
-        $order->commission = $oldOrder->commission;
+        $recurring = json_decode($oldOrder->recurring);
+        $new_start_date = (new Carbon($recurring->end_date))->addDay();
+        $recurring->start_date = $new_start_date->format('Y-m-d');
+        $recurring->end_date = ($new_start_date->addMonth()->subDay())->format('Y-m-d');
+        $order->recurring = json_encode($recurring);
         $order->save();
 
-        foreach ($nextAppointments as $appointment) {
-            // find appointment by package id and then create customer booking & order detail.
-            $customerBooking = new CustomerBooking;
-            $customerBooking->appointment_id = $appointment->id;
-            $customerBooking->customer_id = $order->customer_id;
-            $customerBooking->price = $lastLesson->price;
-            $customerBooking->info = $lastLesson->info;
-            $customerBooking->revised_appointment_id = $appointment->id;
-            $customerBooking->revision_counter = 0;
-            $customerBooking->save();
-
-            //put booking id into appointment for OrderDetail use.
-            $appointment->customer_booking_id = $customerBooking->id;
-
-            $orderDetail = new OrderDetail;
-            $orderDetail->order_id = $order->id;   // the new order id.
-            $orderDetail->order_type = 'package';
-            $orderDetail->booking_id = $customerBooking->id;
-            $orderDetail->order_description = json_encode($appointment);
-            $orderDetail->original_price = $lastLesson->price;
-            $orderDetail->discounted_price = $lastLesson->price;
-            $orderDetail->coupon_id = $lastLesson->coupon_id;
-            $orderDetail->save();
-        }
+        //make old order repeatable to other value than 1.
+        $oldOrder->repeatable = 1 + 10;
+        $oldOrder->save();
 
         $payment = new Payment;
         $payment->order_id = $order->id;
@@ -196,7 +179,38 @@ class OrderService
         $payment->entity = 'package';
         $payment->save();
 
+        foreach ($oldOrder->details as $orderdtl) {
+            if ($orderdtl->order_type == OrderDetail::$TYPE_TOKEN) {
+                $dtl = new OrderDetail;
+                $dtl->order_type = OrderDetail::$TYPE_TOKEN;
+                $dtl->order_id = $order->id;
+                $recurring = json_decode($orderdtl->order_description);
+                $new_start_date = (new Carbon($recurring->end_date))->addDay();
+                $recurring->start_date = $new_start_date->format('Y-m-d');
+                $recurring->end_date = ($new_start_date->addMonth()->subDay())->format('Y-m-d');
+                $dtl->order_description = json_encode($recurring);
+                $dtl->original_price = 0;
+                $dtl->discounted_price = 0;
+                $dtl->save();
+                if ($recurring->free)  {
+                    $free_qty = $recurring->free->quantity;
+                    for ($i=0; $i<$free_qty; $i++) {
+                        $free_data = ["quantity" => 1, "no_of_session" => $recurring->free->no_of_session];
+                        $orderDetail = new OrderDetail;
+                        $orderDetail->order_id = $order->id;
+                        $orderDetail->order_type = OrderDetail::$TYPE_FREE_TOKEN;
+                        $orderDetail->booking_id = 0;
+                        $orderDetail->order_description = json_encode($free_data);
+                        $orderDetail->original_price = 0;
+                        $orderDetail->discounted_price = 0;
+                        $orderDetail->save();
+                    }
+                }
+            }
+        }
         DB::commit();
+
+//        $this->sendOrderNotifications('order_created', $order, 99);
 
         return $order;
     }

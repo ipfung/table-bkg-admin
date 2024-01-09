@@ -143,20 +143,6 @@ class PaymentController extends BaseController
             $orderDetail->discounted_price = $order->order_total;
             $orderDetail->order_description = $order->recurring;
             $orderDetail->save();
-            // token based, loop the quantity? how to handle free sessions?
-//            foreach (range(1, $recurring['quantity']) as $i) {
-//                $orderDetail = new OrderDetail;
-//                $orderDetail->order_id = $order->id;
-//                $orderDetail->order_type = $request->order_type;
-//                $orderDetail->original_price = 0;
-//                $orderDetail->discounted_price = 0;
-//                $order_description = new stdClass;
-//                $order_description->quantity = 1;
-//                $order_description->no_of_session = $recurring["no_of_session"];
-//                $orderDetail->order_description = json_encode($order_description);
-//                $orderDetail->booking_id = 0;
-//                $orderDetail->save();
-//            }
             // free class, due to it must be used as per free hour, create OrderDetail by free.quantity.
             if ($recurring["free"]) {
                 foreach (range(1, $recurring["free"]["quantity"]) as $i) {
@@ -296,6 +282,35 @@ class PaymentController extends BaseController
         }
         $order->save();
         return $order->payment_status;
+    }
+
+    public function getRenewableOrders(Request $request) {
+        $orders = Order::orderBy('order_date', 'asc')
+            ->where('repeatable', 1)
+            ->where('order_status', 'confirmed')
+            ->where('payment_status', 'paid');
+        if ($request->has('order_id')) {
+            $orders->where('id', $request->order_id);
+        }
+        $orders = $orders->get();
+
+        $results = [];
+        foreach ($orders as $order) {
+            $res = $this->orderService->generateNextMonthlyOrder($order->id, 99);
+            if (false == $res) {
+                $data = ['order_id' => $order->id, 'order_number' => $order->order_number, 'renew' => false];
+                if ($request->has('order_id')) {
+                    return $this->sendError( 'Renew order failed');
+                }
+                $results[] = $data;
+            } else {
+                if ($request->has('order_id')) {
+                    return $this->sendResponse($res, 'Renew order successfully');
+                }
+                $results[] = $res;
+            }
+        }
+        return $this->sendResponse($results, 'Renew orders successfully');
     }
 
     public function sendBillReminder($id) {
