@@ -78,6 +78,10 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::get('/user-service', 'Api\ServiceController@getUserService');
     // notifications
     Route::apiResource('/notifications', 'Api\NotificationController');
+    Route::apiResource('/notification-templates', 'Api\NotificationTemplateController');
+    // whatsapp
+    Route::get('/whatsapp/message-templates', 'Api\WhatsappController@index');
+
     // simple API
     Route::apiResource('/services', 'Api\ServiceController');
     Route::apiResource('/timeslots', 'Api\TimeslotController');
