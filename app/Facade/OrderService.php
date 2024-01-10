@@ -123,6 +123,22 @@ class OrderService
     }
 
     /**
+     * get repeatable orders which is repeatable=1, order_status=confirmed and payment_status=paid.
+     * @param $orderId optional orderId for manual renewal.
+     * @return mixed array of orders.
+     */
+    public function getRepeatableOrders($orderId) {
+        $orders = Order::orderBy('order_date', 'asc')
+            ->where('repeatable', 1)
+            ->where('order_status', 'confirmed')
+            ->where('payment_status', 'paid');
+        if ($orderId > 0) {
+            $orders->where('id', $orderId);
+        }
+        return $orders->get();
+    }
+
+    /**
      * generate next Monthly order by specific order Id, update old order 'repeatable' to 11 once done.
      * @param $orderId
      * @param $createdUserId
@@ -152,6 +168,7 @@ class OrderService
         DB::beginTransaction();
 
         $order = $oldOrder->replicate();
+        $order->user_id = $createdUserId;
         $order->parent_id = $oldOrder->id;    // this is important.
         $order->order_number = $this->genOrderNo($oldOrder->location_id);
         $order->order_date = Carbon::today()->format('Y-m-d');
@@ -189,8 +206,8 @@ class OrderService
                 $recurring->start_date = $new_start_date->format('Y-m-d');
                 $recurring->end_date = ($new_start_date->addMonth()->subDay())->format('Y-m-d');
                 $dtl->order_description = json_encode($recurring);
-                $dtl->original_price = 0;
-                $dtl->discounted_price = 0;
+                $dtl->original_price = $orderdtl->original_price;
+                $dtl->discounted_price = $orderdtl->discounted_price;
                 $dtl->save();
                 if ($recurring->free)  {
                     $free_qty = $recurring->free->quantity;

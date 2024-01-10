@@ -285,18 +285,16 @@ class PaymentController extends BaseController
     }
 
     public function getRenewableOrders(Request $request) {
-        $orders = Order::orderBy('order_date', 'asc')
-            ->where('repeatable', 1)
-            ->where('order_status', 'confirmed')
-            ->where('payment_status', 'paid');
+        $orderId = 0;
         if ($request->has('order_id')) {
-            $orders->where('id', $request->order_id);
+            $orderId = $request->order_id;
         }
-        $orders = $orders->get();
+        $orders = $this->orderService->getRepeatableOrders($orderId);
+        $user = Auth::user();
 
         $results = [];
         foreach ($orders as $order) {
-            $res = $this->orderService->generateNextMonthlyOrder($order->id, 99);
+            $res = $this->orderService->generateNextMonthlyOrder($order->id, $user->id);
             if (false == $res) {
                 $data = ['order_id' => $order->id, 'order_number' => $order->order_number, 'renew' => false];
                 if ($request->has('order_id')) {
