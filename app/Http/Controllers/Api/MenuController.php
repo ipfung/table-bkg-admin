@@ -20,12 +20,12 @@ class MenuController extends BaseController
         $menu = [
             ['label' => 'Dashboard', 'icon' => 'pi pi-fw pi-th-large', 'routerLink' => ['/']],
             ['label' => 'Calendar', 'icon' => 'pi pi-fw pi-calendar', 'routerLink' => ['/calendar'], 'visible' => $isExternalCoach],
-            ['label' => 'Weekly', 'icon' => 'pi pi-fw pi-calendar', 'routerLink' => ['/appointment-blocks'], 'visible' => $isExternalCoach],
+            ['label' => 'Focus', 'icon' => 'pi pi-fw pi-calendar', 'routerLink' => ['/appointment-blocks'], 'visible' => $isExternalCoach],
             ['label' => 'Appointment', 'icon' => 'pi pi-fw pi-exclamation-circle', 'routerLink' => ['/appointment-list']],
             ['label' => 'Finance', 'icon' => 'pi pi-fw pi-dollar', 'routerLink' => ['/finance'], 'visible' => config("app.jws.settings.finance")],
             ['label' => 'Report', 'icon' => 'pi pi-fw pi-chart-line', 'visible' => $isSuperUser, 'expanded' => true, 'items' => [
                 ['label' => 'Sales Report', 'icon' => 'pi pi-fw pi-chart-bar', 'routerLink' => ['/report-sales'], 'visible' => true],
-                ['label' => 'Trainner Commission Report', 'icon' => 'pi pi-fw pi-percentage', 'routerLink' => ['/report-trainer-commissions'], 'visible' => ($isSuperUser && config("app.jws.settings.packages"))],
+                ['label' => 'Trainer Commission Report', 'icon' => 'pi pi-fw pi-percentage', 'routerLink' => ['/report-trainer-commissions'], 'visible' => ($isSuperUser && config("app.jws.settings.packages"))],
 
             ]],
             ['label' => 'Trainer', 'icon' => 'pi pi-fw pi-users', 'routerLink' => ['/trainer-student-list'], 'visible' => $isExternalCoach],
