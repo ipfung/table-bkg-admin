@@ -35,7 +35,7 @@
             <td>{{ $order->order_number }}</td>
             <td>{{ $order->order_date }}</td>
             <td>{{ $order->customer->name }}</td>
-            <td>{{ $order->paid_amount }}</td>  
+            <td>{{ $order->order_total }}</td>  
             <td>{{ $order->payment_status }}</td>                 
            {{--  <td>{{ $order->getPaymentMethodText() }}</td>                   
             <td>{{ date('Y-m-d', strtotime($order->created_at)) }}</td>
@@ -44,7 +44,13 @@
                             
         </tr>
         @php
-         $total = $total + $order->paid_amount;    
+        if ($order->payment_status=="paid" ){
+            $total = $total + $order->order_total;  
+        } else {
+            $total_unpaid = $total_unpaid + $order->order_total;
+        }
+        
+        
            /*  if ($order->payment_status==2002) {//paid
                 $total = $total + $order->paid_amount;    
             } else {
@@ -56,6 +62,7 @@
     <tr>
         <td colspan="3" align="right" ><strong>Total:</strong></td>
         <td align="right" ><strong>{{$total}}</strong></td>
+        <td><strong>Unpaid Total:{{$total_unpaid}}</strong></td>
        {{--  <td align="right" ><strong>Unpaid Total:</strong></td>
         <td align="right" ><strong>HK${{$total_unpaid}}</strong></td> --}}
     </tr>
