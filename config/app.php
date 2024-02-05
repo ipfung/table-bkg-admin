@@ -250,6 +250,7 @@ return [
             'checkin_after_minute' => env('LEMONADE_ALLOW_CHECKIN_AFTER_MINUTE'),
             'timeslots' => env('LEMONADE_TIMESLOTS'),
             'trainer_multiple_student' => env('LEMONADE_TRAINER_MULTI_STUDENT'),
+            'trainer_commission' => env('LEMONADE_TRAINER_COMMISSION'),
             'whatsapp_notifications' => env('LEMONADE_WHATSAPP_NOTIFICATIONS'),
             'whatsapp_promotions' => env('LEMONADE_WHATSAPP_PROMOTIONS'),
         ],
