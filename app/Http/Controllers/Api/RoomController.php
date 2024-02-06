@@ -111,7 +111,7 @@ class RoomController extends BaseController
         }
 
         $request->validate([
-            'name' => 'required|max:255|unique:rooms',    // room name
+            'name' => 'required|max:255',    // room name
             'location_id' => 'required'
         ]);
         $room = Room::find($id);
