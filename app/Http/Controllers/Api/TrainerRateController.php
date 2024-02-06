@@ -54,7 +54,13 @@ class TrainerRateController extends BaseController
         ]);
         $trainerrate = new TrainerRate($request->all());
 
-
+        $trainerrate->trainer_commission = $request->trainer_commission;
+        $trainerrate->trainer_charge = $request->trainer_charge;
+        $company_income = 0;
+        if ($request->trainer_charge > 0 &&  $request->trainer_commission >=0) {
+            $company_income = $request->trainer_charge - $request->trainer_commission;
+        }
+        $trainerrate->company_income = $company_income;
         $trainerrate->save();
 
         return $this->sendResponse($trainerrate, 'Create successfully.');
