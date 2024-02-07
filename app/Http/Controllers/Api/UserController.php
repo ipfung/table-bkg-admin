@@ -58,7 +58,7 @@ class UserController extends BaseController
                 $users->whereRaw('role_id in (select id from roles where name in (?, ?, ?))', [User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF, User::$MANAGER]);
             if ($request->role == 'Student') {
                 $users->whereRaw('role_id in (select id from roles where name in (?, ?))', [User::$MEMBER, User::$USER]);
-                $withRelationship[] = 'trainerRates';   // get trainer rates as well.
+                $withRelationship[] = 'trainerRates.users';   // get trainer rates & trainer name as well.
             }
         }
 
