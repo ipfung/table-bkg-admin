@@ -19,6 +19,8 @@ Route::get('/', function () {
 
 Route::get('/appointment', 'AppointmentController@index');
 
+Route::get('/test-gw', 'PaymentGatewayController@test');
+
 // checkout
 Route::get('/checkout/{orderNum}', 'PaymentGatewayController@paymentPage');
 Route::post('/checkout/feedback', 'PaymentGatewayController@returnPage');

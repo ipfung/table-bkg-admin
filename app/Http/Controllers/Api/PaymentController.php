@@ -130,7 +130,7 @@ class PaymentController extends BaseController
             $order->recurring = json_encode($recurring);
         }
         $order->repeatable = $request->has('repeatable' ) ? $request->repeatable : false;
-        $order->paid_amount = $request->payment_amount;
+        $order->paid_amount = $request->paid_amount;
         $order->payment_status = $request->payment_status;
         $order->save();
 

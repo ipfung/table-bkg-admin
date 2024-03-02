@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Facade\OrderService;
+use App\Helpers\Response\mPayResponse\PayMethod;
 use App\Models\Order;
 use App\Helpers\Response\mPayResponse\AliPayHk;
 use App\Helpers\Response\mPayResponse\mPay;
@@ -19,20 +20,6 @@ use Illuminate\Support\Facades\Redirect;
 class PaymentGatewayController extends Controller
 {
     private $orderService;
-    const paymentMethods = [
-        'octopus' => 19,
-        'payme' => 50,
-        'fps' => 56,
-        'alipayHK' => 35,
-        'wechatpayHK' => 41,
-        'pps' => 4,
-        'vm'  => 70,
-        // mobile
-        'octopus_mob' => 27,
-        'payme_mob' => 51,
-        'alipayHK_mob' => 36,
-        'wechatpayHK_mob' => 42,
-    ];
 
     /**
      * Create a new controller instance.
@@ -180,7 +167,7 @@ class PaymentGatewayController extends Controller
 
                     // update appointment if it's not a package.
                     foreach ($order->details as $item) {
-                        if ($item->booking->appointment->user_id == $order->customer_id) {
+                        if ($item->booking && $item->booking->appointment && $item->booking->appointment->user_id == $order->customer_id) {
                             $item->booking->appointment->status = 'approved';
                             $item->booking->appointment->save();
                         }
@@ -198,8 +185,9 @@ class PaymentGatewayController extends Controller
 
                     DB::commit();
 
+                    $user = Auth::user();
                     // send successful email to client.
-                    $resp = $this->orderService->sendOrderNotifications('payment_successful', $order, Auth::user()->id);
+                    $resp = $this->orderService->sendOrderNotifications('payment_successful', $order, $user->id);
 
                     // redirect to a successful page where to show some "Succeed" message.
                     return Redirect::to(config('app.client_url') . '/#/payment-successful/' . $order->payment->id);
@@ -275,12 +263,7 @@ class PaymentGatewayController extends Controller
     }
 
     private function getGateway($number) {
-        foreach (self::paymentMethods as $key => $value) {
-            if ($number == $value) {
-                return $key;
-            }
-        }
-        return $number . ' n/a';
+        return PayMethod::getName($number);
     }
 
     private function getResponseClass(string $gw_paymentMethod)
