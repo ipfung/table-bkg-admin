@@ -796,8 +796,8 @@ class AppointmentController extends Controller
         $customerBooking->info = json_decode($request->personalInformation);    // if any.
         $customerBooking->revised_appointment_id = $appointment->id;
         $customerBooking->revision_counter = 0;
-        // get trainer_rates for commission calculation.
-        if (config("app.jws.settings.payment_gateway") == true) {
+        // get trainer_rates for commission calculation, if
+        if (config("app.jws.settings.payment_gateway") == true && $customer->id != $appointment->user_id) {
             $trainerRates = TrainerRate::orderBy('created_at', 'desc')->where('student_id', $customer->id);
             $rateType = TrainerRate::ONE_TO_ONE_TRAINING;
             if ($order) {
