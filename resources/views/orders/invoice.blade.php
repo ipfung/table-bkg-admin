@@ -258,6 +258,34 @@
                                 ${{ $item->discounted_price }}
                             </td>
                         </tr>
+                    @elseif ($item->order_type == 'token')
+                        <tr class="order-item">
+                            <td class="charge-detail">
+                                <div>課程名稱 Course Title：{{ $item->description->package->name }} / {{ $item->description->package->description }}</div>
+                                <div>有效日期 Validity：{{ $item->description->start_date }} 至 to {{ $item->description->end_date }}</div>
+                                @if ($item->description->free)
+                                <div>免費堂數目 Free Lesson：{{ $item->description->free->quantity }} / {{ $item->description->free->no_of_session }}</div>
+                                @endif
+                            </td>
+                            <td class="charge-detail amount">
+                                @if ($item->original_price > 0)
+                                    ${{ $item->original_price }}
+                                @endif
+                            </td>
+                            <td class="charge-detail amount">
+                                @if ($item->discount > 0)
+                                    ${{ $item->discount }}
+                                @endif
+                            </td>
+                            <td class="charge-detail amount">
+                                1
+                            </td>
+                            <td class="charge-detail amount">
+                                @if ($item->discounted_price > 0)
+                                    ${{ $item->discounted_price }}
+                                @endif
+                            </td>
+                        </tr>
                     @elseif ($item->order_type == 'package')
                         @if (!empty($item->description->package))
                             <tr class="order-item">
@@ -344,6 +372,16 @@
                     <td class="charge-detail">
                         @if ($order->payment_status == 'paid')
                             <b>{{ strtoupper($order->payment->gateway) }}</b>
+                        @else
+                            <b>不適用</b>
+                        @endif
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="4" class="charge-caption amount">付款日期 Payment Date:</td>
+                    <td class="charge-detail">
+                        @if ($order->payment->status == 'paid' && $order->payment->payment_date_time)
+                            <b>{{ $order->payment->payment_date_time }}</b>
                         @else
                             <b>不適用</b>
                         @endif
