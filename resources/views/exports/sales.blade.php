@@ -1,12 +1,12 @@
 <table>
     <tr>
-        <td colspan="5" align="center" style="font-size:30px;"><h1>{{ __("Sales Report") }} </h1></td>
+        <td colspan="8" align="center" style="font-size:30px;"><h1>{{ __("Sales Report") }} </h1></td>
     </tr>
     <tr>
-        <td colspan="5" align="right">Print Report Date:{{ date("Y-M-d")}}</td>
+        <td colspan="8" align="right">Print Report Date:{{ date("Y-M-d")}}</td>
     </tr>
     <tr>
-        <td colspan="5" align="right">Report Period:{{ date('Y-M-d', strtotime($report_s_date)) }}~{{ date('Y-M-d', strtotime($report_e_date)) }} </td>
+        <td colspan="8" align="right">Report Period:{{ date('Y-M-d', strtotime($report_s_date)) }}~{{ date('Y-M-d', strtotime($report_e_date)) }} </td>
     </tr>
 </table>
 
@@ -17,11 +17,12 @@
             <th style="width:150px;"><b>{{ __("Order No") }}</b></th>
             <th style="width:150px;"><b>{{ __("Date") }}</b></th>
             <th style="width:150px;"><b>{{ __("Customer") }}</b></th>
-            <th style="width:150px;"><b>{{ __("Paid Amount") }}</b></th>
+            <th style="width:120px;"><b>{{ __("Paid Amount") }}</b></th>
             <th style="width:150px;"><b>{{ __("Payment Status") }}</b></th>                     
-         {{--   <th style="width:100px;"><b>{{ __("Payment Method") }}</b></th>                    
-            <th style="width:100px;"><b>{{ __("Created at") }}</b></th>
-            <th style="width:100px;"><b>{{ __("Updated at") }}</b></th> --}}
+            <th style="width:120px;"><b>{{ __("Payment Method") }}</b></th>   
+            <th style="width:120px;"><b>{{ __("Payment Date") }}</b></th>                 
+            <th style="width:100px;"><b>{{ __("Reference") }}</b></th>
+            {{-- <th style="width:100px;"><b>{{ __("Updated at") }}</b></th> --}}
         </tr>
       
         </thead>
@@ -37,9 +38,11 @@
             <td>{{ $order->customer->name }}</td>
             <td>{{ $order->order_total }}</td>  
             <td>{{ $order->payment_status }}</td>                 
-           {{--  <td>{{ $order->getPaymentMethodText() }}</td>                   
-            <td>{{ date('Y-m-d', strtotime($order->created_at)) }}</td>
-            <td>{{ date('Y-m-d', strtotime($order->updated_at)) }}</td>     --}}
+            <td>{{ $order->payment->gateway }}</td>  
+            <td>{{ $order->payment->payment_date_time }}</td>
+            <td>{{$order->payment->entity}}</td>                   
+           
+             {{--  <td>{{ date('Y-m-d', strtotime($order->updated_at)) }}</td>     --}}
 
                             
         </tr>
