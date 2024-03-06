@@ -14,13 +14,13 @@
         
         <thead class="thead-dark">
         <tr>
-            <th style="width:150px;"><b>{{ __("Order No") }}</b></th>
-            <th style="width:150px;"><b>{{ __("Date") }}</b></th>
-            <th style="width:150px;"><b>{{ __("Customer") }}</b></th>
-            <th style="width:120px;"><b>{{ __("Paid Amount") }}</b></th>
-            <th style="width:150px;"><b>{{ __("Payment Status") }}</b></th>                     
-            <th style="width:120px;"><b>{{ __("Payment Method") }}</b></th>   
-            <th style="width:120px;"><b>{{ __("Payment Date") }}</b></th>                 
+            <th style="width:150px;height:40px;"><b>{{ __("Order No") }}</b></th>
+            <th style="width:100px;"><b>{{ __("Date") }}</b></th>
+            <th style="width:120px;"><b>{{ __("Customer") }}</b></th>
+            <th style="width:100px;"><b>{{ __("Paid Amount") }}</b></th>
+            <th style="width:60px;"><b>{{ "Payment" }} <br />{{"Status"}}</b></th>                     
+            <th style="width:60px;"><b>{{ "Payment" }} <br />{{"Method"}}</b></th>   
+            <th style="width:140px;"><b>{{ __("Payment Date") }}</b></th>                 
             <th style="width:100px;"><b>{{ __("Reference") }}</b></th>
             {{-- <th style="width:100px;"><b>{{ __("Updated at") }}</b></th> --}}
         </tr>
@@ -40,7 +40,18 @@
             <td>{{ $order->payment_status }}</td>                 
             <td>{{ $order->payment->gateway }}</td>  
             <td>{{ $order->payment->payment_date_time }}</td>
-            <td>{{$order->payment->entity}}</td>                   
+            <td>
+            @if (isset($order->payment->gateway_response))
+            @php 
+                $p = json_decode($order->payment->gateway_response) ;
+            
+                    echo $p->ref ; 
+           
+
+           @endphp
+            @endif
+            </td>
+            {{-- <td>{{ $order->payment->gateway_response->ref}}</td>                    --}}
            
              {{--  <td>{{ date('Y-m-d', strtotime($order->updated_at)) }}</td>     --}}
 
