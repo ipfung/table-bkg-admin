@@ -128,6 +128,16 @@ class PackageController extends BaseController
         $recurring = $request->input('recurring');
         $package->recurring = json_encode($recurring);
 
+        $package->trainer_id=1;
+        $package->room_id = 1;
+       /*  $trainer_list = array("a"=>1);
+        $room_list = array("room"=>2 ); */
+        $trainer_list =request("trainer_id_list");
+        $room_list = request("room_id_list");
+        $package->trainer_id_list=json_encode($trainer_list);
+        $package->room_id_list = json_encode($room_list);
+
+
         // start DB transaction.
         DB::beginTransaction();
 
