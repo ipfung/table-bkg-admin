@@ -128,7 +128,7 @@ class PackageController extends BaseController
         $recurring = $request->input('recurring');
         $package->recurring = json_encode($recurring);
 
-        $package->trainer_id=1;
+        $package->trainer_id = 99999;    // FIXME don't hardcoded.
         $package->room_id = 1;
        /*  $trainer_list = array("a"=>1);
         $room_list = array("room"=>2 ); */
@@ -144,12 +144,75 @@ class PackageController extends BaseController
         $package->save();
 
         // block the dates in appointments table.
-        if ($package->start_date && $package->start_time) {
-            $this->createPackageAppointments($package, $request->lesson_dates, $request->sessionInterval);
+        if ($room_list) {
+            $res = $this->createGroupAppointments($package, $request->lesson_dates, $request->sessionInterval);
+            if ($res['success'] && $res['success'] == false) {
+                return $res;
+            }
+            $package->remark = "group size=" . json_encode($res);
+        } else if ($package->start_date && $package->start_time) {
+            $res = $this->createPackageAppointments($package, $request->lesson_dates, $request->sessionInterval);
+            if ($res['success'] && $res['success'] == false) {
+                return $res;
+            }
         }
         DB::commit();
 
         return $this->sendResponse($package, 'Create successfully.');
+    }
+
+    private function createGroupAppointments($package, $dates, $sessionInterval) {
+        if ($package->trainer) {
+            $trainer = $package->trainer;
+        } else {
+            $trainer = User::find($package->trainer_id);
+        }
+
+        $appointmentStatus = 'approved';
+        // save appointment, it is 1st appointment if it is package.
+        $pkg_count = count($dates);
+        $room_ids = json_decode($package->room_id_list);
+        $parentId = 0;
+
+        $results = [];
+        for ($i=0; $i<$pkg_count; $i++) {
+            foreach ($room_ids as &$room_id) {
+                // pass 1st appointment's id as parent_id as ref.
+                $appointmentDates = $this->appointmentService->getAppointmentDates($trainer, $dates[$i], $package->start_time, $package->no_of_session, $sessionInterval, $room_id, false, $package->id);
+                $assignedRoom = $appointmentDates['room_id'];
+                if ($assignedRoom <= 0) {
+                    DB::rollBack();
+                    // Room not available for appointment time, throw error.
+                    return ['success' => false, 'error' => 'Room is not available at selected time, please choose different time.', 'param' => $assignedRoom];
+                }
+                $isTrnOccuiped = $this->appointmentService->isTrainerOccupied($package->trainer_id, $appointmentDates['start_time'], $appointmentDates['end_time']);
+                if ($isTrnOccuiped) {   // false = not occupied.
+                    DB::rollBack();
+                    // Room not available for appointment time, throw error.
+                    return ['success' => false, 'error' => 'Group trainer is not available at selected time, please choose different time.', 'obj' => $isTrnOccuiped];
+                }
+
+                $appointment = new Appointment;
+                $appointment->start_time = $appointmentDates['start_time'];
+                $appointment->end_time = $appointmentDates['end_time'];
+                $appointment->room_id = $appointmentDates['room_id'];
+                $appointment->package_id = $package->id;
+                $appointment->user_id = $trainer->id;
+                $appointment->service_id = $package->service_id;
+                $appointment->notify_parties = true;
+                $appointment->status = $appointmentStatus;     // get defaults from settings.
+                if ($parentId > 0) {
+                    $appointment->parent_id = $parentId;
+                }
+
+                $savedAppointment = $this->appointmentService->saveAppointment($appointment, $appointmentDates);
+                if (0 == $i) {
+                    $parentId = $savedAppointment->id;
+                }
+                $results[] = $savedAppointment;
+            }
+        }
+        return ['success' => true, 'data' => $results];
     }
 
     private function createPackageAppointments($package, $dates, $sessionInterval) {
@@ -199,7 +262,7 @@ class PackageController extends BaseController
             }
             $results[] = $savedAppointment;
         }
-        return $results;
+        return ['success' => true, 'data' => $results];
     }
 
     /**
