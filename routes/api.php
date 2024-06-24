@@ -53,6 +53,7 @@ Route::middleware(['auth:sanctum'])->group(function (){
     Route::put('/user-notifications/{id}', 'Api\UserController@changeNotifications');
     // trainer-student actions
     Route::apiResource('/trainers', 'Api\TrainerController');
+    Route::get('/trainer-list', 'Api\TrainerController@getTrainers');
     Route::get('/availability-students/{id}', 'Api\TrainerController@getNotMyStudents');
     // calendar data
     Route::get('/appointments', 'Api\CalendarAppointmentController@index');

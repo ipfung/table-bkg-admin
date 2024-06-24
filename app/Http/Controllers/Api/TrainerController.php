@@ -80,6 +80,34 @@ class TrainerController extends BaseController
     }
 
     /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getTrainers(Request $request)
+    {
+        $user = Auth::user();
+        //
+        $trainers = User::orderBy('id', 'desc')
+            ->whereIn('role_id', function($query){   // ref: https://stackoverflow.com/questions/16815551/how-to-do-this-in-laravel-subquery-where-in
+                $query->select('id')
+                    ->from(with(new Role)->getTable())
+                    ->whereIn('name', [User::$INTERNAL_STAFF, User::$EXTERNAL_STAFF, User::$MANAGER]);// who will be trainers.
+            })->select('id', 'name');
+
+        if ($request->has('status')) {
+            if ($request->status != '')
+                $trainers->where('status', $request->status);
+        }
+
+        if ($request->expectsJson()) {
+            $data = $trainers->paginate()->toArray();
+            return $data;
+        }
+        return view("trainers.list", $trainers);
+    }
+
+    /**
      * Store both new or update of student list of trainer.
      *
      * @param  \Illuminate\Http\Request  $request
