@@ -277,17 +277,39 @@ delete from customer_bookings where created_at>'2023-04-11 00:15:00';
 delete from appointments where created_at>'2023-04-11 00:15:00';
 
 
---20230605 [done 20230921: prod_vttdb]
+--20230605 [done 20230921: prod_vttdb, admin_bravodb]
 ALTER TABLE `packages` ADD `total_space` INT NULL AFTER `room_id`;
 update packages set total_space=10 where total_space is null;   -- demo only.
 
---20230825
+--20230825 [done 20240205: admin_bravodb]
 ALTER TABLE `payments` ADD `gateway_msg` VARCHAR(120) NULL AFTER `gateway`;
 
---20231203
+--20231116 [done 20240205: admin_bravodb]
+DROP TABLE IF EXISTS `trainer_rates`;
+CREATE TABLE IF NOT EXISTS `trainer_rates` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `trainer` int(10) UNSIGNED NOT NULL,
+  `rate_type` int(11) DEFAULT NULL,
+  `trainer_commission` float DEFAULT NULL,
+  `company_income` float DEFAULT NULL,
+  `trainer_charge` float DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `student_id` int(10) UNSIGNED NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+--20231203 [done 20240205: admin_bravodb]
 delete FROM `order_details` WHERE date(created_at)=CURRENT_DATE;
 delete FROM `orders` WHERE date(created_at)=CURRENT_DATE;
 
---20231228
+--20231228 [done 20231229: uat, done 20240205: admin_bravodb]
 ALTER TABLE `customer_bookings` ADD `rate_type` TINYINT NULL AFTER `take_leave_by`, ADD `trainer_charge` FLOAT NULL AFTER `rate_type`, ADD `trainer_commission` FLOAT NULL AFTER `trainer_charge`, ADD `company_income` FLOAT NULL AFTER `trainer_commission`;
 ALTER TABLE `trainer_rates` ADD UNIQUE(`trainer`, `rate_type`, `student_id`);
+
+--20240109 [done: uat, done 20240205: admin_bravodb]
+ALTER TABLE `orders` ADD `parent_id` INT NULL;
+
+--20240620
+ALTER TABLE `packages` ADD `trainer_id_list` TEXT NOT NULL AFTER `start_time`, ADD `room_id_list` TEXT NOT NULL AFTER `trainer_id_list`;

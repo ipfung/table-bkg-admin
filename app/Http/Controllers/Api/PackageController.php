@@ -132,9 +132,9 @@ class PackageController extends BaseController
         $package->room_id = 1;
        /*  $trainer_list = array("a"=>1);
         $room_list = array("room"=>2 ); */
-        $trainer_list =request("trainer_id_list");
-        $room_list = request("room_id_list");
-        $package->trainer_id_list=json_encode($trainer_list);
+        $trainer_list =$request->input("trainer_id_list");
+        $room_list = $request->input("room_id_list");
+        $package->trainer_id_list = json_encode($trainer_list);
         $package->room_id_list = json_encode($room_list);
 
 
@@ -263,6 +263,10 @@ class PackageController extends BaseController
         $recurring = $request->input('recurring');
         $package->recurring = json_encode($recurring);
         $package->end_date = $request->end_date;
+        $trainer_list =$request->input("trainer_id_list");
+        $room_list = $request->input("room_id_list");
+        $package->trainer_id_list = json_encode($trainer_list);
+        $package->room_id_list = json_encode($room_list);
         $package->save();
 
         return $this->sendResponse($package, 'Updated successfully.');
@@ -280,13 +284,15 @@ class PackageController extends BaseController
             return $this->sendPermissionDenied();
         }
 
-        $appointment = Appointment::where('package_id','=',$id)->first();
+        $appointment = DB::table('customer_bookings')
+            ->join('appointments', 'customer_bookings.appointment_id', '=', 'appointments.id')
+            ->where('package_id','=',$id)->first();
         if (empty($appointment)) {
             Package::where('id', $id)->delete();
 
             return response()->json(['success'=>true]);
         } else {
-            return response()->json(['success'=>false, 'error' => 'Package cannot be deleted because it is used in appointment.']);
+            return response()->json(['success'=>false, 'error' => 'Package cannot be deleted because it is used in customer booking.']);
         }
     }
 
