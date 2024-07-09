@@ -90,8 +90,15 @@ class PaymentController extends BaseController
 //            return $payments->get();
             // ref: https://stackoverflow.com/questions/52559732/how-to-add-custom-properties-to-laravel-paginate-json-response
             $data = $payments->with($withRelationship)->with('details.booking.appointment.room')->paginate()->toArray();
-            $data['paymentGateway'] = (config("app.jws.settings.payment_gateway") != false);
             $data['showCustomer'] = $showCustomer;   // append to paginate()
+            $data['manager'] = $this->isInternalCoachLevel($user);
+            $data['requiredTrainer'] = config("app.jws.settings.required_trainer");
+            $data['supportPackages'] = config("app.jws.settings.packages");
+            $data['supportFinance'] = config("app.jws.settings.finance");
+            $data['paymentGateway'] = (config("app.jws.settings.payment_gateway") != false);
+            $data['timeslotSetting'] = config("app.jws.settings.timeslots");
+            $data['checkInBeforeMinute'] = config("app.jws.settings.checkin_before_minute");
+            $data['checkInAfterMinute'] = config("app.jws.settings.checkin_after_minute");
             return $data;
         }
         return view("finance.list", $payments);
