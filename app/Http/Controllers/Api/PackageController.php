@@ -128,14 +128,16 @@ class PackageController extends BaseController
         $recurring = $request->input('recurring');
         $package->recurring = json_encode($recurring);
 
-        $package->trainer_id = 99999;    // FIXME don't hardcoded.
-        $package->room_id = 1;
        /*  $trainer_list = array("a"=>1);
         $room_list = array("room"=>2 ); */
-        $trainer_list =$request->input("trainer_id_list");
-        $room_list = $request->input("room_id_list");
-        $package->trainer_id_list = json_encode($trainer_list);
-        $package->room_id_list = json_encode($room_list);
+        if ('group_event' == $recurring['cycle']) {
+            $package->trainer_id = 99999;    // group admin, FIXME don't hardcoded.
+            $package->room_id = 0;
+            $trainer_list = $request->input("trainer_id_list");
+            $room_list = $request->input("room_id_list");
+            $package->trainer_id_list = json_encode($trainer_list);
+            $package->room_id_list = json_encode($room_list);
+        }
 
 
         // start DB transaction.
@@ -144,7 +146,7 @@ class PackageController extends BaseController
         $package->save();
 
         // block the dates in appointments table.
-        if ($room_list) {
+        if ('group_event' == $recurring['cycle'] && $room_list) {
             $res = $this->createGroupAppointments($package, $request->lesson_dates, $request->sessionInterval);
             if ($res['success'] && $res['success'] == false) {
                 return $res;
@@ -326,10 +328,12 @@ class PackageController extends BaseController
         $recurring = $request->input('recurring');
         $package->recurring = json_encode($recurring);
         $package->end_date = $request->end_date;
-        $trainer_list =$request->input("trainer_id_list");
-        $room_list = $request->input("room_id_list");
-        $package->trainer_id_list = json_encode($trainer_list);
-        $package->room_id_list = json_encode($room_list);
+        if ('group_event' == $recurring['cycle']) {
+            $trainer_list = $request->input("trainer_id_list");
+            $room_list = $request->input("room_id_list");
+            $package->trainer_id_list = json_encode($trainer_list);
+            $package->room_id_list = json_encode($room_list);
+        }
         $package->save();
 
         return $this->sendResponse($package, 'Updated successfully.');
