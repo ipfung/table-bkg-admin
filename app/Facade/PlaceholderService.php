@@ -114,7 +114,7 @@ class PlaceholderService
             'customer_second_name'   => $order->customer->second_name,
             'customer_mobile'  => $order->customer->mobile_no,
             'customer_email'   => $order->customer->email,
-            'package_name'     => $order->package ? $order->package->name : '',
+            'package_name'     => $order->pkg ? $order->pkg->name : '',
             'lesson_period_dates'     => $ulStartTag . implode('', $lesson_dates) . $ulEndTag,
             'lesson_period_date_time'   => $ulStartTag . implode('', $lesson_date_times) . $ulEndTag,
         ];

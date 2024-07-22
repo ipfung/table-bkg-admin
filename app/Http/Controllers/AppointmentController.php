@@ -381,6 +381,7 @@ class AppointmentController extends Controller
     }
 
     /**
+     * for endpoint /reschedule-package
      * Get package dates from Appointment table.
      * because primeng only accepts 'disabledDates' for form Calendar component.
      * @param Request $request
@@ -400,7 +401,8 @@ class AppointmentController extends Controller
             $data[] = ["date" => $dt->format('Y-m-d'), "id" => $d->id, "used" => $isUsed];
         }
         $package = Package::find($packageId);
-        return compact('data', 'package');
+        $manager = $this->permissionService->isInternalCoachLevel(Auth::user());
+        return compact('data', 'package', 'manager');
     }
 
     /**
@@ -718,7 +720,9 @@ class AppointmentController extends Controller
 
                 if ($orderdtl->order_type == OrderDetail::$TYPE_FREE_TOKEN && !$orderdtl->booking_id) {
                     $orderdtl->booking_id = $customerBooking->id;
-                    $orderdtl->order_description = json_encode($savedAppointment2);
+                    $arr['data'] = $orderdtl->order_description;
+                    $obj = array_merge($savedAppointment2, $arr);
+                    $orderdtl->order_description = json_encode($obj);
                     $orderdtl->save();
                     $deduct_order_dtl = true;
                     break;   // deduct one record each time.
@@ -732,7 +736,7 @@ class AppointmentController extends Controller
             $resp = -1;   // default value.
             if ($isPackage) {
                 $resOrder = Order::find($order->id);
-                $resOrder->package = $package;
+                $resOrder->pkg = $package;   // for notification.
                 $resp = $this->orderService->sendOrderNotifications('package_approved', $resOrder, Auth::user()->id);
             } else if (config("app.jws.settings.payment_gateway") == false || $deduct_order_dtl) {
                 // send if no payment gateway, otherwise notification should be sent after payment.
@@ -798,55 +802,77 @@ class AppointmentController extends Controller
         $customerBooking->revision_counter = 0;
         // get trainer_rates for commission calculation, if
         if (config("app.jws.settings.payment_gateway") == true && $customer->id != $appointment->user_id) {
-            $trainerRates = TrainerRate::orderBy('created_at', 'desc')->where('student_id', $customer->id);
-            $rateType = TrainerRate::ONE_TO_ONE_TRAINING;
-            if ($order) {
-                $order_recurring = json_decode($order->recurring);
-                if ($order_recurring->cycle == 'monthly') {
-                    $rateType = TrainerRate::ONE_TO_ONE_MONTHLY;
-                } else if ($appointment->package_id > 0) {
-                    // get group trainer rate.
-                    $packages = Package::find($appointment->package_id);
-                    $recurring = json_decode($packages->recurring);
-                    // use packages if available.
-                    if ($packages->trainer_id)
-                        $trainerRates->where('trainer', $packages->trainer_id);
-                    if ($recurring->cycle == 'monthly') {
+            $isGroupEvent = false;
+            $recurring = null;
+            $packages = null;
+            if ($isPackage && $appointment->package_id > 0) {
+                // get group trainer rate.
+                $packages = Package::find($appointment->package_id);
+                $recurring = json_decode($packages->recurring);
+                $isGroupEvent = $recurring->cycle == 'group_event';
+            }
+            if (!$isGroupEvent) {
+                $trainerRates = TrainerRate::orderBy('created_at', 'desc')->where('student_id', $customer->id);
+                $rateType = TrainerRate::ONE_TO_ONE_TRAINING;
+                if ($order) {
+                    $order_recurring = json_decode($order->recurring);
+                    if ($order_recurring->cycle == 'monthly') {
                         $rateType = TrainerRate::ONE_TO_ONE_MONTHLY;
-                    } else if ($request->has('appointment_id')) {
-                        $rateType = TrainerRate::GROUP_TRAINING;
+                    } else if ($packages) {
+                        // get group trainer rate.
+                        // use packages if available.
+                        if ($packages->trainer_id)
+                            $trainerRates->where('trainer', $packages->trainer_id);
+                        if ($recurring->cycle == 'monthly') {
+                            $rateType = TrainerRate::ONE_TO_ONE_MONTHLY;
+                        } else if ($request->has('appointment_id')) {
+                            $rateType = TrainerRate::GROUP_TRAINING;
+                        }
+                    } else {
+                        // use param trainer
+                        if ($request->has('trainerId')) {
+                            $trainerRates->where('trainer', $request->trainerId);
+                        }
                     }
                 } else {
-                    // use param trainer
-                    if ($request->has('trainerId')) {
-                        $trainerRates->where('trainer', $request->trainerId);
+                    // not an Order, use param trainer too & TrainerRate::ONE_TO_ONE_TRAINING.
+                    if ($packages) {
+                        // get group trainer rate.
+                        // use packages if available.
+                        if ($packages->trainer_id)
+                            $trainerRates->where('trainer', $packages->trainer_id);
+                        if ($recurring->cycle == 'monthly') {
+                            $rateType = TrainerRate::ONE_TO_ONE_MONTHLY;
+                        } else if ($request->has('appointment_id')) {
+                            $rateType = TrainerRate::GROUP_TRAINING;
+                        }
+                    } else {
+                        // use param trainer
+                        if ($request->has('trainerId')) {
+                            $trainerRates->where('trainer', $request->trainerId);
+                        }
                     }
                 }
-            } else {
-                // not an Order, use param trainer too & TrainerRate::ONE_TO_ONE_TRAINING.
-                if ($request->has('trainerId')) {
-                    $trainerRates->where('trainer', $request->trainerId);
+                $trainerRates->where('rate_type', $rateType);
+                $rate = $trainerRates->first();
+                if (empty($rate)) {
+                    // throw ERROR! confirmed by Tinhom.
+                    DB::rollBack();
+                    return false;
                 }
+                if (!$appointment->service) {
+                    $appointment->service = Service::find($appointment->service_id);
+                }
+                if ($request->has('noOfSession'))
+                    $noOfSession = $request->noOfSession;
+                else {
+                    $noOfSession = $this->appointmentService->getNoOfSession($appointment->start_time, $appointment->end_time, $appointment->service->duration);
+                }
+                $customerBooking->rate_type = $rateType;
+                $customerBooking->trainer_charge = $this->calTrainerRate($appointment, $rate->trainer_charge, $noOfSession);
+                $customerBooking->trainer_commission = $this->calTrainerRate($appointment, $rate->trainer_commission, $noOfSession);
+                $customerBooking->company_income = $this->calTrainerRate($appointment, $rate->company_income, $noOfSession);
             }
-            $trainerRates->where('rate_type', $rateType);
-            $rate = $trainerRates->first();
-            if ($order && $rate === null) {
-                // throw ERROR! confirmed by Tinhom.
-                DB::rollBack();
-                return false;
-            }
-            if (!$appointment->service) {
-                $appointment->service = Service::find($appointment->service_id);
-            }
-            if ($request->has('noOfSession'))
-                $noOfSession = $request->noOfSession;
-            else {
-                $noOfSession = $this->appointmentService->getNoOfSession($appointment->start_time, $appointment->end_time, $appointment->service->duration);
-            }
-            $customerBooking->rate_type = $rateType;
-            $customerBooking->trainer_charge = $this->calTrainerRate($appointment, $rate->trainer_charge, $noOfSession);
-            $customerBooking->trainer_commission = $this->calTrainerRate($appointment, $rate->trainer_commission, $noOfSession);
-            $customerBooking->company_income = $this->calTrainerRate($appointment, $rate->company_income, $noOfSession);
         }
         $customerBooking->save();
 

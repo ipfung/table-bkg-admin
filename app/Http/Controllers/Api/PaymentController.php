@@ -73,6 +73,7 @@ class PaymentController extends BaseController
             $payments->where('trainer_id', $request->trainer_id);
         }
         $showCustomer = false;
+        $showTrainer = false;
         if ($this->isExternalCoachLevel($user)) {
             if ($request->has('customer_id')) {
                 $payments->where('customer_id', $request->customer_id);
@@ -82,6 +83,7 @@ class PaymentController extends BaseController
                 $payments->where('trainer_id', $user->id);
             }
             $showCustomer = true;
+            $showTrainer = true;
         } else {
             $payments->where('customer_id', $user->id);
         }
@@ -91,6 +93,7 @@ class PaymentController extends BaseController
             // ref: https://stackoverflow.com/questions/52559732/how-to-add-custom-properties-to-laravel-paginate-json-response
             $data = $payments->with($withRelationship)->with('details.booking.appointment.room')->paginate()->toArray();
             $data['showCustomer'] = $showCustomer;   // append to paginate()
+            $data['showTrainer'] = $showTrainer;
             $data['manager'] = $this->isInternalCoachLevel($user);
             $data['requiredTrainer'] = config("app.jws.settings.required_trainer");
             $data['supportPackages'] = config("app.jws.settings.packages");
