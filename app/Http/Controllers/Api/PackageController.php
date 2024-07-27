@@ -147,17 +147,18 @@ class PackageController extends BaseController
 
         // block the dates in appointments table.
         if ('group_event' == $recurring['cycle'] && $room_list) {
-            $res = $this->createGroupAppointments($package, $request->lesson_dates, $request->sessionInterval);
+            $res = $this->createGroupAppointmentsWithList($package, $request->lesson_dates, $request->sessionInterval);
+            //$res = $this->createGroupAppointments($package, $request->lesson_dates, $request->sessionInterval);
             if ($res['success'] && $res['success'] == false) {
                 return $res;
             }
-            $package->remark = "group size=" . json_encode($res);
+            $package->remark = "group size=" . json_encode($res); 
         } else if ($package->start_date && $package->start_time) {
             $res = $this->createPackageAppointments($package, $request->lesson_dates, $request->sessionInterval);
             if ($res['success'] && $res['success'] == false) {
                 return $res;
             }
-        }
+        } 
         DB::commit();
 
         return $this->sendResponse($package, 'Create successfully.');
@@ -208,6 +209,52 @@ class PackageController extends BaseController
                 }
 
                 $savedAppointment = $this->appointmentService->saveAppointment($appointment, $appointmentDates);
+                if (0 == $i) {
+                    $parentId = $savedAppointment->id;
+                }
+                $results[] = $savedAppointment;
+            }
+        }
+        return ['success' => true, 'data' => $results];
+    }
+
+    private function createGroupAppointmentsWithList($package, $dates, $sessionInterval) {
+        //get trainer list
+
+        $appointmentStatus = 'approved';
+        // save appointment, it is 1st appointment if it is package.
+        $pkg_count = count($dates);
+        $room_ids = json_decode($package->room_id_list);
+        $parentId = 0;
+        
+        $results = [];
+        for ($i=0; $i<$pkg_count; $i++) {
+            foreach ($room_ids as &$room_id) {
+
+                $bigGroupAppointmentDates = $this->appointmentService->getGroupEventAppointmentDates($dates[$i], $package->start_time, $package->no_of_session, $sessionInterval);
+               
+                //create appointment
+                $appointment = new Appointment;
+                $appointment->start_time = $bigGroupAppointmentDates['start_time'];
+                $appointment->end_time = $bigGroupAppointmentDates['end_time'];
+                $appointment->room_id = $room_id;
+                $appointment->service_id = $package->service_id;
+                $appointment->package_id = $package->id;
+                $appointment->trainer_and_rate_list  = "test";//$package->bg_trainer;
+                
+                $appointment->notify_parties = true;
+                $appointment->status = $appointmentStatus;     
+                // internal remark
+                // entity
+
+                $appointment->user_id =  99999; //$trainer->id;
+                
+                // get defaults from settings.
+                if ($parentId > 0) {
+                    $appointment->parent_id = $parentId;
+                }
+
+                $savedAppointment = $this->appointmentService->saveAppointment($appointment, $bigGroupAppointmentDates);
                 if (0 == $i) {
                     $parentId = $savedAppointment->id;
                 }

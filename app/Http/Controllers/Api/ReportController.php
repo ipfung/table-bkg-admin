@@ -193,15 +193,19 @@ class ReportController extends BaseController
                     
         $trainer_commissions =  Appointment::select(['appointments.*','users.name'])
         ->join('users','appointments.user_id','=','users.id')
+        ->join('customer_bookings','appointments.id','=','appointment_id')
         ->where('start_time', '>=', $fromDate )
         ->where('start_time', '<=', $toDate );
 
         if ($request->has('trainerId')){
             $trainer_commissions = $trainer_commissions->where('user_id','=',$request->trainerId);
         }
+        if ($request->has('ratetype')){
+            $trainer_commissions = $trainer_commissions->where('rate_type','=',$request->ratetype);
+        }
         $trainer_commissions =  $trainer_commissions
        
-        ->with('customerBookings')
+        //->with('customerBookings')
         ->with('customerBookings.customer')
         ->orderby('users.name')
         ->orderby('start_time');

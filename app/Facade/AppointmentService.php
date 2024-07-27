@@ -163,6 +163,19 @@ class AppointmentService
         ];
     }
 
+    public function getGroupEventAppointmentDates( $date, $time, $noOfSession, $sessionInterval) {
+        $appointmentDate = new Carbon($date);
+        $startTime = $appointmentDate->timestamp + $time;
+        $dt = (new DateTime("@$startTime"))->format('Y-m-d H:i:s');
+        $endTime = $appointmentDate->timestamp + $time + ($noOfSession * $sessionInterval);
+        $dt2 = (new DateTime("@$endTime"))->format('Y-m-d H:i:s');
+
+        return [
+            'start_time' => $dt,
+            'end_time' => $dt2,
+        ];
+    }
+
     // calculate no_of_session by start_time & end_time
     public function getNoOfSession($start_time, $end_time, $duration) {
         $start_datetime = strtotime($start_time);

@@ -29,17 +29,23 @@ class VanillaCalendar {
 				min: option?.settings?.range?.min ?? this.date.min,
 				max: option?.settings?.range?.max ?? this.date.max,
 				disabled: option?.settings?.range?.disabled ?? null,
+				enabled: option?.settings?.range?.enabled ?? null,
 			},
 			selection: {
 				day: option?.settings?.selection?.day ?? 'single',
 				month: option?.settings?.selection?.month ?? true,
 				year: option?.settings?.selection?.year ?? true,
+				time: option?.settings?.selection?.time ?? false,
+				controlTime: option?.settings?.selection?.controlTime ?? 'all',
+				stepHours: option?.settings?.selection?.stepHours ?? 1,
+				stepMinutes: option?.settings?.selection?.stepMinutes ?? 1,
 			},
 			selected: {
 				dates: option?.settings?.selected?.dates ?? null,
 				month: option?.settings?.selected?.month ?? null,
 				year: option?.settings?.selected?.year ?? null,
 				holidays: option?.settings?.selected?.holidays ?? null,
+				time: option?.settings?.selected?.time ?? null,
 			},
 			visibility: {
 				templateHeader: option?.settings?.visibility?.templateHeader ?? '%M %Y',
@@ -58,10 +64,13 @@ class VanillaCalendar {
 			clickDay: option?.actions?.clickDay ?? null,
 			clickMonth: option?.actions?.clickMonth ?? null,
 			clickYear: option?.actions?.clickYear ?? null,
+			changeTime: option?.actions?.changeTime ?? null,
 		};
 		this.popups = option?.popups ?? null;
 
 		this.currentType = this.type;
+		this.selectedKeeping = null;
+		this.userTime = false;
 	}
 
 	generateDate(date) {
@@ -75,26 +84,134 @@ class VanillaCalendar {
 		return `${year}-${month}-${day}`;
 	}
 
-	setVariablesDates() {
-		this.selectedDates = [];
-		this.selectedMonth = this.date.today.getUTCMonth();
-		this.selectedYear = this.date.today.getUTCFullYear();
+	transformTime12(hour) {
+		const oldHour = Number(hour);
+		let newHour = oldHour;
 
+		if (oldHour === 0) {
+			newHour = '12';
+		} else if (oldHour === 13) {
+			newHour = '01';
+		} else if (oldHour === 14) {
+			newHour = '02';
+		} else if (oldHour === 15) {
+			newHour = '03';
+		} else if (oldHour === 16) {
+			newHour = '04';
+		} else if (oldHour === 17) {
+			newHour = '05';
+		} else if (oldHour === 18) {
+			newHour = '06';
+		} else if (oldHour === 19) {
+			newHour = '07';
+		} else if (oldHour === 20) {
+			newHour = '08';
+		} else if (oldHour === 21) {
+			newHour = '09';
+		} else if (oldHour === 22) {
+			newHour = '10';
+		} else if (oldHour === 23) {
+			newHour = '11';
+		}
+		return newHour;
+	}
+
+	transformTime24(hour, keeping) {
+		const oldHour = Number(hour);
+		let newHour = oldHour;
+
+		if (keeping === 'AM') {
+			if (oldHour === 12) {
+				newHour = '00';
+			}
+		} else if (keeping === 'PM') {
+			if (oldHour === 1) {
+				newHour = '13';
+			} else if (oldHour === 2) {
+				newHour = '14';
+			} else if (oldHour === 3) {
+				newHour = '15';
+			} else if (oldHour === 4) {
+				newHour = '16';
+			} else if (oldHour === 5) {
+				newHour = '17';
+			} else if (oldHour === 6) {
+				newHour = '18';
+			} else if (oldHour === 7) {
+				newHour = '19';
+			} else if (oldHour === 8) {
+				newHour = '20';
+			} else if (oldHour === 9) {
+				newHour = '21';
+			} else if (oldHour === 10) {
+				newHour = '22';
+			} else if (oldHour === 11) {
+				newHour = '23';
+			}
+		}
+		return newHour;
+	}
+
+	setVariablesDates() {
 		if (this.settings.selected.dates !== null) {
 			this.selectedDates = this.settings.selected.dates;
+		} else {
+			this.selectedDates = [];
 		}
 
 		if (this.settings.selected.month !== null && this.settings.selected.month >= 0 && this.settings.selected.month < 12) {
 			this.selectedMonth = this.settings.selected.month;
+		} else {
+			this.selectedMonth = this.date.today.getUTCMonth();
 		}
 
 		if (this.settings.selected.year !== null && this.settings.selected.year >= 0 && this.settings.selected.year <= 9999) {
 			this.selectedYear = this.settings.selected.year;
+		} else {
+			this.selectedYear = this.date.today.getUTCFullYear();
 		}
 
 		this.viewYear = this.selectedYear;
 		this.dateMin = this.settings.visibility.disabled ? new Date(this.date.min) : new Date(this.settings.range.min);
 		this.dateMax = this.settings.visibility.disabled ? new Date(this.date.max) : new Date(this.settings.range.max);
+
+		const time12 = this.settings.selection.time === true || this.settings.selection.time === 12;
+		if (time12 || this.settings.selection.time === 24) {
+			if (typeof this.settings.selected.time === 'string') {
+				const regExr = time12 ? /^([0-9]|0[1-9]|1[0-2]):([0-5][0-9])|(AM|PM)/g
+					: /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])/g;
+
+				this.settings.selected.time.replace(regExr, (m, p1, p2, p3) => {
+					if (p1 && p2) {
+						this.userTime = true;
+						this.selectedHours = p1;
+						this.selectedMinutes = p2;
+					}
+					if (p3 && time12) {
+						this.selectedKeeping = p3;
+					} else if (time12) {
+						this.selectedKeeping = 'AM';
+					}
+				});
+			}
+
+			if (!this.userTime && (time12)) {
+				this.selectedHours = this.transformTime12(this.date.today.getHours());
+				this.selectedMinutes = this.date.today.getMinutes();
+				this.selectedKeeping = Number(this.date.today.getHours()) > 12 ? 'PM' : 'AM';
+			} else if (!this.userTime) {
+				this.selectedHours = this.date.today.getHours();
+				this.selectedMinutes = this.date.today.getMinutes();
+			}
+
+			this.selectedHours = Number(this.selectedHours) < 10 ? `0${Number(this.selectedHours)}` : `${this.selectedHours}`;
+			this.selectedMinutes = Number(this.selectedMinutes) < 10 ? `0${Number(this.selectedMinutes)}` : `${this.selectedMinutes}`;
+			this.selectedTime = `${this.selectedHours}:${this.selectedMinutes}${this.selectedKeeping ? ` ${this.selectedKeeping}` : ''}`;
+		} else if (this.settings.selection.time) {
+			this.settings.selection.time = null;
+			// eslint-disable-next-line no-console
+			console.error('The value of the time property can be: false, true, 12 or 24.');
+		}
 	}
 
 	createDOM() {
@@ -106,12 +223,14 @@ class VanillaCalendar {
 			<div class="vanilla-calendar-header">
 				<button type="button"
 					class="vanilla-calendar-arrow vanilla-calendar-arrow_prev"
-					title="prev">
+					data-calendar-arrow="prev"
+					title="Prev">
 				</button>
 				<div class="vanilla-calendar-header__content"></div>
 				<button type="button"
 					class="vanilla-calendar-arrow vanilla-calendar-arrow_next"
-					title="next">
+					data-calendar-arrow="next"
+					title="Next">
 				</button>
 			</div>
 			${this.settings.visibility.weekNumbers ? `
@@ -123,6 +242,9 @@ class VanillaCalendar {
 			<div class="vanilla-calendar-content">
 				<div class="vanilla-calendar-week"></div>
 				<div class="vanilla-calendar-days"></div>
+				${this.settings.selection.time ? `
+				<div class="vanilla-calendar-time"></div>
+				` : ''}
 			</div>
 		`;
 		} else if (this.currentType === 'month') {
@@ -165,12 +287,14 @@ class VanillaCalendar {
 
 		const month = `
 		<button type="button"
-			class="vanilla-calendar-month${monthDisabled}">
+			class="vanilla-calendar-month${monthDisabled}"
+			data-calendar-selected-month="${this.selectedMonth}">
 			${this.locale.months[this.selectedMonth]}
 		</button>`.replace(/[\n\t]/g, '');
 		const year = `
 		<button type="button"
-			class="vanilla-calendar-year${yearDisabled}">
+			class="vanilla-calendar-year${yearDisabled}"
+			data-calendar-selected-year="${this.selectedYear}">
 			${this.selectedYear}
 		</button>`.replace(/[\n\t]/g, '');
 
@@ -191,8 +315,8 @@ class VanillaCalendar {
 
 			const isSelectedMinMount = this.selectedMonth === this.dateMin.getUTCMonth();
 			const isSelectedMaxMount = this.selectedMonth === this.dateMax.getUTCMonth();
-			const isSelectedMinYear = this.selectedYear === this.dateMin.getUTCFullYear();
-			const isSelectedMaxYear = this.selectedYear === this.dateMax.getUTCFullYear();
+			const isSelectedMinYear = !this.settings.selection.year ? true : this.selectedYear === this.dateMin.getUTCFullYear();
+			const isSelectedMaxYear = !this.settings.selection.year ? true : this.selectedYear === this.dateMax.getUTCFullYear();
 
 			if ((isSelectedMinMount && isSelectedMinYear) || !this.settings.selection.month) {
 				arrowPrev.style.visibility = 'hidden';
@@ -282,7 +406,7 @@ class VanillaCalendar {
 			const weekNumber = this.getWeekNumber(daysBtnEl[i * 7].dataset.calendarDay);
 			const weekNumberEl = templateWeekNumberEl.cloneNode(true);
 			weekNumberEl.innerText = `${weekNumber.week}`;
-			weekNumberEl.dataset.calendarYear = `${weekNumber.year}`;
+			weekNumberEl.dataset.calendarYearWeek = `${weekNumber.year}`;
 			weekNumbersEl.append(weekNumberEl);
 		}
 	}
@@ -294,11 +418,12 @@ class VanillaCalendar {
 		for (const day in this.popups) {
 			if (Object.hasOwnProperty.call(this.popups, day)) {
 				const dayBtnEl = daysEl.querySelector(`[data-calendar-day="${day}"]`);
-				if (!dayBtnEl) return;
 
-				const dayInfo = this.popups[day];
-				dayBtnEl.classList.add(dayInfo.modifier);
-				dayBtnEl.parentNode.innerHTML += `<div class="vanilla-calendar-day__popup">${dayInfo.html}</div>`;
+				if (dayBtnEl) {
+					const dayInfo = this.popups[day];
+					dayBtnEl.classList.add(dayInfo.modifier);
+					dayBtnEl.parentNode.innerHTML += `<div class="vanilla-calendar-day__popup">${dayInfo.html}</div>`;
+				}
 			}
 		}
 	}
@@ -323,7 +448,7 @@ class VanillaCalendar {
 
 		daysEl.innerHTML = '';
 
-		const setDayModifier = (dayBtnEl, dayID, date) => {
+		const setDayModifier = (dayBtnEl, dayID, date, currentMonth) => {
 			// if weekend
 			if (this.settings.visibility.weekend && (dayID === 0 || dayID === 6)) {
 				dayBtnEl.classList.add('vanilla-calendar-day__btn_weekend');
@@ -351,12 +476,27 @@ class VanillaCalendar {
 			}
 
 			// if selected day
-			if (this.selectedDates.find((selectedDate) => selectedDate === date)) {
+			if (this.selectedDates.indexOf(date) === 0) {
+				dayBtnEl.classList.add('vanilla-calendar-day__btn_selected');
+			} else if (this.selectedDates[0] && (this.selectedDates.indexOf(date) === this.selectedDates.length - 1)) {
+				dayBtnEl.classList.add('vanilla-calendar-day__btn_selected');
+			} else if (this.settings.selection.day === 'multiple-ranged' && this.selectedDates.indexOf(date) > 0) {
+				dayBtnEl.classList.add('vanilla-calendar-day__btn_selected');
+				dayBtnEl.classList.add('vanilla-calendar-day__btn_intermediate');
+			} else if (this.selectedDates.indexOf(date) > 0) {
 				dayBtnEl.classList.add('vanilla-calendar-day__btn_selected');
 			}
 
 			// if range min/max
 			if (this.settings.range.min > date || this.settings.range.max < date) {
+				dayBtnEl.classList.add('vanilla-calendar-day__btn_disabled');
+			}
+
+			// if disabled selected
+			if (!this.settings.selection.month && !currentMonth) {
+				dayBtnEl.classList.add('vanilla-calendar-day__btn_disabled');
+			}
+			if (!this.settings.selection.year && new Date(date).getFullYear() !== this.selectedYear) {
 				dayBtnEl.classList.add('vanilla-calendar-day__btn_disabled');
 			}
 
@@ -367,17 +507,24 @@ class VanillaCalendar {
 						dayBtnEl.classList.add('vanilla-calendar-day__btn_disabled');
 					}
 				});
+			} else if (Array.isArray(this.settings.range.enabled)) {
+				dayBtnEl.classList.add('vanilla-calendar-day__btn_disabled');
+				this.settings.range.enabled.forEach((dateEnabled) => {
+					if (dateEnabled === date) {
+						dayBtnEl.classList.remove('vanilla-calendar-day__btn_disabled');
+					}
+				});
 			}
 		};
 
-		const createDay = (dayText, dayID, date, modifier) => {
+		const createDay = (dayText, dayID, date, currentMonth, modifier) => {
 			const dayEl = templateDayEl.cloneNode(true);
 			const dayBtnEl = templateDayBtnEl.cloneNode(true);
 			if (modifier) dayBtnEl.classList.add(modifier);
 			dayBtnEl.innerText = dayText;
 			dayBtnEl.dataset.calendarDay = date;
 
-			setDayModifier(dayBtnEl, dayID, date);
+			setDayModifier(dayBtnEl, dayID, date, currentMonth);
 			dayEl.append(dayBtnEl);
 			daysEl.append(dayEl);
 		};
@@ -403,7 +550,7 @@ class VanillaCalendar {
 				const prevMonthID = dayIDCurrent.getUTCMonth() - 1;
 				const dayID = new Date(Date.UTC(this.selectedYear, prevMonthID, day)).getUTCDay();
 
-				createDay(day, dayID, date, 'vanilla-calendar-day__btn_prev');
+				createDay(day, dayID, date, false, 'vanilla-calendar-day__btn_prev');
 			}
 		};
 
@@ -413,7 +560,7 @@ class VanillaCalendar {
 				const date = this.generateDate(day);
 				const dayID = day.getUTCDay();
 
-				createDay(i, dayID, date);
+				createDay(i, dayID, date, true);
 			}
 		};
 
@@ -439,7 +586,7 @@ class VanillaCalendar {
 				const nextMonthID = dayIDCurrent.getUTCMonth() + 1;
 				const dayID = new Date(Date.UTC(this.selectedYear, nextMonthID, i)).getUTCDay();
 
-				createDay(i, dayID, date, 'vanilla-calendar-day__btn_next');
+				createDay(i, dayID, date, false, 'vanilla-calendar-day__btn_next');
 			}
 		};
 
@@ -547,6 +694,172 @@ class VanillaCalendar {
 		}
 	}
 
+	controlTime(keepingTime) {
+		const rangeHours = this.HTMLElement.querySelector('.vanilla-calendar-time__range input[name="hours"]');
+		const rangeMinutes = this.HTMLElement.querySelector('.vanilla-calendar-time__range input[name="minutes"]');
+		const inputHours = this.HTMLElement.querySelector('.vanilla-calendar-time__hours input[name="hours"]');
+		const inputMinutes = this.HTMLElement.querySelector('.vanilla-calendar-time__minutes input[name="minutes"]');
+		const btnKeepingTime = this.HTMLElement.querySelector('.vanilla-calendar-time__keeping');
+
+		const mouseoverRange = (range, input) => {
+			range.addEventListener('mouseover', () => input.classList.add('is-focus'));
+		};
+
+		const mouseoutRange = (range, input) => {
+			range.addEventListener('mouseout', () => input.classList.remove('is-focus'));
+		};
+
+		const setTime = (e, value, type) => {
+			if (type === 'hours') {
+				this.selectedHours = `${value}`;
+			} else if (type === 'minutes') {
+				this.selectedMinutes = `${value}`;
+			}
+			this.selectedTime = `${this.selectedHours}:${this.selectedMinutes}${this.selectedKeeping ? ` ${this.selectedKeeping}` : ''}`;
+			this.settings.selected.time = this.selectedTime;
+
+			if (this.actions.changeTime) {
+				this.actions.changeTime(e, this.selectedTime, this.selectedHours, this.selectedMinutes, this.selectedKeeping);
+			}
+		};
+
+		const changeRange = (range, input, type, max) => {
+			range.addEventListener('input', (e) => {
+				let value = Number(e.target.value);
+				value = value < 10 ? `0${value}` : `${value}`;
+
+				if (type === 'hours' && max === 12) {
+					if (Number(e.target.value) < max && Number(e.target.value) > 0) {
+						input.value = value;
+						this.selectedKeeping = 'AM';
+						btnKeepingTime.innerText = this.selectedKeeping;
+						setTime(e, value, type);
+					} else {
+						if (Number(e.target.value) === 0) {
+							this.selectedKeeping = 'AM';
+							btnKeepingTime.innerText = 'AM';
+						} else {
+							this.selectedKeeping = 'PM';
+							btnKeepingTime.innerText = 'PM';
+						}
+						input.value = this.transformTime12(e.target.value);
+						setTime(e, this.transformTime12(e.target.value), type);
+					}
+				} else {
+					input.value = value;
+					setTime(e, value, type);
+				}
+			});
+		};
+
+		const changeInput = (range, input, type, max) => {
+			input.addEventListener('change', (e) => {
+				let value = Number(e.target.value);
+				value = value < 10 ? `0${value}` : `${value}`;
+
+				if (type === 'hours' && max === 12) {
+					if (e.target.value && Number(e.target.value) <= max && Number(e.target.value) > 0) {
+						e.target.value = value;
+						range.value = this.transformTime24(value, this.selectedKeeping);
+						setTime(e, value, type);
+					} else if (e.target.value && Number(e.target.value) < 24 && (Number(e.target.value) > max || Number(e.target.value) === 0)) {
+						if (Number(e.target.value) === 0) {
+							this.selectedKeeping = 'AM';
+							btnKeepingTime.innerText = 'AM';
+						} else {
+							this.selectedKeeping = 'PM';
+							btnKeepingTime.innerText = 'PM';
+						}
+						e.target.value = this.transformTime12(e.target.value);
+						range.value = value;
+						setTime(e, this.transformTime12(e.target.value), type);
+					} else {
+						e.target.value = this.selectedHours;
+					}
+				} else if (e.target.value && Number(e.target.value) <= max && Number(e.target.value) >= 0) {
+					e.target.value = value;
+					range.value = value;
+					setTime(e, value, type);
+				} else if (type === 'hours') {
+					e.target.value = this.selectedHours;
+				} else if (type === 'minutes') {
+					e.target.value = this.selectedMinutes;
+				}
+			});
+		};
+
+		mouseoverRange(rangeHours, inputHours);
+		mouseoverRange(rangeMinutes, inputMinutes);
+		mouseoutRange(rangeHours, inputHours);
+		mouseoutRange(rangeMinutes, inputMinutes);
+		changeRange(rangeHours, inputHours, 'hours', keepingTime === 24 ? 23 : keepingTime);
+		changeRange(rangeMinutes, inputMinutes, 'minutes');
+		changeInput(rangeHours, inputHours, 'hours', keepingTime === 24 ? 23 : keepingTime);
+		changeInput(rangeMinutes, inputMinutes, 'minutes', 59);
+
+		if (!btnKeepingTime) return;
+		btnKeepingTime.addEventListener('click', (e) => {
+			if (btnKeepingTime.innerText.includes('AM')) {
+				this.selectedKeeping = 'PM';
+			} else {
+				this.selectedKeeping = 'AM';
+			}
+			rangeHours.value = this.transformTime24(this.selectedHours, this.selectedKeeping);
+			setTime(e, this.selectedHours, 'hours');
+			btnKeepingTime.innerText = this.selectedKeeping;
+		});
+	}
+
+	createTime() {
+		const timeEl = this.HTMLElement.querySelector('.vanilla-calendar-time');
+		if (!timeEl) return;
+		const keepingTime = this.settings.selection.time === true ? 12 : this.settings.selection.time;
+		const range = this.settings.selection.controlTime === 'range';
+
+		timeEl.innerHTML = `
+		<div class="vanilla-calendar-time__content">
+			<label class="vanilla-calendar-time__hours">
+				<input type="text"
+					name="hours"
+					maxlength="2"
+					value="${this.selectedHours}"
+					${range ? 'disabled' : ''}>
+			</label>
+			<label class="vanilla-calendar-time__minutes">
+				<input type="text"
+					name="minutes"
+					maxlength="2"
+					value="${this.selectedMinutes}"
+					${range ? 'disabled' : ''}>
+			</label>
+			${keepingTime === 12 ? `
+			<button type="button"
+				class="vanilla-calendar-time__keeping"
+				${range ? 'disabled' : ''}>${this.selectedKeeping}</button>
+			` : ''}
+		</div>
+		<div class="vanilla-calendar-time__ranges">
+			<label class="vanilla-calendar-time__range">
+				<input type="range"
+					name="hours"
+					min="0"
+					max="23"
+					step="${this.settings.selection.stepHours}"
+					value="${this.selectedKeeping ? this.transformTime24(this.selectedHours, this.selectedKeeping) : this.selectedHours}">
+			</label>
+			<label class="vanilla-calendar-time__range">
+				<input type="range"
+					name="minutes"
+					min="0"
+					max="59"
+					step="${this.settings.selection.stepMinutes}"
+					value="${this.selectedMinutes}">
+			</label>
+		</div>`;
+
+		this.controlTime(keepingTime);
+	}
+
 	getLocale() {
 		if (this.settings.lang === 'define') return;
 
@@ -573,6 +886,7 @@ class VanillaCalendar {
 		this.createDOM();
 		this.createHeader();
 		this.controlArrows();
+		this.createTime();
 
 		if (this.currentType === 'default') {
 			this.createWeek();
@@ -597,8 +911,14 @@ class VanillaCalendar {
 			const monthHeaderEl = e.target.closest('.vanilla-calendar-month');
 			const monthItemEl = e.target.closest('.vanilla-calendar-months__month');
 
+			const clickArrowMonth = () => {
+				if (arrowEl && this.currentType !== 'year' && this.currentType !== 'month') {
+					this.changeMonth(e.target.dataset.calendarArrow);
+				}
+			};
+
 			const clickDaySingle = () => {
-				if (dayBtnEl.classList.contains('vanilla-calendar-day_selected')) {
+				if (dayBtnEl.classList.contains('vanilla-calendar-day__btn_selected')) {
 					this.selectedDates.splice(this.selectedDates.indexOf(dayBtnEl.dataset.calendarDay), 1);
 				} else {
 					this.selectedDates = [];
@@ -607,7 +927,7 @@ class VanillaCalendar {
 			};
 
 			const clickDayMultiple = () => {
-				if (dayBtnEl.classList.contains('vanilla-calendar-day_selected')) {
+				if (dayBtnEl.classList.contains('vanilla-calendar-day__btn_selected')) {
 					this.selectedDates.splice(this.selectedDates.indexOf(dayBtnEl.dataset.calendarDay), 1);
 				} else {
 					this.selectedDates.push(dayBtnEl.dataset.calendarDay);
@@ -666,7 +986,7 @@ class VanillaCalendar {
 						// no default
 					}
 
-					if (this.actions.clickDay) this.actions.clickDay(e);
+					if (this.actions.clickDay) this.actions.clickDay(e, this.selectedDates);
 					this.settings.selected.dates = this.selectedDates;
 
 					if (dayBtnPrevEl) {
@@ -676,8 +996,6 @@ class VanillaCalendar {
 					} else {
 						this.createDays();
 					}
-				} else if (arrowEl && this.currentType !== 'year' && this.currentType !== 'month') {
-					this.changeMonth(e.target.title);
 				}
 			};
 
@@ -696,16 +1014,16 @@ class VanillaCalendar {
 					this.currentType = this.type;
 					this.update();
 				} else if (yearItemEl) {
-					const year = Number(yearItemEl.dataset.calendarYear);
+					this.selectedYear = Number(yearItemEl.dataset.calendarYear);
 					this.currentType = this.type;
-					if (this.selectedMonth < this.dateMin.getUTCMonth() && year === this.dateMin.getUTCFullYear()) {
+					if (this.selectedMonth < this.dateMin.getUTCMonth() && this.selectedYear === this.dateMin.getUTCFullYear()) {
 						this.settings.selected.month = this.dateMin.getUTCMonth();
 					}
-					if (this.selectedMonth > this.dateMax.getUTCMonth() && year === this.dateMax.getUTCFullYear()) {
+					if (this.selectedMonth > this.dateMax.getUTCMonth() && this.selectedYear === this.dateMax.getUTCFullYear()) {
 						this.settings.selected.month = this.dateMax.getUTCMonth();
 					}
-					if (this.actions.clickYear) this.actions.clickYear(e);
-					this.settings.selected.year = year;
+					if (this.actions.clickYear) this.actions.clickYear(e, this.selectedYear);
+					this.settings.selected.year = this.selectedYear;
 					this.update();
 				}
 			};
@@ -718,14 +1036,15 @@ class VanillaCalendar {
 					this.currentType = this.type;
 					this.update();
 				} else if (monthItemEl) {
-					const month = Number(monthItemEl.dataset.calendarMonth);
+					this.selectedMonth = Number(monthItemEl.dataset.calendarMonth);
 					this.currentType = this.type;
-					if (this.actions.clickMonth) this.actions.clickMonth(e);
-					this.settings.selected.month = month;
+					if (this.actions.clickMonth) this.actions.clickMonth(e, this.selectedMonth);
+					this.settings.selected.month = this.selectedMonth;
 					this.update();
 				}
 			};
 
+			clickArrowMonth();
 			clickDay();
 			clickYear();
 			clickMonth();
@@ -738,8 +1057,6 @@ class VanillaCalendar {
 		this.click();
 	}
 }
-
-window.VanillaCalendar = VanillaCalendar;
 
 
 /***/ }),
@@ -2804,7 +3121,6 @@ module.exports = {
 /***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
 
 __webpack_require__(/*! ./bootstrap */ "./resources/js/bootstrap.js");
-
 __webpack_require__(/*! @uvarov.frontend/vanilla-calendar/src/vanilla-calendar */ "./node_modules/@uvarov.frontend/vanilla-calendar/src/vanilla-calendar.js");
 
 /***/ }),
@@ -2816,6 +3132,7 @@ __webpack_require__(/*! @uvarov.frontend/vanilla-calendar/src/vanilla-calendar *
 /***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
 
 window._ = __webpack_require__(/*! lodash */ "./node_modules/lodash/lodash.js");
+
 /**
  * We'll load the axios HTTP library which allows us to easily issue requests
  * to our Laravel back-end. This library automatically handles sending the
@@ -2824,13 +3141,17 @@ window._ = __webpack_require__(/*! lodash */ "./node_modules/lodash/lodash.js");
 
 window.axios = __webpack_require__(/*! axios */ "./node_modules/axios/index.js");
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
 /**
  * Echo exposes an expressive API for subscribing to channels and listening
  * for events that are broadcast by Laravel. Echo and event broadcasting
  * allows your team to easily build robust real-time web applications.
  */
+
 // import Echo from 'laravel-echo';
+
 // window.Pusher = require('pusher-js');
+
 // window.Echo = new Echo({
 //     broadcaster: 'pusher',
 //     key: process.env.MIX_PUSHER_APP_KEY,
@@ -20056,12 +20377,9 @@ var __WEBPACK_AMD_DEFINE_RESULT__;/**
 /*!*******************************!*\
   !*** ./resources/css/app.css ***!
   \*******************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/***/ (() => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-// extracted by mini-css-extract-plugin
-
+throw new Error("Module build failed (from ./node_modules/mini-css-extract-plugin/dist/loader.js):\nModuleBuildError: Module build failed (from ./node_modules/css-loader/dist/cjs.js):\nError: Can't resolve '@uvarov.frontend/vanilla-calendar/vanilla-calendar.min.css' in 'C:\\wamp64\\www\\table-bkg-admin\\resources\\css'\n    at finishWithoutResolve (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\Resolver.js:369:18)\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\Resolver.js:461:15\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\Resolver.js:519:5\n    at eval (eval at create (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\tapable\\lib\\HookCodeFactory.js:33:10), <anonymous>:16:1)\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\Resolver.js:519:5\n    at eval (eval at create (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\tapable\\lib\\HookCodeFactory.js:33:10), <anonymous>:27:1)\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\DescriptionFilePlugin.js:89:43\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\Resolver.js:519:5\n    at eval (eval at create (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\tapable\\lib\\HookCodeFactory.js:33:10), <anonymous>:15:1)\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\Resolver.js:519:5\n    at eval (eval at create (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\tapable\\lib\\HookCodeFactory.js:33:10), <anonymous>:16:1)\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\Resolver.js:519:5\n    at eval (eval at create (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\tapable\\lib\\HookCodeFactory.js:33:10), <anonymous>:57:1)\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\ConditionalPlugin.js:53:42\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\Resolver.js:519:5\n    at eval (eval at create (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\tapable\\lib\\HookCodeFactory.js:33:10), <anonymous>:16:1)\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\forEachBail.js:39:13\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\enhanced-resolve\\lib\\ModulesInHierarchicalDirectoriesPlugin.js:79:16\n    at process.processTicksAndRejections (node:internal/process/task_queues:81:21)\n    at processResult (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\webpack\\lib\\NormalModule.js:764:19)\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\webpack\\lib\\NormalModule.js:866:5\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\loader-runner\\lib\\LoaderRunner.js:400:11\n    at C:\\wamp64\\www\\table-bkg-admin\\node_modules\\loader-runner\\lib\\LoaderRunner.js:252:18\n    at context.callback (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\loader-runner\\lib\\LoaderRunner.js:124:13)\n    at Object.loader (C:\\wamp64\\www\\table-bkg-admin\\node_modules\\css-loader\\dist\\index.js:155:5)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)");
 
 /***/ }),
 
@@ -20266,7 +20584,7 @@ process.umask = function() { return 0; };
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"axios","version":"0.21.4","description":"Promise based HTTP client for the browser and node.js","main":"index.js","scripts":{"test":"grunt test","start":"node ./sandbox/server.js","build":"NODE_ENV=production grunt build","preversion":"npm test","version":"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json","postversion":"git push && git push --tags","examples":"node ./examples/server.js","coveralls":"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js","fix":"eslint --fix lib/**/*.js"},"repository":{"type":"git","url":"https://github.com/axios/axios.git"},"keywords":["xhr","http","ajax","promise","node"],"author":"Matt Zabriskie","license":"MIT","bugs":{"url":"https://github.com/axios/axios/issues"},"homepage":"https://axios-http.com","devDependencies":{"coveralls":"^3.0.0","es6-promise":"^4.2.4","grunt":"^1.3.0","grunt-banner":"^0.6.0","grunt-cli":"^1.2.0","grunt-contrib-clean":"^1.1.0","grunt-contrib-watch":"^1.0.0","grunt-eslint":"^23.0.0","grunt-karma":"^4.0.0","grunt-mocha-test":"^0.13.3","grunt-ts":"^6.0.0-beta.19","grunt-webpack":"^4.0.2","istanbul-instrumenter-loader":"^1.0.0","jasmine-core":"^2.4.1","karma":"^6.3.2","karma-chrome-launcher":"^3.1.0","karma-firefox-launcher":"^2.1.0","karma-jasmine":"^1.1.1","karma-jasmine-ajax":"^0.1.13","karma-safari-launcher":"^1.0.0","karma-sauce-launcher":"^4.3.6","karma-sinon":"^1.0.5","karma-sourcemap-loader":"^0.3.8","karma-webpack":"^4.0.2","load-grunt-tasks":"^3.5.2","minimist":"^1.2.0","mocha":"^8.2.1","sinon":"^4.5.0","terser-webpack-plugin":"^4.2.3","typescript":"^4.0.5","url-search-params":"^0.10.0","webpack":"^4.44.2","webpack-dev-server":"^3.11.0"},"browser":{"./lib/adapters/http.js":"./lib/adapters/xhr.js"},"jsdelivr":"dist/axios.min.js","unpkg":"dist/axios.min.js","typings":"./index.d.ts","dependencies":{"follow-redirects":"^1.14.0"},"bundlesize":[{"path":"./dist/axios.min.js","threshold":"5kB"}]}');
+module.exports = JSON.parse('{"_from":"axios@^0.21","_id":"axios@0.21.4","_inBundle":false,"_integrity":"sha512-ut5vewkiu8jjGBdqpM44XxjuCjq9LAKeHVmoVfHVzy8eHgxxq8SbAVQNovDA8mVi05kP0Ea/n/UzcSHcTJQfNg==","_location":"/axios","_phantomChildren":{},"_requested":{"type":"range","registry":true,"raw":"axios@^0.21","name":"axios","escapedName":"axios","rawSpec":"^0.21","saveSpec":null,"fetchSpec":"^0.21"},"_requiredBy":["#DEV:/"],"_resolved":"https://registry.npmjs.org/axios/-/axios-0.21.4.tgz","_shasum":"c67b90dc0568e5c1cf2b0b858c43ba28e2eda575","_spec":"axios@^0.21","_where":"C:\\\\wamp64\\\\www\\\\table-bkg-admin","author":{"name":"Matt Zabriskie"},"browser":{"./lib/adapters/http.js":"./lib/adapters/xhr.js"},"bugs":{"url":"https://github.com/axios/axios/issues"},"bundleDependencies":false,"bundlesize":[{"path":"./dist/axios.min.js","threshold":"5kB"}],"dependencies":{"follow-redirects":"^1.14.0"},"deprecated":false,"description":"Promise based HTTP client for the browser and node.js","devDependencies":{"coveralls":"^3.0.0","es6-promise":"^4.2.4","grunt":"^1.3.0","grunt-banner":"^0.6.0","grunt-cli":"^1.2.0","grunt-contrib-clean":"^1.1.0","grunt-contrib-watch":"^1.0.0","grunt-eslint":"^23.0.0","grunt-karma":"^4.0.0","grunt-mocha-test":"^0.13.3","grunt-ts":"^6.0.0-beta.19","grunt-webpack":"^4.0.2","istanbul-instrumenter-loader":"^1.0.0","jasmine-core":"^2.4.1","karma":"^6.3.2","karma-chrome-launcher":"^3.1.0","karma-firefox-launcher":"^2.1.0","karma-jasmine":"^1.1.1","karma-jasmine-ajax":"^0.1.13","karma-safari-launcher":"^1.0.0","karma-sauce-launcher":"^4.3.6","karma-sinon":"^1.0.5","karma-sourcemap-loader":"^0.3.8","karma-webpack":"^4.0.2","load-grunt-tasks":"^3.5.2","minimist":"^1.2.0","mocha":"^8.2.1","sinon":"^4.5.0","terser-webpack-plugin":"^4.2.3","typescript":"^4.0.5","url-search-params":"^0.10.0","webpack":"^4.44.2","webpack-dev-server":"^3.11.0"},"homepage":"https://axios-http.com","jsdelivr":"dist/axios.min.js","keywords":["xhr","http","ajax","promise","node"],"license":"MIT","main":"index.js","name":"axios","repository":{"type":"git","url":"git+https://github.com/axios/axios.git"},"scripts":{"build":"NODE_ENV=production grunt build","coveralls":"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js","examples":"node ./examples/server.js","fix":"eslint --fix lib/**/*.js","postversion":"git push && git push --tags","preversion":"npm test","start":"node ./sandbox/server.js","test":"grunt test","version":"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json"},"typings":"./index.d.ts","unpkg":"dist/axios.min.js","version":"0.21.4"}');
 
 /***/ })
 
@@ -20299,42 +20617,7 @@ module.exports = JSON.parse('{"name":"axios","version":"0.21.4","description":"P
 /******/ 		return module.exports;
 /******/ 	}
 /******/ 	
-/******/ 	// expose the modules object (__webpack_modules__)
-/******/ 	__webpack_require__.m = __webpack_modules__;
-/******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/chunk loaded */
-/******/ 	(() => {
-/******/ 		var deferred = [];
-/******/ 		__webpack_require__.O = (result, chunkIds, fn, priority) => {
-/******/ 			if(chunkIds) {
-/******/ 				priority = priority || 0;
-/******/ 				for(var i = deferred.length; i > 0 && deferred[i - 1][2] > priority; i--) deferred[i] = deferred[i - 1];
-/******/ 				deferred[i] = [chunkIds, fn, priority];
-/******/ 				return;
-/******/ 			}
-/******/ 			var notFulfilled = Infinity;
-/******/ 			for (var i = 0; i < deferred.length; i++) {
-/******/ 				var [chunkIds, fn, priority] = deferred[i];
-/******/ 				var fulfilled = true;
-/******/ 				for (var j = 0; j < chunkIds.length; j++) {
-/******/ 					if ((priority & 1 === 0 || notFulfilled >= priority) && Object.keys(__webpack_require__.O).every((key) => (__webpack_require__.O[key](chunkIds[j])))) {
-/******/ 						chunkIds.splice(j--, 1);
-/******/ 					} else {
-/******/ 						fulfilled = false;
-/******/ 						if(priority < notFulfilled) notFulfilled = priority;
-/******/ 					}
-/******/ 				}
-/******/ 				if(fulfilled) {
-/******/ 					deferred.splice(i--, 1)
-/******/ 					var r = fn();
-/******/ 					if (r !== undefined) result = r;
-/******/ 				}
-/******/ 			}
-/******/ 			return result;
-/******/ 		};
-/******/ 	})();
-/******/ 	
 /******/ 	/* webpack/runtime/define property getters */
 /******/ 	(() => {
 /******/ 		// define getter functions for harmony exports
@@ -20384,68 +20667,13 @@ module.exports = JSON.parse('{"name":"axios","version":"0.21.4","description":"P
 /******/ 		};
 /******/ 	})();
 /******/ 	
-/******/ 	/* webpack/runtime/jsonp chunk loading */
-/******/ 	(() => {
-/******/ 		// no baseURI
-/******/ 		
-/******/ 		// object to store loaded and loading chunks
-/******/ 		// undefined = chunk not loaded, null = chunk preloaded/prefetched
-/******/ 		// [resolve, reject, Promise] = chunk loading, 0 = chunk loaded
-/******/ 		var installedChunks = {
-/******/ 			"/js/app": 0,
-/******/ 			"css/app": 0
-/******/ 		};
-/******/ 		
-/******/ 		// no chunk on demand loading
-/******/ 		
-/******/ 		// no prefetching
-/******/ 		
-/******/ 		// no preloaded
-/******/ 		
-/******/ 		// no HMR
-/******/ 		
-/******/ 		// no HMR manifest
-/******/ 		
-/******/ 		__webpack_require__.O.j = (chunkId) => (installedChunks[chunkId] === 0);
-/******/ 		
-/******/ 		// install a JSONP callback for chunk loading
-/******/ 		var webpackJsonpCallback = (parentChunkLoadingFunction, data) => {
-/******/ 			var [chunkIds, moreModules, runtime] = data;
-/******/ 			// add "moreModules" to the modules object,
-/******/ 			// then flag all "chunkIds" as loaded and fire callback
-/******/ 			var moduleId, chunkId, i = 0;
-/******/ 			if(chunkIds.some((id) => (installedChunks[id] !== 0))) {
-/******/ 				for(moduleId in moreModules) {
-/******/ 					if(__webpack_require__.o(moreModules, moduleId)) {
-/******/ 						__webpack_require__.m[moduleId] = moreModules[moduleId];
-/******/ 					}
-/******/ 				}
-/******/ 				if(runtime) var result = runtime(__webpack_require__);
-/******/ 			}
-/******/ 			if(parentChunkLoadingFunction) parentChunkLoadingFunction(data);
-/******/ 			for(;i < chunkIds.length; i++) {
-/******/ 				chunkId = chunkIds[i];
-/******/ 				if(__webpack_require__.o(installedChunks, chunkId) && installedChunks[chunkId]) {
-/******/ 					installedChunks[chunkId][0]();
-/******/ 				}
-/******/ 				installedChunks[chunkId] = 0;
-/******/ 			}
-/******/ 			return __webpack_require__.O(result);
-/******/ 		}
-/******/ 		
-/******/ 		var chunkLoadingGlobal = self["webpackChunk"] = self["webpackChunk"] || [];
-/******/ 		chunkLoadingGlobal.forEach(webpackJsonpCallback.bind(null, 0));
-/******/ 		chunkLoadingGlobal.push = webpackJsonpCallback.bind(null, chunkLoadingGlobal.push.bind(chunkLoadingGlobal));
-/******/ 	})();
-/******/ 	
 /************************************************************************/
 /******/ 	
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
-/******/ 	// This entry module depends on other loaded chunks and execution need to be delayed
-/******/ 	__webpack_require__.O(undefined, ["css/app"], () => (__webpack_require__("./resources/js/app.js")))
-/******/ 	var __webpack_exports__ = __webpack_require__.O(undefined, ["css/app"], () => (__webpack_require__("./resources/css/app.css")))
-/******/ 	__webpack_exports__ = __webpack_require__.O(__webpack_exports__);
+/******/ 	__webpack_require__("./resources/js/app.js");
+/******/ 	// This entry module doesn't tell about it's top-level declarations so it can't be inlined
+/******/ 	var __webpack_exports__ = __webpack_require__("./resources/css/app.css");
 /******/ 	
 /******/ })()
 ;

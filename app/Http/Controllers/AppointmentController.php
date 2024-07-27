@@ -552,6 +552,7 @@ class AppointmentController extends Controller
                 $appointment->package_id = $packageId;
             }
             $appointment->user_id = $userId;
+            $appointment->trainer_and_rate_list = "test"; //$request->bg_trainer;
             $appointment->service_id = $request->serviceId;
             $appointment->entity = $entity;
 //        $appointment->lesson_space

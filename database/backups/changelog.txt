@@ -317,3 +317,7 @@ ALTER TABLE `packages` ADD `trainer_id_list` TEXT NOT NULL AFTER `start_time`, A
 --20240624, a hidden group trainer.
 INSERT INTO `roles` (`id`, `name`, `display_name`, `created_at`, `updated_at`, `book_days_in_adv`, `max_book`, `default_price`, `color_name`) VALUES ('7', 'hidden_group_coach', 'Hidden Group coach', NULL, NULL, '0', '0', NULL, 'grey');
 INSERT INTO `users` (`id`, `role_id`, `name`, `email`, `avatar`, `email_verified_at`, `password`, `remember_token`, `settings`, `created_at`, `updated_at`, `status`, `mobile_no`, `second_name`, `service_id`) VALUES (99999, 7, 'GROUP_ADMIN', 'group@group.com', 'users/default.png', NULL, '$2y$10$IaWI/EofCfzykRqJdBlIzOuZ8Gdhcia7L75ZDJtEzutIWUsl8UWWW', NULL, '{\"notifications\":{\"email\":true,\"whatsapp\":true}}', '2024-06-24 04:33:10', '2024-06-24 04:33:10', 'active', '12345678', 'GROUP_ADMIN', 1);
+
+
+--20240727
+ALTER TABLE `appointments` ADD `trainer_and_rate_list` TEXT NULL AFTER `user_id`;
