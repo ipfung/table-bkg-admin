@@ -32,6 +32,7 @@ class MenuController extends BaseController
             ['label' => 'Student', 'icon' => 'pi pi-fw pi-id-card', 'routerLink' => ['/partner-list/Student'], 'visible' => $isSuperUser],
             ['label' => 'Settings', 'icon' => 'pi pi-fw pi-cog', 'visible' => $isSuperUser, 'expanded' => true, 'items' => [
                 ['label' => 'Packages', 'icon' => 'pi pi-fw pi-book', 'routerLink' => ['/settings/package-list'], 'visible' => ($isSuperUser && config("app.jws.settings.packages"))],
+                ['label' => 'Change Trainer of Group Training', 'icon' => 'pi pi-fw pi-book', 'routerLink' => ['/settings/appointment-group-event'], 'visible' => ($isSuperUser && config("app.jws.settings.packages"))],
                 ['label' => 'Room', 'icon' => 'pi pi-fw ' . config("app.jws.settings.room_icon"), 'routerLink' => ['/settings/table-list'], 'visible' => $isExternalCoach],
                 ['label' => 'Service', 'icon' => 'pi pi-fw pi-tags', 'routerLink' => ['/settings/service-list'], 'visible' => $isExternalCoach],
                 ['label' => 'Working Hours', 'icon' => 'pi pi-fw pi-clock', 'routerLink' => ['/settings/working-hours-list'], 'visible' => (config("app.jws.settings.timeslots") != 'trainer_date' && $isExternalCoach)],

@@ -1035,4 +1035,50 @@ class AppointmentController extends Controller
         }
         return $freeTimesolts;
     }
+
+    public function getGroupEventAppointment(Request $request)
+    {
+
+        $user = Auth::user();
+
+        // date range search.
+        //$fromDate = Carbon::today()->subDays(30)->format(BaseController::$dateFormat);
+        $fromDate = Carbon::today()->format(BaseController::$dateFormat);
+        if ($request->has('from_date')) {
+            $fromDate = $request->from_date;
+        }
+        //$toDate = Carbon::today()->addDays(30)->format(BaseController::$dateFormat);
+        $toDate = Carbon::today()->format(BaseController::$dateFormat);
+        if ($request->has('to_date')) {
+            $toDate = $request->to_date;
+        }
+
+         $groupeventappointment = Appointment::orderBy('appointments.start_time', 'desc')->where('trainer_and_rate_list' ,'=', 'test 292')
+            ->join('packages as p', 'package_id', '=', 'p.id')
+            ->select("appointments.start_time as appointment_starttime", "appointments.end_time as appointment_endtime" , "p.start_time as package_starttime" , "appointments.id as appointment_id" , "p.id as package_id" , "p.*")
+            ->whereRaw('p.recurring LIKE ?', '%' . "group_event" . '%')
+            ->whereRaw('CAST(appointments.start_time AS DATE)>=?', $fromDate )
+            ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate ) 
+            ; 
+
+           /*  $groupeventappointment = Appointment::with(["package" => 
+                function ($q) {
+                    $q->where('recurring', 'LIKE', '%group_event%');
+                }
+            ])
+            ->orderBy('start_time', 'desc')
+            //->join('packages as p', 'a.package_id', '=', 'p.id')
+            //->select("a.start_time as appointment_starttime", "a.end_time as appointment_endtime" , "p.start_time as package_starttime", "a.*" , "p.*")
+            //->whereRaw('package.recurring LIKE ?', '%' . "group_event" . '%')
+            ->whereRaw('CAST(start_time AS DATE)>=?', $fromDate )
+            ->whereRaw('CAST(end_time AS DATE)<=?', $toDate ) */
+            ;
+        
+        $results = ['success' => true, 'groupeventappointment' => true, 'data' => $groupeventappointment->get()];
+        // TODO mail
+        if ($request->expectsJson()) {
+            return $results;
+        }
+
+    }
 }

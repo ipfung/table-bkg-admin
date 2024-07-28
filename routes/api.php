@@ -108,4 +108,5 @@ Route::middleware(['auth:sanctum'])->group(function (){
 
     //
     Route::get('/appointment-blocks', 'Api\BlockAppointmentController@index');
+    Route::get('/gorup-event-appointments', 'AppointmentController@getGroupEventAppointment');
 });
