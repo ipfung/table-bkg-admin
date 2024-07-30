@@ -1059,7 +1059,7 @@ class AppointmentController extends Controller
          $groupeventappointment = Appointment::orderBy('appointments.start_time', 'desc')
          //->where('trainer_and_rate_list' ,'=', 'test 292')
             ->join('packages as p', 'package_id', '=', 'p.id')
-            ->select("appointments.start_time as appointment_starttime", "appointments.end_time as appointment_endtime" , "p.start_time as package_starttime" , "appointments.id as appointment_id" , "p.id as package_id" , "p.*")
+            ->select("appointments.start_time as appointment_starttime", "appointments.end_time as appointment_endtime" , "p.start_time as package_starttime" , "appointments.id as appointment_id" , "p.id as package_id" , "appointments.*", "p.*")
             ->whereRaw('p.recurring LIKE ?', '%' . "group_event" . '%')
             ->whereRaw('CAST(appointments.start_time AS DATE)>=?', $fromDate )
             ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate ) 
