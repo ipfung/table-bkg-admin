@@ -137,6 +137,8 @@ class PackageController extends BaseController
             $room_list = $request->input("room_id_list");
             $package->trainer_id_list = json_encode($trainer_list);
             $package->room_id_list = json_encode($room_list);
+
+
         }
 
 
@@ -147,7 +149,13 @@ class PackageController extends BaseController
 
         // block the dates in appointments table.
         if ('group_event' == $recurring['cycle'] && $room_list) {
-            $res = $this->createGroupAppointmentsWithList($package, $request->lesson_dates, $request->sessionInterval);
+            if ( $request->has('bg_trainer')) 
+            {
+                $bg_trainer = $request->input('bg_trainer');
+            } else {
+                $bg_trainer = "{}";
+            }
+            $res = $this->createGroupAppointmentsWithList($package, $request->lesson_dates, $request->sessionInterval, $bg_trainer);
             //$res = $this->createGroupAppointments($package, $request->lesson_dates, $request->sessionInterval);
             if ($res['success'] && $res['success'] == false) {
                 return $res;
@@ -218,7 +226,7 @@ class PackageController extends BaseController
         return ['success' => true, 'data' => $results];
     }
 
-    private function createGroupAppointmentsWithList($package, $dates, $sessionInterval) {
+    private function createGroupAppointmentsWithList($package, $dates, $sessionInterval, $bg_trainer) {
         //get trainer list
 
         $appointmentStatus = 'approved';
@@ -240,7 +248,7 @@ class PackageController extends BaseController
                 $appointment->room_id = $room_id;
                 $appointment->service_id = $package->service_id;
                 $appointment->package_id = $package->id;
-                $appointment->trainer_and_rate_list  = "test";//$package->bg_trainer;
+                $appointment->trainer_and_rate_list  = json_encode($bg_trainer);
                 
                 $appointment->notify_parties = true;
                 $appointment->status = $appointmentStatus;     

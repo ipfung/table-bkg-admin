@@ -552,7 +552,8 @@ class AppointmentController extends Controller
                 $appointment->package_id = $packageId;
             }
             $appointment->user_id = $userId;
-            $appointment->trainer_and_rate_list = "test"; //$request->bg_trainer;
+            /* check */
+            $appointment->trainer_and_rate_list =$request->bg_trainer;
             $appointment->service_id = $request->serviceId;
             $appointment->entity = $entity;
 //        $appointment->lesson_space
@@ -1050,10 +1051,13 @@ class AppointmentController extends Controller
         //$toDate = Carbon::today()->addDays(30)->format(BaseController::$dateFormat);
         $toDate = Carbon::today()->format(BaseController::$dateFormat);
         if ($request->has('to_date')) {
-            $toDate = $request->to_date;
+            if ( $request->to_date!=null){
+                $toDate = $request->to_date;
+            }
         }
 
-         $groupeventappointment = Appointment::orderBy('appointments.start_time', 'desc')->where('trainer_and_rate_list' ,'=', 'test 292')
+         $groupeventappointment = Appointment::orderBy('appointments.start_time', 'desc')
+         //->where('trainer_and_rate_list' ,'=', 'test 292')
             ->join('packages as p', 'package_id', '=', 'p.id')
             ->select("appointments.start_time as appointment_starttime", "appointments.end_time as appointment_endtime" , "p.start_time as package_starttime" , "appointments.id as appointment_id" , "p.id as package_id" , "p.*")
             ->whereRaw('p.recurring LIKE ?', '%' . "group_event" . '%')
