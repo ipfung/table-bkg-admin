@@ -564,7 +564,8 @@ class AppointmentController extends Controller
             $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user, $isPackage, $order);
             if ($customerBooking === false) {
                 return ['success' => false, 'error' => 'No trainer rate found'];
-            }
+            } 
+            
             $savedAppointment->customer_booking_id = $customerBooking->id;
             $results[] = $savedAppointment;
 
@@ -802,8 +803,10 @@ class AppointmentController extends Controller
         $customerBooking->info = json_decode($request->personalInformation);    // if any.
         $customerBooking->revised_appointment_id = $appointment->id;
         $customerBooking->revision_counter = 0;
+        //dd($customerBooking);
         // get trainer_rates for commission calculation, if
         if (config("app.jws.settings.payment_gateway") == true && $customer->id != $appointment->user_id) {
+            
             $isGroupEvent = false;
             $recurring = null;
             $packages = null;
@@ -1083,6 +1086,24 @@ class AppointmentController extends Controller
         if ($request->expectsJson()) {
             return $results;
         }
+
+    }
+
+    public function updateTrainerAndRate(Request $request){
+
+        
+        $id = $request->appointmentid;
+        $appointment = Appointment::find($id); 
+        if ($appointment!=null)
+        {
+            $appointment->trainer_and_rate_list = $request->trainerandratelist;
+            $appointment->save();
+
+             //return $this->sendResponse($appointment, 'Updated successfully.');
+            $results = ['success' => true, 'appointment' => $appointment];
+            return $results;
+        }
+       
 
     }
 }
