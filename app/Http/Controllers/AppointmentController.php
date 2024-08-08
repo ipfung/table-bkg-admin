@@ -439,6 +439,8 @@ class AppointmentController extends Controller
 //            'order_status' => 'required',
             ]);
         }
+
+        
         $assignRandomRoom = true;   // can get from Company settings.
         $saveAsPending = true;
         $isPackage = false;
@@ -515,6 +517,7 @@ class AppointmentController extends Controller
                 }
             }
         }
+
         if (!$hasAptId) {
             // get appointment dates.
             $appointmentDates = $this->appointmentService->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $packageId);
@@ -556,11 +559,12 @@ class AppointmentController extends Controller
             $appointment->trainer_and_rate_list =$request->bg_trainer;
             $appointment->service_id = $request->serviceId;
             $appointment->entity = $entity;
-//        $appointment->lesson_space
+            //$appointment->lesson_space
             $appointment->notify_parties = $sendNotify;
             $appointment->internal_remark = $request->internal_remark;
             $appointment->status = $appointmentStatus;     // get defaults from settings.
             $savedAppointment = $this->appointmentService->saveAppointment($appointment);
+           
             $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user, $isPackage, $order);
             if ($customerBooking === false) {
                 return ['success' => false, 'error' => 'No trainer rate found'];
@@ -594,7 +598,7 @@ class AppointmentController extends Controller
                     $appointment->user_id = $userId;
                     $appointment->service_id = $request->serviceId;
                     $appointment->entity = $entity;
-//        $appointment->lesson_space
+                    //$appointment->lesson_space
                     $appointment->notify_parties = $sendNotify;
                     $appointment->parent_id = $savedAppointment->id;
                     $appointment->internal_remark = $request->internal_remark;
@@ -697,7 +701,7 @@ class AppointmentController extends Controller
                 $payment->status = $order->payment_status;
                 $payment->payment_method = $paymentMethod;
                 $payment->gateway = $paymentGatway;
-//        $payment->parent_id = ;
+                //$payment->parent_id = ;
                 $payment->entity = $entity;
                 $payment->save();
             }
@@ -714,7 +718,7 @@ class AppointmentController extends Controller
             if (!$hasSpace) {
                 return ['success' => false, 'error' => 'No more space for the packages.'];
             }
-            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment2, $user, false, $order);
+            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment2, $user, false, $order );
             if ($customerBooking === false) {
                 return ['success' => false, 'error' => 'No trainer rate found'];
             }
@@ -790,6 +794,7 @@ class AppointmentController extends Controller
     }
 
     private function saveCustomerBooking(Request $request, Appointment $appointment, User $customer, $isPackage, $order) {
+       
         $customerBooking = new CustomerBooking;
         $customerBooking->appointment_id = $appointment->id;
         $customerBooking->customer_id = $customer->id;
@@ -803,19 +808,25 @@ class AppointmentController extends Controller
         $customerBooking->info = json_decode($request->personalInformation);    // if any.
         $customerBooking->revised_appointment_id = $appointment->id;
         $customerBooking->revision_counter = 0;
+
         //dd($customerBooking);
         // get trainer_rates for commission calculation, if
         if (config("app.jws.settings.payment_gateway") == true && $customer->id != $appointment->user_id) {
-            
+            //echo("pass");
             $isGroupEvent = false;
             $recurring = null;
             $packages = null;
+           
             if ($isPackage && $appointment->package_id > 0) {
                 // get group trainer rate.
                 $packages = Package::find($appointment->package_id);
                 $recurring = json_decode($packages->recurring);
                 $isGroupEvent = $recurring->cycle == 'group_event';
+                //$appointment = Appointment::where('package_id', )
+                              
             }
+
+          
             if (!$isGroupEvent) {
                 $trainerRates = TrainerRate::orderBy('created_at', 'desc')->where('student_id', $customer->id);
                 $rateType = TrainerRate::ONE_TO_ONE_TRAINING;
@@ -877,6 +888,13 @@ class AppointmentController extends Controller
                 $customerBooking->trainer_charge = $this->calTrainerRate($appointment, $rate->trainer_charge, $noOfSession);
                 $customerBooking->trainer_commission = $this->calTrainerRate($appointment, $rate->trainer_commission, $noOfSession);
                 $customerBooking->company_income = $this->calTrainerRate($appointment, $rate->company_income, $noOfSession);
+            } else {
+                //group event
+                // no need to save these value at customerBooking as data are stored at appointment.
+                $customerBooking->rate_type = TrainerRate::GROUP_TRAINING ;
+               // $customerBooking->trainer_charge =$ij;
+                //$customerBooking->trainer_commission = 2;
+                //$customerBooking->company_income = 3;
             }
         }
         $customerBooking->save();
@@ -1062,10 +1080,10 @@ class AppointmentController extends Controller
          $groupeventappointment = Appointment::orderBy('appointments.start_time', 'desc')
          //->where('trainer_and_rate_list' ,'=', 'test 292')
             ->join('packages as p', 'package_id', '=', 'p.id')
-            ->select("appointments.start_time as appointment_starttime", "appointments.end_time as appointment_endtime" , "p.start_time as package_starttime" , "appointments.id as appointment_id" , "p.id as package_id" , "appointments.*", "p.*")
+            ->select("appointments.start_time as appointment_starttime", "appointments.end_time as appointment_endtime" , "p.start_time as package_starttime" , "appointments.id as appointment_id" , "appointments.room_id as appointment_room_id" , "p.id as package_id" , "appointments.*",  "p.*")
             ->whereRaw('p.recurring LIKE ?', '%' . "group_event" . '%')
             ->whereRaw('CAST(appointments.start_time AS DATE)>=?', $fromDate )
-            ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate ) 
+            ->whereRaw('CAST(appointments.end_time AS DATE)<=?', $toDate )            
             ; 
 
            /*  $groupeventappointment = Appointment::with(["package" => 
