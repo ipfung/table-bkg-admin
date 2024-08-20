@@ -137,8 +137,6 @@ class PackageController extends BaseController
             $room_list = $request->input("room_id_list");
             $package->trainer_id_list = json_encode($trainer_list);
             $package->room_id_list = json_encode($room_list);
-
-
         }
 
 
@@ -149,24 +147,18 @@ class PackageController extends BaseController
 
         // block the dates in appointments table.
         if ('group_event' == $recurring['cycle'] && $room_list) {
-            if ( $request->has('bg_trainer')) 
-            {
-                $bg_trainer = $request->input('bg_trainer');
-            } else {
-                $bg_trainer = "{}";
-            }
-            $res = $this->createGroupAppointmentsWithList($package, $request->lesson_dates, $request->sessionInterval, $bg_trainer);
+            $res = $this->createGroupAppointmentsWithList($package, $request->lesson_dates, $request->sessionInterval);
             //$res = $this->createGroupAppointments($package, $request->lesson_dates, $request->sessionInterval);
             if ($res['success'] && $res['success'] == false) {
                 return $res;
             }
-            $package->remark = "group size=" . json_encode($res); 
+            $package->remark = "group size=" . json_encode($res);
         } else if ($package->start_date && $package->start_time) {
             $res = $this->createPackageAppointments($package, $request->lesson_dates, $request->sessionInterval);
             if ($res['success'] && $res['success'] == false) {
                 return $res;
             }
-        } 
+        }
         DB::commit();
 
         return $this->sendResponse($package, 'Create successfully.');
@@ -226,21 +218,22 @@ class PackageController extends BaseController
         return ['success' => true, 'data' => $results];
     }
 
-    private function createGroupAppointmentsWithList($package, $dates, $sessionInterval, $bg_trainer) {
+    private function createGroupAppointmentsWithList($package, $dates, $sessionInterval) {
         //get trainer list
 
         $appointmentStatus = 'approved';
+        $recurring = json_decode($package->recurring);
         // save appointment, it is 1st appointment if it is package.
         $pkg_count = count($dates);
         $room_ids = json_decode($package->room_id_list);
         $parentId = 0;
-        
+
         $results = [];
         for ($i=0; $i<$pkg_count; $i++) {
             foreach ($room_ids as &$room_id) {
 
                 $bigGroupAppointmentDates = $this->appointmentService->getGroupEventAppointmentDates($dates[$i], $package->start_time, $package->no_of_session, $sessionInterval);
-               
+
                 //create appointment
                 $appointment = new Appointment;
                 $appointment->start_time = $bigGroupAppointmentDates['start_time'];
@@ -248,15 +241,16 @@ class PackageController extends BaseController
                 $appointment->room_id = $room_id;
                 $appointment->service_id = $package->service_id;
                 $appointment->package_id = $package->id;
-                $appointment->trainer_and_rate_list  = json_encode($bg_trainer);
-                
+                if (!empty($recurring->bg_trainer))
+                    $appointment->trainer_and_rate_list  = json_encode($recurring->bg_trainer);
+
                 $appointment->notify_parties = true;
-                $appointment->status = $appointmentStatus;     
+                $appointment->status = $appointmentStatus;
                 // internal remark
                 // entity
 
                 $appointment->user_id =  99999; //$trainer->id;
-                
+
                 // get defaults from settings.
                 if ($parentId > 0) {
                     $appointment->parent_id = $parentId;
@@ -456,15 +450,24 @@ class PackageController extends BaseController
         if (!empty($appointment)) {
             return response()->json(['success'=>false, 'error' => 'Date already existed', 'params' => $request->new_date]);
         }
-        $results = $this->createPackageAppointments($package, [$request->new_date], $request->sessionInterval);
-        if (sizeof($results) > 0) {
-            return response()->json(['success'=>true]);
+
+        $recurring = json_decode($package->recurring);
+        if ('group_event' == $recurring->cycle && $package->room_id_list != '') {
+            $results = $this->createGroupAppointmentsWithList($package, [$request->new_date], $request->sessionInterval);
+            //$res = $this->createGroupAppointments($package, $request->lesson_dates, $request->sessionInterval);
+            return $results;
+        } else {
+            $results = $this->createPackageAppointments($package, [$request->new_date], $request->sessionInterval);
+            if (sizeof($results) > 0) {
+                return response()->json(['success'=>true]);
+            }
+            return response()->json(['success'=>false, 'error' => 'Cannot create custom lesson date.']);
         }
-        return response()->json(['success'=>false, 'error' => 'Cannot create custom lesson date.']);
     }
 
     public function updateLessonDate(Request $request, $id) {
         $request->validate([
+            'room_id' => 'required|integer',
             'old_date' => 'required|date',
             'new_date' => 'required|date',
             'sessionInterval' => 'required|integer',
@@ -474,11 +477,13 @@ class PackageController extends BaseController
             return response()->json(['success'=>false, 'error' => 'Package not found']);
         }
         $appointment = Appointment::where('package_id', $id)
+            ->where('room_id', $request->room_id)
             ->whereRaw('date(start_time)=?', $request->new_date)->first();
         if (!empty($appointment)) {
             return response()->json(['success'=>false, 'error' => 'Date already existed', 'params' => $request->new_date]);
         }
         $appointment = Appointment::where('package_id', $id)
+            ->where('room_id', $request->room_id)
             ->whereRaw('date(start_time)=?', $request->old_date)->first();
         if (empty($appointment)) {
             // no record found by old_date, error.
@@ -498,9 +503,11 @@ class PackageController extends BaseController
 
     public function deleteLessonDate(Request $request, $id) {
         $request->validate([
+            'room_id' => 'required|integer',
             'old_date' => 'required|date',
         ]);
         $appointment = Appointment::where('package_id', $id)
+            ->where('room_id', $request->room_id)
             ->whereRaw('date(start_time)=?', $request->old_date)
             ->first();
         if (empty($appointment)) {
