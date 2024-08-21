@@ -439,8 +439,6 @@ class AppointmentController extends Controller
 //            'order_status' => 'required',
             ]);
         }
-
-        
         $assignRandomRoom = true;   // can get from Company settings.
         $saveAsPending = true;
         $isPackage = false;
@@ -519,102 +517,138 @@ class AppointmentController extends Controller
         }
 
         if (!$hasAptId) {
-            // get appointment dates.
-            $appointmentDates = $this->appointmentService->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $packageId);
-
-            $assignedRoom = $appointmentDates['room_id'];
-            $results = [];
-            if ($assignedRoom <= 0) {
-                // appointment time not available, throw error.
-                $results = ['success' => false, 'error' => 'Selected time is not available, please choose different time.', 'param' => $assignedRoom];
-                return $results;
-            }
-            $isDup = $appointmentDates['duplicated'];   // for customer!!
-            if ($isDup) {
-                return ['success' => false, 'error' => 'Found duplicate appointment.'];
-            }
-
-            $appointmentStatus = $saveAsPending ? 'pending' : 'approved';
-            // use trainer_id as appointment user, if the appointment is trainer-student relationship.
-            $userId = $user->id;
-            if ($request->has('trainerId')) {
-                if ($request->trainerId > 0) {
-                    $userId = $request->trainerId;
-                }
-            }
-
+            $req_recurring = $request->input('recurring');   // which contains quantity.
+            $amount = $request->order_total;
+            $foundFixedDates = false;
+            $lesson_dates = [];
+            $pkg_lesson_dates_count = 0;
             // start DB transaction.
             DB::beginTransaction();
-
-            $appointment = new Appointment;
-            $appointment->start_time = $appointmentDates['start_time'];
-            $appointment->end_time = $appointmentDates['end_time'];
-            $appointment->room_id = $appointmentDates['room_id'];
-            if ($isPackage && $request->has('package_id')) {
-                // get existing package appointment.
-                $appointment->package_id = $packageId;
-            }
-            $appointment->user_id = $userId;
-            /* check */
-            $appointment->trainer_and_rate_list =$request->bg_trainer;
-            $appointment->service_id = $request->serviceId;
-            $appointment->entity = $entity;
-            //$appointment->lesson_space
-            $appointment->notify_parties = $sendNotify;
-            $appointment->internal_remark = $request->internal_remark;
-            $appointment->status = $appointmentStatus;     // get defaults from settings.
-            $savedAppointment = $this->appointmentService->saveAppointment($appointment);
-           
-            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user, $isPackage, $order);
-            if ($customerBooking === false) {
-                return ['success' => false, 'error' => 'No trainer rate found'];
-            } 
-            
-            $savedAppointment->customer_booking_id = $customerBooking->id;
-            $results[] = $savedAppointment;
-
-            $amount = $request->order_total;
-            // Packages handling.
             if ($isPackage) {
-                $dates = $request->lesson_dates;
-                $pkg_count = count($dates);
-                for ($i = 1; $i < $pkg_count; $i++) {
-                    // pass 1st appointment's id as parent_id as ref.
-                    $appointmentDates = $this->appointmentService->getAppointmentDates($user, $dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $packageId);
-                    $isDup = $appointmentDates['duplicated'];   // for customer!!
-                    if ($isDup) {
-                        DB::rollBack();
-                        return ['success' => false, 'error' => 'Found duplicate appointment.'];
+                $lesson_dates = $request->lesson_dates;
+                $pkg_lesson_dates_count = count($lesson_dates);
+                $pkg_recurring = json_decode($package->recurring);
+                if ('group_event' == $pkg_recurring->cycle || 'weekly' == $pkg_recurring->cycle) {
+                    $order_qty = $req_recurring['quantity'];
+                    // lesson dates were saved, no need to create Appointment anymore.
+                    $appointments = Appointment::orderBy('start_time', 'asc')
+                        ->where("package_id", $package->id)
+                        ->where("start_time", ">=", $appointmentDate)
+                        //->limit($order_qty)
+                        ->get();
+                    // save to customer_bookings only.
+//echo $req_recurring['quantity'] . ',id=' . $package->id . 'pkg $appointments=' . sizeof($appointments);
+                    for ($i = 0; $i < $pkg_lesson_dates_count; $i++) {   // no. of lesson
+                        foreach ($appointments as $d) {
+                            $date1 = DateTime::createFromFormat(BaseController::$dateTimeFormat, $d->start_time);
+                            // find the match lesson, save and next until $i < $pkg_lesson_dates_count.
+                            if ($lesson_dates[$i] == $date1->format('Y-m-d')) {
+                                $customerBooking = $this->saveCustomerBooking($request, $d, $user, $isPackage, $order);
+                                $d->customer_booking_id = $customerBooking->id;
+                                $results[] = $d;   // will save to OrderDetail
+                                break;    // break $appointments loop.
+                            }
+                        }
                     }
-                    // starts from 2nd appoint, save with parent_id.
-                    $appointment = new Appointment;
-                    $appointment->start_time = $appointmentDates['start_time'];
-                    $appointment->end_time = $appointmentDates['end_time'];
-                    $appointment->room_id = $appointmentDates['room_id'];
-                    if ($isPackage && $request->has('package_id')) {
-                        // get existing package appointment.
-                        $appointment->package_id = $packageId;
-                    }
-                    $appointment->user_id = $userId;
-                    $appointment->service_id = $request->serviceId;
-                    $appointment->entity = $entity;
-                    //$appointment->lesson_space
-                    $appointment->notify_parties = $sendNotify;
-                    $appointment->parent_id = $savedAppointment->id;
-                    $appointment->internal_remark = $request->internal_remark;
-                    $appointment->status = $appointmentStatus;     // get defaults from settings.
-                    $savedAppointment2 = $this->appointmentService->saveAppointment($appointment);
-                    $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user, $isPackage, $order);
-                    $savedAppointment2->customer_booking_id = $customerBooking2->id;
-                    $results[] = $savedAppointment2;
+                    $foundFixedDates = true;    // so below create appointment part won't execute.
+                    $appointmentStatus = 'approved';
+                    $order_type = 'package';
+                    $entity = 'package';
                 }
-                $order_type = 'package';
-                $entity = 'package';
-            } else {
-                $order_type = 'booking';
-                if (!$request->has('order_total')) {
-                    // order_total normally provided from internal system.
-                    $amount = $request->price;
+            }
+            if (!$foundFixedDates) {
+                // get appointment dates.
+                $appointmentDates = $this->appointmentService->getAppointmentDates($user, $appointmentDate, $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $packageId);
+
+                $assignedRoom = $appointmentDates['room_id'];
+                $results = [];
+                if ($assignedRoom <= 0) {
+                    // appointment time not available, throw error.
+                    $results = ['success' => false, 'error' => 'Selected time is not available, please choose different time.', 'param' => $assignedRoom];
+                    return $results;
+                }
+                $isDup = $appointmentDates['duplicated'];   // for customer!!
+                if ($isDup) {
+                    return ['success' => false, 'error' => 'Found duplicate appointment.'];
+                }
+
+                $appointmentStatus = $saveAsPending ? 'pending' : 'approved';
+                // use trainer_id as appointment user, if the appointment is trainer-student relationship.
+                $userId = $user->id;
+                if ($request->has('trainerId')) {
+                    if ($request->trainerId > 0) {
+                        $userId = $request->trainerId;
+                    }
+                }
+
+                $appointment = new Appointment;
+                $appointment->start_time = $appointmentDates['start_time'];
+                $appointment->end_time = $appointmentDates['end_time'];
+                $appointment->room_id = $appointmentDates['room_id'];
+                if ($isPackage && $request->has('package_id')) {
+                    // get existing package appointment.
+                    $appointment->package_id = $packageId;
+                }
+                $appointment->user_id = $userId;
+                /* check */
+                $appointment->trainer_and_rate_list = $request->bg_trainer;
+                $appointment->service_id = $request->serviceId;
+                $appointment->entity = $entity;
+//        $appointment->lesson_space
+                $appointment->notify_parties = $sendNotify;
+                $appointment->internal_remark = $request->internal_remark;
+                $appointment->status = $appointmentStatus;     // get defaults from settings.
+                $savedAppointment = $this->appointmentService->saveAppointment($appointment);
+                $customerBooking = $this->saveCustomerBooking($request, $savedAppointment, $user, $isPackage, $order);
+                if ($customerBooking === false) {
+                    return ['success' => false, 'error' => 'No trainer rate found'];
+                }
+
+                $savedAppointment->customer_booking_id = $customerBooking->id;
+                $results[] = $savedAppointment;
+
+                // Packages handling.
+                if ($isPackage) {
+                    $lesson_dates = $request->lesson_dates;
+                    $pkg_lesson_dates_count = count($lesson_dates);
+                    for ($i = 1; $i < $pkg_lesson_dates_count; $i++) {
+                        // pass 1st appointment's id as parent_id as ref.
+                        $appointmentDates = $this->appointmentService->getAppointmentDates($user, $lesson_dates[$i], $request->time, $request->noOfSession, $request->sessionInterval, $request->roomId, $assignRandomRoom, $packageId);
+                        $isDup = $appointmentDates['duplicated'];   // for customer!!
+                        if ($isDup) {
+                            DB::rollBack();
+                            return ['success' => false, 'error' => 'Found duplicate appointment.'];
+                        }
+                        // starts from 2nd appoint, save with parent_id.
+                        $appointment = new Appointment;
+                        $appointment->start_time = $appointmentDates['start_time'];
+                        $appointment->end_time = $appointmentDates['end_time'];
+                        $appointment->room_id = $appointmentDates['room_id'];
+                        if ($isPackage && $request->has('package_id')) {
+                            // get existing package appointment.
+                            $appointment->package_id = $packageId;
+                        }
+                        $appointment->user_id = $userId;
+                        $appointment->service_id = $request->serviceId;
+                        $appointment->entity = $entity;
+//        $appointment->lesson_space
+                        $appointment->notify_parties = $sendNotify;
+                        $appointment->parent_id = $savedAppointment->id;
+                        $appointment->internal_remark = $request->internal_remark;
+                        $appointment->status = $appointmentStatus;     // get defaults from settings.
+                        $savedAppointment2 = $this->appointmentService->saveAppointment($appointment);
+                        $customerBooking2 = $this->saveCustomerBooking($request, $savedAppointment2, $user, $isPackage, $order);
+                        $savedAppointment2->customer_booking_id = $customerBooking2->id;
+                        $results[] = $savedAppointment2;
+                    }
+                    $order_type = 'package';
+                    $entity = 'package';
+                } else {
+                    $order_type = 'booking';
+                    if (!$request->has('order_total')) {
+                        // order_total normally provided from internal system.
+                        $amount = $request->price;
+                    }
                 }
             }
 
@@ -657,13 +691,12 @@ class AppointmentController extends Controller
                     if ($request->discount > 0)
                         $order->discount = $request->discount;
                 }
-                $order->customer_id = $customerBooking->customer_id;
+                $order->customer_id = $request->customerId;
                 $order->user_id = Auth::user()->id;
                 $order->paid_amount = $appointmentStatus == 'approved' ? $order->order_total : 0;
                 $order->payment_status = $paymentStatus;
                 $order->order_status = $appointmentStatus == 'approved' ? 'confirmed' : 'pending';
-                $recurring = $request->input('recurring');
-                $order->recurring = json_encode($recurring);
+                $order->recurring = json_encode($req_recurring);
                 $order->repeatable = $request->has('repeatable') ? $request->repeatable : false;
                 if ($request->has('commission')) {
                     // note trainerId will be saved only for order that has commission.
@@ -718,7 +751,9 @@ class AppointmentController extends Controller
             if (!$hasSpace) {
                 return ['success' => false, 'error' => 'No more space for the packages.'];
             }
-            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment2, $user, false, $order );
+            // start DB transaction.
+            DB::beginTransaction();
+            $customerBooking = $this->saveCustomerBooking($request, $savedAppointment2, $user, false, $order);
             if ($customerBooking === false) {
                 return ['success' => false, 'error' => 'No trainer rate found'];
             }
@@ -735,6 +770,7 @@ class AppointmentController extends Controller
                     break;   // deduct one record each time.
                 }
             }
+            DB::commit();
         }
 
         $str = $this->orderService->getEncodeOrderNo($order->id, $order->order_number);
