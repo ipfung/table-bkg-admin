@@ -544,6 +544,10 @@ class AppointmentController extends Controller
                             // find the match lesson, save and next until $i < $pkg_lesson_dates_count.
                             if ($lesson_dates[$i] == $date1->format('Y-m-d')) {
                                 $customerBooking = $this->saveCustomerBooking($request, $d, $user, $isPackage, $order);
+                                if (!$customerBooking) {
+                                    $results = ['success' => false, 'error' => 'No trainer rate defined in student.'];
+                                    return $results;
+                                }
                                 $d->customer_booking_id = $customerBooking->id;
                                 $results[] = $d;   // will save to OrderDetail
                                 break;    // break $appointments loop.
